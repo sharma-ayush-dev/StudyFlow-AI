@@ -1,222 +1,94 @@
-/* -----------------------------
-ELEMENTS
------------------------------ */
+/* ------------------------------------------------
+  COLLECT PAYLOAD
+  Builds the JSON that matches the new backend format:
+  {
+    "Exam_dates":  { "Subject": "DD-MM-YYYY" },
+    "Subjects":    { "Subject": { "Topic": "0"-"100" } },
+    "study_days":  { "DD-MM-YYYY": "hours" }
+  }
+------------------------------------------------ */
 
-const hoursList = document.getElementById("hoursList")
+function collectPayload() {
 
-/* -----------------------------
-SHOW "OTHER STATUS" TEXTBOX
------------------------------ */
+    const examDates = {};
+    const subjects  = {};
 
-document.querySelectorAll(".status-select").forEach(select => {
+    /* --- topics + completion % --- */
 
-select.addEventListener("change", () => {
+    document.querySelectorAll(".subject-block").forEach(block => {
 
-const input = select.parentElement.querySelector(".other-input")
+        const subjectName = block.querySelector("h2").innerText.trim();
+        const examText    = block.querySelector(".exam-date").innerText.trim();
 
-if(select.value === "others"){
-input.style.display = "block"
-}else{
-input.style.display = "none"
-}
+        if (examText && examText !== "No exam date") {
+            examDates[subjectName] = examText;
+        }
 
-})
+        subjects[subjectName] = {};
 
-})
+        block.querySelectorAll(".topic-row").forEach(row => {
+            const topic = row.dataset.topic;
+            const pct   = row.querySelector(".status-select").value;
+            subjects[subjectName][topic] = pct;
+        });
 
+    });
 
-/* -----------------------------
-PARSE DATE SAFELY
------------------------------ */
+    /* --- daily study hours --- */
 
-function parseDate(dateStr){
+    const studyDays = {};
 
-if(!dateStr || dateStr === "null") return null
+    document.querySelectorAll("#hoursList .date-row").forEach(row => {
+        const date  = row.dataset.date;
+        const hours = row.querySelector("input").value.trim() || "0";
+        studyDays[date] = hours;
+    });
 
-const d = new Date(dateStr)
-
-if(isNaN(d)) return null
-
-return d
-
-}
-
-
-/* -----------------------------
-GENERATE STUDY DAY ROWS
-(today → last exam)
------------------------------ */
-
-function generateDateRows(){
-
-let lastExam = null
-
-document.querySelectorAll(".exam-date").forEach(span => {
-
-const examDate = parseDate(span.innerText)
-
-if(!examDate) return
-
-if(!lastExam || examDate > lastExam){
-lastExam = examDate
-}
-
-})
-
-
-if(!lastExam){
-console.log("No exam dates found")
-return
-}
-
-
-const today = new Date()
-
-today.setHours(0,0,0,0)
-
-let cur = new Date(today)
-
-while(cur <= lastExam){
-
-const row = document.createElement("div")
-row.className = "date-row"
-
-
-/* DATE */
-
-const dateSpan = document.createElement("span")
-
-const formatted =
-cur.getFullYear() + "-" +
-String(cur.getMonth()+1).padStart(2,'0') + "-" +
-String(cur.getDate()).padStart(2,'0')
-
-dateSpan.innerText = formatted
-
-
-/* INPUT */
-
-const input = document.createElement("input")
-
-input.type = "number"
-input.placeholder = "hours"
-input.min = "0"
-input.max = "24"
-
-
-row.appendChild(dateSpan)
-row.appendChild(input)
-
-hoursList.appendChild(row)
-
-cur.setDate(cur.getDate() + 1)
-
-}
-
-}
-
-generateDateRows()
-
-
-/* -----------------------------
-COLLECT SUBJECT STATUS
------------------------------ */
-
-function collectSubjects(){
-
-const subjects = []
-
-document.querySelectorAll(".subject-block").forEach(block => {
-
-const name = block.querySelector("h2").innerText
-const exam = block.querySelector(".exam-date").innerText
-
-const topics = []
-
-block.querySelectorAll(".topic-row").forEach(row => {
-
-const topic = row.querySelector(".topic-name").innerText
-const status = row.querySelector(".status-select").value
-const other = row.querySelector(".other-input").value
-
-topics.push({
-topic: topic,
-status: status === "others" ? other : status
-})
-
-})
-
-subjects.push({
-subject: name,
-exam_date: exam,
-topics: topics
-})
-
-})
-
-return subjects
+    return {
+        Exam_dates: examDates,
+        Subjects:   subjects,
+        study_days: studyDays
+    };
 
 }
 
 
-/* -----------------------------
-COLLECT DAILY HOURS
------------------------------ */
-
-function collectHours(){
-
-const daily_hours = {}
-
-document.querySelectorAll(".date-row").forEach(row => {
-
-const date = row.children[0].innerText
-const hours = row.children[1].value
-
-if(hours){
-daily_hours[date] = parseInt(hours)
-}
-
-})
-
-return daily_hours
-
-}
-
-
-/* -----------------------------
-GENERATE SCHEDULE
------------------------------ */
+/* ------------------------------------------------
+  GENERATE SCHEDULE BUTTON
+------------------------------------------------ */
 
 document.getElementById("generateBtn").addEventListener("click", async () => {
 
-const payload = {
+    const payload = collectPayload();
 
-subjects: collectSubjects(),
-daily_hours: collectHours()
+    try {
 
-}
+        /* 1. Save the filled-in status */
+        const saveRes = await fetch("/submit_status/1", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify(payload)
+        });
 
-try{
+        if (!saveRes.ok) {
+            throw new Error("Failed to save status");
+        }
 
-await fetch("/submit_status/1",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify(payload)
-})
+        /* 2. Trigger schedule generation */
+        const genRes = await fetch("/generate_schedule/1", {
+            method: "POST"
+        });
 
-await fetch("/generate_schedule/1",{
-method:"POST"
-})
+        if (!genRes.ok) {
+            throw new Error("Failed to generate schedule");
+        }
 
-window.location = "/schedule_page"
+        /* 3. Navigate to schedule page */
+        window.location.href = "/schedule_page";
 
-}catch(err){
+    } catch (err) {
+        console.error("Schedule generation failed:", err);
+        alert("Failed to generate schedule. Please try again.");
+    }
 
-console.error("Schedule generation failed:", err)
-alert("Failed to generate schedule")
-
-}
-
-})
+});
