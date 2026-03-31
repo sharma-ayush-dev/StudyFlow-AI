@@ -4,7 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <title>StudyFlow Schedule</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+
+<!-- Schedule.css (was wrongly pointing to Status.css before) -->
+<link rel="stylesheet" href="{{ url_for('static', filename='Schedule.css') }}">
 </head>
 
 <body>
@@ -15,11 +17,9 @@
 
 <h1 class="title">Your Study Plan</h1>
 
-<div id="scheduleContainer" class="schedule-container">
+<div id="scheduleContainer" class="schedule-container"></div>
 
-</div>
-
-<script src="{{ url_for('static', filename='Status.js') }}"></script>
+<script src="{{ url_for('static', filename='ScheduleView.js') }}"></script>
 
 </body>
 </html>

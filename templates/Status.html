@@ -8,86 +8,90 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
 
 </head>
-
 <body>
 
-<h1 class="title">Topics Status</h1>
+<h1 class="page-title">Topics Status</h1>
 
-<div class="container">
+<div class="dashboard">
 
-<!-- LEFT PANEL -->
+    <!-- LEFT PANEL: subjects + topics -->
 
-<div class="card topics-card">
+    <div class="card topics-card">
 
-{% for subject in data.subjects %}
+        {% for subject_name, topics in data.Subjects.items() %}
 
-<div class="subject-block">
+        <div class="subject-block">
 
-<div class="subject-header">
+            <div class="subject-header">
 
-<h2>{{subject.subject}}</h2>
+                <h2>{{ subject_name }}</h2>
 
-<span class="exam-date">
-{{subject.exam_date if subject.exam_date else "No exam date"}}
-</span>
+                <span class="exam-date">
+                    {{ data.Exam_dates.get(subject_name, "No exam date") }}
+                </span>
 
-</div>
+            </div>
 
-<div class="topics">
+            <div class="topics">
 
-{% for topic in subject.topics %}
+                {% for topic_name in topics.keys() %}
 
-<div class="topic-row">
+                <div class="topic-row"
+                     data-subject="{{ subject_name }}"
+                     data-topic="{{ topic_name }}">
 
-<span class="topic-name">{{topic}}</span>
+                    <span class="topic-name">{{ topic_name }}</span>
 
-<select class="status-select">
+                    <select class="status-select">
+                        <option value="0">0% — Not Started</option>
+                        <option value="25">25% — Just Begun</option>
+                        <option value="50">50% — Halfway</option>
+                        <option value="75">75% — Almost Done</option>
+                        <option value="100">100% — Completed</option>
+                    </select>
 
-<option value="">Select</option>
-<option value="completed">Completed</option>
-<option value="partial">Partially Completed</option>
-<option value="not_started">Not Started</option>
-<option value="others">Others</option>
+                </div>
 
-</select>
+                {% endfor %}
 
-<input class="other-input" placeholder="Enter custom status">
+            </div>
 
-</div>
+        </div>
 
-{% endfor %}
+        {% endfor %}
 
-</div>
-
-</div>
-
-{% endfor %}
-
-</div>
+    </div>
 
 
-<!-- RIGHT PANEL -->
+    <!-- RIGHT PANEL: study hours per day -->
 
-<div class="card hours-card">
+    <div class="card hours-card">
 
-<div class="hours-header">
+        <div class="hours-header">
+            <span>Date</span>
+            <span>Enter hours<br>you can study</span>
+        </div>
 
-<span>Date</span>
-<span>Study Hours</span>
+        <div class="hours-list" id="hoursList">
 
-</div>
+            {% for date in data.study_days.keys() %}
 
-<div id="hoursList"></div>
+            <div class="date-row" data-date="{{ date }}">
+                <span>{{ date }}</span>
+                <input type="number" placeholder="hrs" min="0" max="24">
+            </div>
 
-</div>
+            {% endfor %}
+
+        </div>
+
+    </div>
 
 </div>
 
 
 <button id="generateBtn" class="generate-btn">
-
-Generate Schedule
-
+    Generate Schedule
 </button>
 
 
