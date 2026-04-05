@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StudyFlow — Admin</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<style>
+    .stats-grid {
+        display: flex;
+        gap: 30px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 40px auto;
+        max-width: 900px;
+    }
+    .stat-card {
+        background: #0c0c15;
+        border-radius: 16px;
+        padding: 30px 40px;
+        text-align: center;
+        box-shadow: 0 0 30px rgba(123,47,247,0.4);
+        min-width: 180px;
+    }
+    .stat-number {
+        font-size: 48px;
+        font-weight: 700;
+        color: #9f55ff;
+    }
+    .stat-label {
+        font-size: 14px;
+        color: #aaa;
+        margin-top: 6px;
+    }
+    .admin-table {
+        width: 90%;
+        max-width: 800px;
+        margin: 0 auto 60px;
+        border-collapse: collapse;
+    }
+    .admin-table th,
+    .admin-table td {
+        padding: 12px 18px;
+        border-bottom: 1px solid #222;
+        text-align: left;
+        font-size: 14px;
+    }
+    .admin-table th { color: #9f55ff; font-weight: 600; }
+    .admin-table td { color: #ccc; }
+    .admin-section {
+        text-align: center;
+        font-size: 22px;
+        font-weight: 600;
+        margin: 40px 0 16px;
+        color: #ddd;
+    }
+    .daily-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 6px 60px;
+        font-size: 13px;
+    }
+    .daily-bar-label { width: 90px; color: #aaa; text-align: right; }
+    .daily-bar-track {
+        flex: 1;
+        background: #1a1a2e;
+        border-radius: 6px;
+        height: 20px;
+        overflow: hidden;
+    }
+    .daily-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #7b2ff7, #9f55ff);
+        border-radius: 6px;
+    }
+    .daily-bar-count { width: 40px; color: #ccc; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;justify-content:space-between;align-items:center;
+            padding:20px 40px;border-bottom:1px solid #1a1a1a;">
+    <div style="font-size:22px;font-weight:600;letter-spacing:2px;">StudyFlow Admin</div>
+    <div class="nav-user">
+        <a href="{{ url_for('logout') }}">
+            <button class="nav-logout">Logout</button>
+        </a>
+    </div>
+</div>
+
+<h1 class="page-title">Dashboard</h1>
+
+
+<!-- STAT CARDS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ total_users }}</div>
+        <div class="stat-label">Registered Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ total_requests }}</div>
+        <div class="stat-label">Total Requests</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ total_schedules }}</div>
+        <div class="stat-label">Schedules Generated</div>
+    </div>
+</div>
+
+
+<!-- DAILY ACTIVITY CHART -->
+{% if daily_logs %}
+<div class="admin-section">Requests — Last 14 Days</div>
+
+{% set max_count = daily_logs | map(attribute='count') | max %}
+{% for row in daily_logs %}
+<div class="daily-bar-row">
+    <div class="daily-bar-label">{{ row.day }}</div>
+    <div class="daily-bar-track">
+        <div class="daily-bar-fill"
+             style="width: {{ (row.count / max_count * 100) | round }}%">
+        </div>
+    </div>
+    <div class="daily-bar-count">{{ row.count }}</div>
+</div>
+{% endfor %}
+{% endif %}
+
+
+<!-- RECENT USERS TABLE -->
+<div class="admin-section">Recent Sign-ups</div>
+<table class="admin-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Joined</th>
+            <th>Admin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in recent_users %}
+        <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.email }}</td>
+            <td>{{ u.created_at.strftime('%d %b %Y') }}</td>
+            <td>{{ '✓' if u.is_admin else '—' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</body>
+</html>

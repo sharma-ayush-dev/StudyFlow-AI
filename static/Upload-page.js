@@ -1,117 +1,140 @@
-const syllabusInput = document.getElementById("syllabusInput");
-const datesheetInput = document.getElementById("datesheetInput");
+/* ════════════════════════════════════════
+   UPLOAD-PAGE.JS
+   - Fetches userid dynamically from /me
+   - Sends files + optional manual text
+   - Shows loading animation during upload
+   - Disables button after first click (rate limit UI)
+════════════════════════════════════════ */
 
-const syllabusName = document.getElementById("syllabusName");
-const datesheetName = document.getElementById("datesheetName");
+const syllabusInput = document.getElementById('syllabusInput');
+const datesheetInput = document.getElementById('datesheetInput');
+const syllabusName  = document.getElementById('syllabusName');
+const datesheetName = document.getElementById('datesheetName');
+const uploadBtn     = document.getElementById('uploadBtn');
+const uploadLoader  = document.getElementById('uploadLoader');
+const loaderMsg     = document.getElementById('loaderMsg');
 
-const uploadBtn = document.querySelector(".upload-btn");
+// ── MANUAL TEXT TOGGLE ────────────────────────────────
 
-const dropAreas = document.querySelectorAll(".drop-area");
-
-
-/* -----------------------
-FILE SELECT
------------------------*/
-
-syllabusInput.addEventListener("change", () => {
-
-    if (syllabusInput.files.length > 0) {
-        syllabusName.textContent = syllabusInput.files.length + " file(s) selected";
-    }
-
+document.getElementById('manualToggle').addEventListener('click', () => {
+    const box = document.getElementById('manualTextBox');
+    const isHidden = box.style.display === 'none';
+    box.style.display = isHidden ? 'flex' : 'none';
 });
 
-datesheetInput.addEventListener("change", () => {
 
+// ── FILE SELECT LISTENERS ─────────────────────────────
+
+syllabusInput.addEventListener('change', () => {
+    if (syllabusInput.files.length > 0) {
+        syllabusName.textContent = syllabusInput.files.length + ' file(s) selected';
+    }
+});
+
+datesheetInput.addEventListener('change', () => {
     if (datesheetInput.files.length > 0) {
         datesheetName.textContent = datesheetInput.files[0].name;
     }
-
 });
 
 
-/* -----------------------
-DRAG & DROP
------------------------*/
+// ── DRAG & DROP ───────────────────────────────────────
 
-dropAreas[0].addEventListener("dragover", e => {
+document.getElementById('syllabusDrop').addEventListener('dragover', e => e.preventDefault());
+document.getElementById('syllabusDrop').addEventListener('drop', e => {
     e.preventDefault();
+    syllabusInput.files = e.dataTransfer.files;
+    syllabusName.textContent = e.dataTransfer.files.length + ' file(s) selected';
 });
 
-dropAreas[0].addEventListener("drop", e => {
-
+document.getElementById('datesheetDrop').addEventListener('dragover', e => e.preventDefault());
+document.getElementById('datesheetDrop').addEventListener('drop', e => {
     e.preventDefault();
-
-    const files = e.dataTransfer.files;
-
-    syllabusInput.files = files;
-
-    syllabusName.textContent = files.length + " file(s) selected";
-
+    datesheetInput.files = e.dataTransfer.files;
+    datesheetName.textContent = e.dataTransfer.files[0].name;
 });
 
 
-dropAreas[1].addEventListener("dragover", e => {
-    e.preventDefault();
-});
+// ── LOADING HELPERS ───────────────────────────────────
 
-dropAreas[1].addEventListener("drop", e => {
+const loaderMessages = [
+    'Extracting content…',
+    'Reading your syllabus…',
+    'Identifying topics…',
+    'Matching exam dates…',
+    'Almost there…'
+];
+let loaderInterval = null;
 
-    e.preventDefault();
+function startLoader() {
+    uploadBtn.style.display   = 'none';
+    uploadLoader.style.display = 'block';
+    let i = 0;
+    loaderMsg.textContent = loaderMessages[0];
+    loaderInterval = setInterval(() => {
+        i = (i + 1) % loaderMessages.length;
+        loaderMsg.textContent = loaderMessages[i];
+    }, 4000);
+}
 
-    const files = e.dataTransfer.files;
-
-    datesheetInput.files = files;
-
-    datesheetName.textContent = files[0].name;
-
-});
+function stopLoader() {
+    clearInterval(loaderInterval);
+    uploadLoader.style.display = 'none';
+    uploadBtn.style.display    = 'block';
+}
 
 
-/* -----------------------
-UPLOAD TO FLASK
------------------------*/
+// ── UPLOAD ────────────────────────────────────────────
 
-uploadBtn.addEventListener("click", async () => {
+uploadBtn.addEventListener('click', async () => {
 
-    if (!syllabusInput.files.length || !datesheetInput.files.length) {
+    const hasFiles  = syllabusInput.files.length > 0 || datesheetInput.files.length > 0;
+    const manualTxt = (document.getElementById('manualText')?.value || '').trim();
 
-        alert("Please upload both syllabus and datesheet");
-
+    if (!hasFiles && !manualTxt) {
+        alert('Please upload at least one file or paste your syllabus text.');
         return;
-
     }
 
-    const formData = new FormData();
-
-    formData.append("userid", 1);
-
-    for (let file of syllabusInput.files) {
-        formData.append("files", file);
+    // Must have a datesheet if files are being uploaded
+    if (syllabusInput.files.length > 0 && !datesheetInput.files.length) {
+        alert('Please also upload your datesheet.');
+        return;
     }
 
-    formData.append("files", datesheetInput.files[0]);
-
+    startLoader();
 
     try {
+        const formData = new FormData();
 
-        const res = await fetch("/upload", {
-            method: "POST",
-            body: formData
+        for (const file of syllabusInput.files) {
+            formData.append('files', file);
+        }
+        if (datesheetInput.files.length) {
+            formData.append('files', datesheetInput.files[0]);
+        }
+        if (manualTxt) {
+            formData.append('manual_text', manualTxt);
+        }
+
+        const res = await fetch('/upload', {
+            method: 'POST',
+            body:   formData
         });
 
         const data = await res.json();
 
-        console.log("UPLOAD RESPONSE:", data);
+        if (!res.ok) {
+            alert('Upload failed: ' + (data.error || 'Unknown error'));
+            stopLoader();
+            return;
+        }
 
-        window.location.href = "/status";
+        window.location.href = '/status';
 
     } catch (err) {
-
         console.error(err);
-
-        alert("Upload failed");
-
+        alert('Upload failed. Please check your connection and try again.');
+        stopLoader();
     }
-
 });
