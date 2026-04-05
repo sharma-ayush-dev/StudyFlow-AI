@@ -13,13 +13,35 @@
 
 <header class="navbar">
     <div class="logo">StudyFlow</div>
+
     <nav>
         <a href="#">Home</a>
         <a href="#">Features</a>
         <a href="#">About</a>
     </nav>
-    <button class="btn-primary" id="openAuthBtn">Login</button>
+
+    {% if current_user.is_authenticated %}
+        <!-- Logged-in navbar: username + quick nav + logout -->
+        <div class="nav-user">
+            <span class="nav-username">{{ current_user.username }}</span>
+            <a href="{{ url_for('upload_page') }}">
+                <button class="nav-logout">Upload New</button>
+            </a>
+            <a href="{{ url_for('schedule_page') }}">
+                <button class="btn-primary" style="padding:8px 20px;font-size:14px;">
+                    My Schedule
+                </button>
+            </a>
+            <a href="{{ url_for('logout') }}">
+                <button class="nav-logout">Logout</button>
+            </a>
+        </div>
+    {% else %}
+        <!-- Logged-out navbar: single Login button -->
+        <button class="btn-primary" id="openAuthBtn">Login</button>
+    {% endif %}
 </header>
+
 
 <section class="hero">
     <span class="badge">Introducing AI</span>
@@ -28,28 +50,45 @@
         StudyFlow AI analyses your syllabus and exam schedule to generate
         a smart day-by-day study plan automatically.
     </p>
-    <button class="btn-primary" style="font-size:18px;padding:16px 40px;"
-            id="heroGetStarted">
-        Get Started →
-    </button>
+
+    {% if current_user.is_authenticated %}
+        <!-- Logged-in hero: two action buttons -->
+        <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+            <a href="{{ url_for('upload_page') }}">
+                <button class="btn-primary"
+                        style="font-size:18px;padding:16px 40px;">
+                    Upload New Syllabus
+                </button>
+            </a>
+            <a href="{{ url_for('schedule_page') }}">
+                <button class="nav-logout"
+                        style="font-size:18px;padding:16px 40px;border-radius:25px;">
+                    View My Schedule
+                </button>
+            </a>
+        </div>
+    {% else %}
+        <!-- Logged-out hero: Get Started opens the auth modal -->
+        <button class="btn-primary"
+                style="font-size:18px;padding:16px 40px;"
+                id="heroGetStarted">
+            Get Started →
+        </button>
+    {% endif %}
 </section>
 
 
-<!-- ═══════════════════════════════════════
-     AUTH MODAL
-═══════════════════════════════════════ -->
-
+<!-- ═══ AUTH MODAL (only rendered when logged out) ═══ -->
+{% if not current_user.is_authenticated %}
 <div id="authOverlay" class="auth-overlay hidden">
 <div class="auth-modal">
 
     <button class="auth-close" id="closeAuthBtn">✕</button>
 
-    <!-- ── LOGIN PANEL ── -->
+    <!-- LOGIN PANEL -->
     <div id="loginPanel" class="auth-panel">
-
         <h2 class="auth-title">Welcome back</h2>
         <p class="auth-sub">Log in to your StudyFlow account</p>
-
         <div id="loginError" class="auth-error hidden"></div>
 
         <label class="auth-label">Username or Email</label>
@@ -70,16 +109,12 @@
             Don't have an account?
             <span class="auth-link" id="goToRegister">Create one</span>
         </p>
-
     </div>
 
-
-    <!-- ── REGISTER PANEL ── -->
+    <!-- REGISTER PANEL -->
     <div id="registerPanel" class="auth-panel hidden">
-
         <h2 class="auth-title">Create account</h2>
         <p class="auth-sub">Start planning smarter today</p>
-
         <div id="registerError" class="auth-error hidden"></div>
 
         <label class="auth-label">Username</label>
@@ -90,7 +125,9 @@
         <input id="regEmail" class="auth-input"
                type="email" placeholder="you@example.com" autocomplete="email">
 
-        <label class="auth-label">Password <span class="auth-hint">(min 8 chars)</span></label>
+        <label class="auth-label">
+            Password <span class="auth-hint">(min 8 chars)</span>
+        </label>
         <input id="regPassword" class="auth-input"
                type="password" placeholder="••••••••" autocomplete="new-password">
 
@@ -104,14 +141,13 @@
             Already have an account?
             <span class="auth-link" id="goToLogin">Log in</span>
         </p>
-
     </div>
 
 </div>
 </div>
 
-
 <script src="{{ url_for('static', filename='auth.js') }}"></script>
+{% endif %}
 
 </body>
 </html>
