@@ -8,10 +8,13 @@ from flask_login import (
     LoginManager, UserMixin,
     login_user, logout_user, login_required, current_user
 )
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from text_extractor import organize_with_llm
 from schedule_planner import generate_schedule
+
 
 # ─────────────────────────────────────────────
 # APP CONFIG
@@ -19,25 +22,33 @@ from schedule_planner import generate_schedule
 
 app = Flask(__name__)
 
-# IMPORTANT: change this to a long random string before deploying.
-# Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
+# Generate a real key with: python -c "import secrets; print(secrets.token_hex(32))"
+# Then set it as an env variable:  export SECRET_KEY=<value>
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-before-deploy')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///userdata.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Hard limit on upload size — rejects anything over 20 MB before it hits Python
+# Reject uploads over 20 MB before they reach Python
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 db = SQLAlchemy(app)
 
 login_manager = LoginManager(app)
-login_manager.login_view = 'landing'       # redirect to landing page if not logged in
-login_manager.login_message = ''           # suppress default flash message (we handle UI)
+login_manager.login_view = 'landing'
+login_manager.login_message = ''   # no default flash; we handle UI ourselves
+
+# Rate limiter — uses the client IP as the key
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],          # no blanket limit; we set per-route limits below
+    storage_uri='memory://'     # swap for 'redis://localhost:6379' in production
+)
 
 
 # ─────────────────────────────────────────────
@@ -45,17 +56,15 @@ login_manager.login_message = ''           # suppress default flash message (we 
 # ─────────────────────────────────────────────
 
 class User(db.Model, UserMixin):
-    """Stores credentials and admin flag for each registered user."""
 
-    id            = db.Column(db.Integer, primary_key=True)
+    id            = db.Column(db.Integer,    primary_key=True)
     username      = db.Column(db.String(80),  unique=True, nullable=False)
     email         = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_admin      = db.Column(db.Boolean, default=False)
-    created_at    = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    is_admin      = db.Column(db.Boolean,    default=False)
+    created_at    = db.Column(db.DateTime,   default=datetime.datetime.utcnow)
 
     def set_password(self, password: str):
-        # pbkdf2:sha256 with 600 000 iterations + automatic random salt
         self.password_hash = generate_password_hash(
             password,
             method='pbkdf2:sha256:600000',
@@ -67,27 +76,19 @@ class User(db.Model, UserMixin):
 
 
 class StudyData(db.Model):
-    """One row per user — stores all three JSON blobs for the pipeline."""
 
     id             = db.Column(db.Integer, primary_key=True)
     userid         = db.Column(db.Integer, db.ForeignKey('user.id'),
                                unique=True, nullable=False)
-
-    # { Exam_dates, Subjects, study_days }  — set after file upload
-    extracted_json = db.Column(db.Text)
-
-    # Same shape, topic values replaced with completion % strings
-    topic_status   = db.Column(db.Text)
-
-    # { DD-MM-YYYY: { Subject: { Topic: hours } } }
-    schedule_json  = db.Column(db.Text)
+    extracted_json = db.Column(db.Text)   # { Exam_dates, Subjects, study_days }
+    topic_status   = db.Column(db.Text)   # same shape with % values filled in
+    schedule_json  = db.Column(db.Text)   # { DD-MM-YYYY: { Subject: { Topic: hrs } } }
 
 
 class RequestLog(db.Model):
-    """One row per HTTP request — used by the admin dashboard."""
 
-    id          = db.Column(db.Integer, primary_key=True)
-    userid      = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    id          = db.Column(db.Integer,  primary_key=True)
+    userid      = db.Column(db.Integer,  db.ForeignKey('user.id'), nullable=True)
     method      = db.Column(db.String(10))
     path        = db.Column(db.String(255))
     status_code = db.Column(db.Integer)
@@ -100,25 +101,23 @@ def load_user(user_id: str):
 
 
 # ─────────────────────────────────────────────
-# REQUEST LOGGING HOOK
+# REQUEST LOGGING
 # ─────────────────────────────────────────────
 
 @app.after_request
 def log_request(response):
-    # Skip static files and the admin page itself to avoid log spam
     if request.path.startswith('/static') or request.path == '/admin':
         return response
     try:
-        entry = RequestLog(
+        db.session.add(RequestLog(
             userid      = current_user.id if current_user.is_authenticated else None,
             method      = request.method,
             path        = request.path,
             status_code = response.status_code
-        )
-        db.session.add(entry)
+        ))
         db.session.commit()
     except Exception:
-        db.session.rollback()   # never let logging crash a real request
+        db.session.rollback()
     return response
 
 
@@ -126,27 +125,27 @@ def log_request(response):
 # HELPERS
 # ─────────────────────────────────────────────
 
-def _get_study_data_for_current_user() -> StudyData | None:
+def _get_study_data() -> StudyData | None:
     return StudyData.query.filter_by(userid=current_user.id).first()
 
 
 def _require_owner(userid: int):
-    """
-    IDOR guard: abort with 403 if the requested userid doesn't belong to the
-    logged-in user (unless they're an admin).
-    """
+    """IDOR guard — 403 if the URL userid doesn't match the session."""
     if userid != current_user.id and not current_user.is_admin:
         abort(403)
 
 
 def _delete_files(paths: list[str]):
-    """Delete uploaded files from disk, ignoring any that don't exist."""
     for p in paths:
         try:
             if os.path.exists(p):
                 os.remove(p)
         except Exception as e:
-            print(f"[WARN] Could not delete {p}: {e}")
+            print(f'[WARN] Could not delete {p}: {e}')
+
+
+def _render_error(code: int, title: str, message: str):
+    return render_template('error.html', code=code, title=title, message=message), code
 
 
 # ─────────────────────────────────────────────
@@ -155,13 +154,12 @@ def _delete_files(paths: list[str]):
 
 @app.route('/')
 def landing():
-    """Landing page — shows login/register modal if not authenticated."""
-    if current_user.is_authenticated:
-        return redirect(url_for('upload_page'))
+    # No redirect — logged-in users see the landing page with extra nav buttons
     return render_template('Landing.html')
 
 
 @app.route('/register', methods=['POST'])
+@limiter.limit('10 per hour')
 def register():
     data     = request.get_json()
     username = (data.get('username') or '').strip()
@@ -170,13 +168,10 @@ def register():
 
     if not username or not email or not password:
         return jsonify({'error': 'All fields are required'}), 400
-
     if len(password) < 8:
         return jsonify({'error': 'Password must be at least 8 characters'}), 400
-
     if User.query.filter_by(username=username).first():
         return jsonify({'error': 'Username already taken'}), 409
-
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already registered'}), 409
 
@@ -190,16 +185,16 @@ def register():
 
 
 @app.route('/login', methods=['POST'])
+@limiter.limit('20 per hour')
 def login():
     data       = request.get_json()
-    identifier = (data.get('identifier') or '').strip()   # username OR email
+    identifier = (data.get('identifier') or '').strip()
     password   =  data.get('password')    or ''
     remember   =  data.get('remember',  False)
 
     if not identifier or not password:
         return jsonify({'error': 'Username/email and password are required'}), 400
 
-    # Allow login with either username or email
     user = (User.query.filter_by(username=identifier).first() or
             User.query.filter_by(email=identifier.lower()).first())
 
@@ -219,7 +214,7 @@ def logout():
 
 
 # ─────────────────────────────────────────────
-# PAGE ROUTES  (all require login)
+# PAGE ROUTES
 # ─────────────────────────────────────────────
 
 @app.route('/upload_page')
@@ -231,17 +226,15 @@ def upload_page():
 @app.route('/status')
 @login_required
 def status_page():
-    user = _get_study_data_for_current_user()
+    user = _get_study_data()
     if not user:
         return redirect(url_for('upload_page'))
 
-    data       = json.loads(user.extracted_json)
-    exam_dates = data.get('Exam_dates', {})
-
+    data = json.loads(user.extracted_json)
     return render_template(
         'Status.html',
         data=data,
-        exam_dates=exam_dates,
+        exam_dates=data.get('Exam_dates', {}),
         username=current_user.username
     )
 
@@ -258,17 +251,19 @@ def schedule_page():
 
 @app.route('/upload', methods=['POST'])
 @login_required
+@limiter.limit('10 per hour')
 def upload_files():
     file_paths = []
     try:
         files = request.files.getlist('files')
-        if not files:
-            return jsonify({'error': 'No files uploaded'}), 400
+        manual_text = request.form.get('manual_text', '').strip()
+
+        if not files and not manual_text:
+            return jsonify({'error': 'No files or text provided'}), 400
 
         for file in files:
             if not file.filename:
                 continue
-            # Whitelist allowed extensions
             ext = os.path.splitext(file.filename)[1].lower()
             if ext not in ('.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'):
                 return jsonify({'error': f'Unsupported file type: {ext}'}), 400
@@ -276,16 +271,12 @@ def upload_files():
             file.save(path)
             file_paths.append(path)
 
-        if not file_paths:
+        if not file_paths and not manual_text:
             return jsonify({'error': 'No valid files received'}), 400
-
-        # Optional: plain-text syllabus typed directly in the browser
-        # Upload-page.js can append a text field named "manual_text"
-        manual_text = request.form.get('manual_text', '').strip()
 
         final_json = organize_with_llm(file_paths, manual_text=manual_text or None)
 
-        existing = _get_study_data_for_current_user()
+        existing = _get_study_data()
         if existing:
             existing.extracted_json = json.dumps(final_json)
             existing.topic_status   = None
@@ -304,22 +295,20 @@ def upload_files():
         return jsonify({'error': str(e)}), 500
 
     finally:
-        # Always delete uploaded files from disk after processing
-        _delete_files(file_paths)
+        _delete_files(file_paths)   # always runs, even if LLM throws
 
 
 # ─────────────────────────────────────────────
-# SAVE EDITED EXTRACTED DATA  (page 2 edit feature)
+# SAVE EDITED EXTRACTED DATA
 # ─────────────────────────────────────────────
 
 @app.route('/save_extracted/<int:userid>', methods=['POST'])
 @login_required
 def save_extracted(userid):
     _require_owner(userid)
-    user = _get_study_data_for_current_user()
+    user = _get_study_data()
     if not user:
         return jsonify({'error': 'No data found'}), 404
-
     user.extracted_json = json.dumps(request.json)
     db.session.commit()
     return jsonify({'message': 'saved'})
@@ -333,10 +322,9 @@ def save_extracted(userid):
 @login_required
 def submit_status(userid):
     _require_owner(userid)
-    user = _get_study_data_for_current_user()
+    user = _get_study_data()
     if not user:
-        return jsonify({'error': 'User data not found'}), 404
-
+        return jsonify({'error': 'No data found'}), 404
     user.topic_status = json.dumps(request.json)
     db.session.commit()
     return jsonify({'message': 'saved'})
@@ -348,17 +336,16 @@ def submit_status(userid):
 
 @app.route('/generate_schedule/<int:userid>', methods=['POST'])
 @login_required
+@limiter.limit('5 per hour')     # real server-side guard — not just UI
 def generate(userid):
     _require_owner(userid)
-    user = _get_study_data_for_current_user()
+    user = _get_study_data()
     if not user:
-        return jsonify({'error': 'User data not found'}), 404
+        return jsonify({'error': 'No data found'}), 404
     if not user.topic_status:
         return jsonify({'error': 'Topic status not submitted yet'}), 400
 
-    topic_data = json.loads(user.topic_status)
-    schedule   = generate_schedule(topic_data)
-
+    schedule = generate_schedule(json.loads(user.topic_status))
     user.schedule_json = json.dumps(schedule)
     db.session.commit()
     return jsonify(schedule)
@@ -372,14 +359,14 @@ def generate(userid):
 @login_required
 def schedule(userid):
     _require_owner(userid)
-    user = _get_study_data_for_current_user()
+    user = _get_study_data()
     if not user or not user.schedule_json:
         return jsonify({'error': 'Schedule not found'}), 404
     return jsonify(json.loads(user.schedule_json))
 
 
 # ─────────────────────────────────────────────
-# CURRENT USER INFO  (used by JS to get userid)
+# CURRENT USER INFO  (JS uses this to get userid)
 # ─────────────────────────────────────────────
 
 @app.route('/me')
@@ -402,13 +389,6 @@ def admin_dashboard():
     if not current_user.is_admin:
         abort(403)
 
-    total_users    = User.query.count()
-    total_requests = RequestLog.query.count()
-    total_schedules = StudyData.query.filter(
-        StudyData.schedule_json.isnot(None)
-    ).count()
-
-    # Requests per day for the last 14 days
     fourteen_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=14)
     daily_logs = (
         db.session.query(
@@ -421,38 +401,65 @@ def admin_dashboard():
         .all()
     )
 
-    recent_users = (
-        User.query
-        .order_by(User.created_at.desc())
-        .limit(10)
-        .all()
-    )
-
     return render_template(
         'Admin.html',
-        total_users=total_users,
-        total_requests=total_requests,
-        total_schedules=total_schedules,
-        daily_logs=daily_logs,
-        recent_users=recent_users
+        total_users     = User.query.count(),
+        total_requests  = RequestLog.query.count(),
+        total_schedules = StudyData.query.filter(
+                              StudyData.schedule_json.isnot(None)).count(),
+        daily_logs      = daily_logs,
+        recent_users    = User.query.order_by(
+                              User.created_at.desc()).limit(10).all()
     )
 
 
 # ─────────────────────────────────────────────
-# ERROR HANDLERS
+# ERROR HANDLERS  — proper HTML pages, not JSON
 # ─────────────────────────────────────────────
 
 @app.errorhandler(403)
 def forbidden(e):
-    return jsonify({'error': 'Forbidden'}), 403
+    return _render_error(
+        403,
+        "Access Denied",
+        "You don't have permission to view this page."
+    )
 
 @app.errorhandler(404)
 def not_found(e):
-    return jsonify({'error': 'Not found'}), 404
+    return _render_error(
+        404,
+        "Page Not Found",
+        "The page you're looking for doesn't exist or has been moved."
+    )
 
 @app.errorhandler(413)
 def too_large(e):
-    return jsonify({'error': 'File too large. Maximum upload size is 20 MB.'}), 413
+    return _render_error(
+        413,
+        "File Too Large",
+        "Your upload exceeds the 20 MB limit. Please compress your files and try again."
+    )
+
+@app.errorhandler(429)
+def rate_limited(e):
+    return _render_error(
+        429,
+        "Slow Down",
+        "You've made too many requests in a short time. Please wait a moment and try again."
+    )
+
+# flask-limiter raises 429 as an exception too — handle it as HTML
+@app.errorhandler(Exception)
+def handle_limiter_error(e):
+    from flask_limiter.errors import RateLimitExceeded
+    if isinstance(e, RateLimitExceeded):
+        return _render_error(
+            429,
+            "Slow Down",
+            "You've hit the rate limit for this action. Please wait a moment and try again."
+        )
+    raise e   # re-raise anything else so Flask handles it normally
 
 
 # ─────────────────────────────────────────────

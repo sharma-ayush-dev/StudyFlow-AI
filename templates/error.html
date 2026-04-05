@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ code }} — StudyFlow</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+    .error-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .error-code {
+        font-size: 120px;
+        font-weight: 700;
+        line-height: 1;
+        /* purple glow on the number */
+        color: transparent;
+        background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        filter: drop-shadow(0 0 30px rgba(123, 47, 247, 0.5));
+        margin-bottom: 16px;
+    }
+
+    .error-title {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #eee;
+    }
+
+    .error-message {
+        font-size: 16px;
+        color: #888;
+        max-width: 480px;
+        line-height: 1.6;
+        margin-bottom: 36px;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- Minimal navbar — always visible so user isn't stranded -->
+<header class="navbar">
+    <div class="logo">StudyFlow</div>
+</header>
+
+<div class="error-page">
+
+    <div class="error-code">{{ code }}</div>
+
+    <div class="error-title">{{ title }}</div>
+
+    <p class="error-message">{{ message }}</p>
+
+    <a href="{{ url_for('landing') }}">
+        <button class="btn-primary" style="font-size:16px;padding:14px 36px;">
+            Go to Home Page
+        </button>
+    </a>
+
+</div>
+
+</body>
+</html>
