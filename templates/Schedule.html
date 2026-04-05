@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
 <meta charset="UTF-8">
 <title>StudyFlow Schedule</title>
-
-<!-- Schedule.css (was wrongly pointing to Status.css before) -->
 <link rel="stylesheet" href="{{ url_for('static', filename='Schedule.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
 </head>
-
 <body>
 
-<nav class="navbar">
+<nav class="navbar" style="display:flex;justify-content:space-between;align-items:center;">
     <div class="logo">StudyFlow</div>
+    <div class="nav-user">
+        <span class="nav-username">{{ username }}</span>
+        <a href="{{ url_for('logout') }}">
+            <button class="nav-logout">Logout</button>
+        </a>
+    </div>
 </nav>
 
 <h1 class="title">Your Study Plan</h1>
