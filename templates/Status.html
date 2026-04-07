@@ -3,31 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <title>Topics Status</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
 </head>
 <body>
 
-<!-- NAVBAR -->
-<div class="status-nav">
-    <div class="logo" style="font-size:22px;font-weight:600;letter-spacing:2px;">
-        StudyFlow
-    </div>
-    <div class="nav-user">
-        <span class="nav-username">{{ username }}</span>
-        <a href="{{ url_for('logout') }}">
-            <button class="nav-logout">Logout</button>
-        </a>
-    </div>
-</div>
+{% include '_navbar.html' %}
 
 <h1 class="page-title">Topics Status</h1>
 
-<!-- EDIT MODE TOOLBAR -->
+<!-- EDIT TOOLBAR — always rendered, always visible on load -->
 <div class="edit-toolbar" id="editToolbar">
-    <button class="edit-toggle-btn" id="editToggleBtn">
-        ✏️ Edit Subjects & Dates
-    </button>
+    <button class="edit-toggle-btn" id="editToggleBtn">✏️ Edit Subjects &amp; Dates</button>
     <div class="edit-actions hidden" id="editActions">
         <button class="edit-save-btn"   id="saveEditsBtn">✓ Save Changes</button>
         <button class="edit-cancel-btn" id="cancelEditsBtn">✕ Cancel</button>
@@ -36,28 +23,22 @@
 
 <div class="dashboard">
 
-    <!-- LEFT PANEL: fully rendered by Status.js -->
     <div class="card topics-card" id="topicsCard">
-        <div style="text-align:center;padding:40px;color:#777;">
-            Loading…
-        </div>
+        <div style="text-align:center;padding:40px;color:#777;">Loading…</div>
     </div>
 
-    <!-- RIGHT PANEL: hours per day, also rendered by Status.js -->
     <div class="card hours-card">
         <div class="hours-header">
             <span>Date</span>
-            <span>Enter hours<br>you can study</span>
+            <span>Hours you<br>can study</span>
         </div>
         <div class="hours-list" id="hoursList"></div>
     </div>
 
 </div>
 
-<!-- GENERATE BUTTON -->
 <button id="generateBtn" class="generate-btn">Generate Schedule</button>
 
-<!-- LOADING STATE -->
 <div id="statusLoader" style="display:none;text-align:center;padding:20px 0 50px;">
     <div class="loader-ring"></div>
     <p id="statusLoaderMsg" style="color:#aaa;font-size:15px;margin-top:12px;">
@@ -65,7 +46,6 @@
     </p>
 </div>
 
-<!-- Pass backend data to JS once — JS owns everything from here -->
 <script>
     window.INITIAL_DATA = {{ data | tojson | safe }};
 </script>

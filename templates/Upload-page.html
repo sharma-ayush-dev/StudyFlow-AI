@@ -3,95 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StudyFlow AI</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
+<title>StudyFlow — Upload</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
-
 <body>
 
-<header class="navbar">
-    <div class="logo">StudyFlow</div>
-    <nav>
-        <a href="#">Home</a>
-        <a href="#">Features</a>
-        <a href="#">About</a>
-    </nav>
-    <div class="nav-user">
-        <span class="nav-username">{{ username }}</span>
-        <a href="{{ url_for('logout') }}">
-            <button class="nav-logout">Logout</button>
-        </a>
-    </div>
-</header>
-
+{% include '_navbar.html' %}
 
 <section class="hero">
     <span class="badge">Introducing AI</span>
     <h1>Upload Your Syllabus & Datesheet</h1>
-    <p>
-        StudyFlow AI will analyse your syllabus and exam schedule to generate
-        a smart day-by-day study plan automatically.
-    </p>
+    <p>StudyFlow AI analyses your files to build a smart day-by-day study plan.</p>
 
     <div class="upload-box">
         <h3>Upload Files</h3>
+        <p style="font-size:13px;color:#888;text-align:center;margin-top:-10px;">
+            Add all files here — syllabus file(s) first, then the datesheet as the last file.
+        </p>
 
-        <!-- SYLLABUS DROP AREA -->
-        <div class="drop-area" id="syllabusDrop">
-            <p>Drag & Drop Syllabus</p>
+        <!-- SINGLE combined drop area -->
+        <div class="drop-area" id="fileDropArea">
+            <p>Drag & Drop Files Here</p>
             <label class="file-btn">
-                Choose File
-                <input type="file" multiple id="syllabusInput">
+                Choose Files
+                <input type="file" multiple id="fileInput">
             </label>
-            <span class="file-name" id="syllabusName">No file chosen</span>
-        </div>
-
-        <!-- DATESHEET DROP AREA -->
-        <div class="drop-area" id="datesheetDrop">
-            <p>Drag & Drop Datesheet</p>
-            <label class="file-btn">
-                Choose File
-                <input type="file" id="datesheetInput">
-            </label>
-            <span class="file-name" id="datesheetName">No file chosen</span>
+            <span class="file-name" id="fileNames">No files chosen</span>
         </div>
 
         <!-- MANUAL TEXT FALLBACK -->
         <div id="manualToggleRow" style="text-align:center;">
-            <span id="manualToggle" style="
-                font-size:13px;color:#9f55ff;cursor:pointer;text-decoration:underline;">
-                Can't upload a file? Paste text instead
+            <span id="manualToggle"
+                  style="font-size:13px;color:#9f55ff;cursor:pointer;text-decoration:underline;">
+                Can't upload? Paste text instead
             </span>
         </div>
 
-        <div id="manualTextBox" style="display:none;flex-direction:column;gap:8px;">
+        <div id="manualTextBox" style="display:none;flex-direction:column;gap:6px;">
             <label style="font-size:13px;color:#ccc;">
-                Paste your syllabus text here (optional — used alongside any files above)
+                Paste syllabus &amp; datesheet text
+                <span style="color:#666;font-size:12px;">
+                    (limit: {{ word_limit }} words)
+                </span>
             </label>
-            <textarea id="manualText" rows="6" placeholder="Unit 1: DC Circuits&#10;Unit 2: AC Circuits&#10;..." style="
-                background:#1a1a2e;border:1px solid #333;border-radius:10px;
-                padding:12px;color:white;font-size:14px;resize:vertical;
-                font-family:Inter,sans-serif;outline:none;"></textarea>
+            <textarea id="manualText" rows="7"
+                      placeholder="Unit 1: DC Circuits&#10;Exam: Maths — 03-04-2026&#10;..."
+                      style="background:#1a1a2e;border:1px solid #333;border-radius:10px;
+                             padding:12px;color:white;font-size:14px;resize:vertical;
+                             font-family:Inter,sans-serif;outline:none;width:100%;">
+            </textarea>
+            <div id="wordCountRow"
+                 style="display:flex;justify-content:space-between;font-size:12px;color:#666;">
+                <span id="wordCountText">0 words</span>
+                <span id="wordCountLimit">limit: {{ word_limit }}</span>
+            </div>
         </div>
 
-        <!-- UPLOAD BUTTON -->
         <button class="btn-primary upload-btn" id="uploadBtn">
             Generate Study Plan
         </button>
 
-        <!-- LOADING STATE (hidden by default) -->
+        <!-- LOADING STATE -->
         <div id="uploadLoader" style="display:none;text-align:center;padding:10px 0;">
             <div class="loader-ring"></div>
             <p id="loaderMsg" style="color:#aaa;font-size:14px;margin-top:10px;">
                 Extracting content…
             </p>
         </div>
-
     </div>
 </section>
 
+<script>
+    window.WORD_LIMIT = {{ word_limit }};
+</script>
 <script src="{{ url_for('static', filename='Upload-page.js') }}"></script>
 
 </body>
