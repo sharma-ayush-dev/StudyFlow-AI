@@ -6,86 +6,77 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
 <style>
-    .stats-grid {
-        display: flex;
-        gap: 30px;
-        justify-content: center;
-        flex-wrap: wrap;
-        margin: 40px auto;
-        max-width: 900px;
+    /* ── STAT CARDS ── */
+    .stats-grid { display:flex; gap:30px; justify-content:center; flex-wrap:wrap; margin:40px auto; max-width:900px; }
+    .stat-card  { background:#0c0c15; border-radius:16px; padding:30px 40px; text-align:center; box-shadow:0 0 30px rgba(123,47,247,0.4); min-width:180px; }
+    .stat-number { font-size:48px; font-weight:700; color:#9f55ff; }
+    .stat-label  { font-size:14px; color:#aaa; margin-top:6px; }
+
+    /* ── TABLES ── */
+    .admin-table { width:90%; max-width:800px; margin:0 auto 60px; border-collapse:collapse; }
+    .admin-table th,.admin-table td { padding:12px 18px; border-bottom:1px solid #222; text-align:left; font-size:14px; }
+    .admin-table th { color:#9f55ff; font-weight:600; }
+    .admin-table td { color:#ccc; }
+
+    /* ── SECTION TITLES ── */
+    .admin-section { text-align:center; font-size:22px; font-weight:600; margin:40px 0 16px; color:#ddd; }
+
+    /* ── DAILY BAR ── */
+    .daily-bar-row  { display:flex; align-items:center; gap:12px; margin:6px 60px; font-size:13px; }
+    .daily-bar-label{ width:90px; color:#aaa; text-align:right; }
+    .daily-bar-track{ flex:1; background:#1a1a2e; border-radius:6px; height:20px; overflow:hidden; }
+    .daily-bar-fill { height:100%; background:linear-gradient(90deg,#7b2ff7,#9f55ff); border-radius:6px; }
+    .daily-bar-count{ width:40px; color:#ccc; }
+
+    /* ── SHARED ADMIN PANEL ── */
+    .admin-panel {
+        max-width:600px; margin:0 auto 20px;
+        background:#0c0c15; border-radius:18px; padding:28px 32px;
+        box-shadow:0 0 30px rgba(123,47,247,0.3);
     }
-    .stat-card {
-        background: #0c0c15;
-        border-radius: 16px;
-        padding: 30px 40px;
-        text-align: center;
-        box-shadow: 0 0 30px rgba(123,47,247,0.4);
-        min-width: 180px;
+    .admin-panel p    { color:#aaa; font-size:14px; line-height:1.6; margin-bottom:14px; }
+    .admin-panel label{ display:block; font-size:13px; color:#ccc; margin-bottom:4px; margin-top:12px; }
+
+    /* ── SHARED INPUTS ── */
+    .admin-input {
+        width:100%; background:#1a1a2e; border:1px solid #555; border-radius:10px;
+        padding:10px 14px; color:white; font-size:14px; outline:none;
+        transition:border-color 0.2s; box-sizing:border-box; color-scheme:dark;
     }
-    .stat-number {
-        font-size: 48px;
-        font-weight: 700;
-        color: #9f55ff;
-    }
-    .stat-label {
-        font-size: 14px;
-        color: #aaa;
-        margin-top: 6px;
-    }
-    .admin-table {
-        width: 90%;
-        max-width: 800px;
-        margin: 0 auto 60px;
-        border-collapse: collapse;
-    }
-    .admin-table th,
-    .admin-table td {
-        padding: 12px 18px;
-        border-bottom: 1px solid #222;
-        text-align: left;
-        font-size: 14px;
-    }
-    .admin-table th { color: #9f55ff; font-weight: 600; }
-    .admin-table td { color: #ccc; }
-    .admin-section {
-        text-align: center;
-        font-size: 22px;
-        font-weight: 600;
-        margin: 40px 0 16px;
-        color: #ddd;
-    }
-    .daily-bar-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin: 6px 60px;
-        font-size: 13px;
-    }
-    .daily-bar-label { width: 90px; color: #aaa; text-align: right; }
-    .daily-bar-track {
-        flex: 1;
-        background: #1a1a2e;
-        border-radius: 6px;
-        height: 20px;
-        overflow: hidden;
-    }
-    .daily-bar-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #7b2ff7, #9f55ff);
-        border-radius: 6px;
-    }
-    .daily-bar-count { width: 40px; color: #ccc; }
+    .admin-input:focus { border-color:#7b2ff7; }
+
+    /* ── BUTTON ROW ── */
+    .admin-btn-row  { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+    .admin-save-btn { background:linear-gradient(135deg,#7b2ff7,#9f55ff); border:none; border-radius:12px; padding:10px 24px; color:white; font-size:14px; font-weight:600; cursor:pointer; transition:0.2s; }
+    .admin-save-btn:hover { box-shadow:0 0 12px rgba(123,47,247,0.5); }
+    .admin-save-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .admin-reset-btn{ background:transparent; border:1px solid #555; border-radius:12px; padding:10px 24px; color:#aaa; font-size:14px; cursor:pointer; transition:0.2s; }
+    .admin-reset-btn:hover { border-color:#888; color:white; }
+
+    /* ── STATUS / FEEDBACK ── */
+    .admin-status   { margin-top:14px; font-size:13px; padding:8px 12px; border-radius:8px; }
+    .status-active  { background:rgba(123,47,247,0.15); border:1px solid rgba(123,47,247,0.35); color:#bf7fff; }
+    .status-default { background:rgba(255,255,255,0.04); border:1px solid #2a2a2a; color:#666; }
+    .admin-feedback { margin-top:8px; font-size:13px; min-height:18px; }
+
+    /* ── MODEL LIST ── */
+    .model-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .model-row input { flex:1; }
+    .model-remove-btn { background:none; border:none; color:#ff7c7c; font-size:18px; cursor:pointer; padding:2px 6px; border-radius:6px; }
+    .model-remove-btn:hover { background:rgba(220,50,50,0.15); }
+    .model-add-btn { background:transparent; border:1px dashed #7b2ff7; border-radius:10px; padding:8px 16px; color:#9f55ff; font-size:13px; cursor:pointer; margin-top:4px; }
+    .model-add-btn:hover { background:rgba(123,47,247,0.1); }
+    .model-note { font-size:12px; color:#666; margin-top:8px; }
 </style>
 </head>
 <body>
 
-<div style="display:flex;justify-content:space-between;align-items:center;
-            padding:20px 40px;border-bottom:1px solid #1a1a1a;">
+<!-- NAVBAR -->
+<div style="display:flex;justify-content:space-between;align-items:center;padding:20px 40px;border-bottom:1px solid #1a1a1a;">
     <div style="font-size:22px;font-weight:600;letter-spacing:2px;">StudyFlow Admin</div>
     <div class="nav-user">
-        <a href="{{ url_for('logout') }}">
-            <button class="nav-logout">Logout</button>
-        </a>
+        <a href="{{ url_for('landing') }}"><button class="nav-logout">Home</button></a>
+        <a href="{{ url_for('logout') }}"><button class="nav-logout">Logout</button></a>
     </div>
 </div>
 
@@ -94,33 +85,116 @@
 
 <!-- STAT CARDS -->
 <div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-number">{{ total_users }}</div>
-        <div class="stat-label">Registered Users</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number">{{ total_requests }}</div>
-        <div class="stat-label">Total Requests</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number">{{ total_schedules }}</div>
-        <div class="stat-label">Schedules Generated</div>
-    </div>
+    <div class="stat-card"><div class="stat-number">{{ total_users }}</div><div class="stat-label">Registered Users</div></div>
+    <div class="stat-card"><div class="stat-number">{{ total_requests }}</div><div class="stat-label">Total Requests</div></div>
+    <div class="stat-card"><div class="stat-number">{{ total_schedules }}</div><div class="stat-label">Schedules Generated</div></div>
 </div>
 
 
-<!-- DAILY ACTIVITY CHART -->
+<!-- ════ DATE OVERRIDE ════ -->
+<div class="admin-section">🗓 Test Date Override</div>
+<div class="admin-panel">
+    <p>
+        Override "today" across the entire app — affects study_days, schedule prompts,
+        and the progress page.<br>
+        <strong style="color:#ddd;">Real today:</strong>
+        <span style="color:#9f55ff;">{{ real_today }}</span>
+    </p>
+    <label>Test date</label>
+    <input type="date" id="overrideDateInput" class="admin-input"
+           value="{{ (test_today.split('-')[2]+'-'+test_today.split('-')[1]+'-'+test_today.split('-')[0]) if test_today else '' }}">
+    <div class="admin-btn-row">
+        <button class="admin-save-btn"  id="setDateBtn">Set Test Date</button>
+        <button class="admin-reset-btn" id="resetDateBtn">Reset to Real Today</button>
+    </div>
+    <div class="admin-status {{ 'status-active' if test_today else 'status-default' }}" id="dateStatus">
+        {% if test_today %}⚠ Override active — app thinks today is <strong>{{ test_today }}</strong>
+        {% else %}No override — using real system date.{% endif %}
+    </div>
+    <div class="admin-feedback" id="dateFeedback"></div>
+</div>
+
+
+<!-- ════ RATE LIMITS ════ -->
+<div class="admin-section">⚡ Rate Limits</div>
+<div class="admin-panel">
+    <p>
+        Controls how many requests a regular user can make per time window.
+        Admins are always exempt from rate limits.
+        Format examples: <code>10 per hour</code>, <code>5 per minute</code>, <code>100 per day</code>.
+    </p>
+
+    {% set rl_labels = {
+        'rl_login':    'Login attempts',
+        'rl_register': 'Registration attempts',
+        'rl_upload':   'File uploads',
+        'rl_generate': 'Schedule generations (initial + regenerate)'
+    } %}
+
+    {% for key, label in rl_labels.items() %}
+    <label>{{ label }}
+        <span style="color:#555;font-size:12px;"> — default: {{ default_limits[key] }}</span>
+    </label>
+    <input type="text" id="rl_{{ key }}" class="admin-input"
+           value="{{ current_limits[key] }}" placeholder="{{ default_limits[key] }}">
+    {% endfor %}
+
+    <div class="admin-btn-row">
+        <button class="admin-save-btn"  id="saveRlBtn">Save Rate Limits</button>
+        <button class="admin-reset-btn" id="resetRlBtn">Reset to Defaults</button>
+    </div>
+    <div class="admin-feedback" id="rlFeedback"></div>
+</div>
+
+
+<!-- ════ MAX TOKENS ════ -->
+<div class="admin-section">🔢 AI Max Tokens</div>
+<div class="admin-panel">
+    <p>
+        Maximum tokens the AI can use when generating a schedule.
+        Too low → response gets cut off (the bug that caused the
+        <code>TypeError: NoneType</code>). Too high → slower and costs more.
+        Recommended range: <strong style="color:#9f55ff;">3000 – 8000</strong>.
+        Raise if you have many subjects.
+    </p>
+    <label>Max tokens (500 – 32000)</label>
+    <input type="number" id="maxTokensInput" class="admin-input"
+           value="{{ max_tokens }}" min="500" max="32000" step="500">
+    <div class="admin-btn-row">
+        <button class="admin-save-btn" id="saveTokensBtn">Save</button>
+    </div>
+    <div class="admin-feedback" id="tokensFeedback"></div>
+</div>
+
+
+<!-- ════ MODEL LIST ════ -->
+<div class="admin-section">🤖 AI Model Fallback List</div>
+<div class="admin-panel">
+    <p>
+        Models are tried top-to-bottom. If the first fails (None content, timeout,
+        API error), the next is tried automatically. Users see a warning banner;
+        admins see the full failure reason.
+    </p>
+    <div id="modelRows"></div>
+    <button class="model-add-btn" id="addModelBtn">+ Add model</button>
+    <p class="model-note">Use OpenRouter model IDs, e.g. <code>qwen/qwen2.5-72b-instruct</code></p>
+    <div class="admin-btn-row">
+        <button class="admin-save-btn"  id="saveModelsBtn">Save Model List</button>
+        <button class="admin-reset-btn" id="resetModelsBtn">Reset to Defaults</button>
+    </div>
+    <div class="admin-feedback" id="modelsFeedback"></div>
+</div>
+
+
+<!-- DAILY ACTIVITY -->
 {% if daily_logs %}
 <div class="admin-section">Requests — Last 14 Days</div>
-
 {% set max_count = daily_logs | map(attribute='count') | max %}
 {% for row in daily_logs %}
 <div class="daily-bar-row">
     <div class="daily-bar-label">{{ row.day }}</div>
     <div class="daily-bar-track">
-        <div class="daily-bar-fill"
-             style="width: {{ (row.count / max_count * 100) | round }}%">
-        </div>
+        <div class="daily-bar-fill" style="width:{{ (row.count/max_count*100)|round }}%"></div>
     </div>
     <div class="daily-bar-count">{{ row.count }}</div>
 </div>
@@ -128,24 +202,14 @@
 {% endif %}
 
 
-<!-- RECENT USERS TABLE -->
+<!-- RECENT USERS -->
 <div class="admin-section">Recent Sign-ups</div>
 <table class="admin-table">
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Joined</th>
-            <th>Admin</th>
-        </tr>
-    </thead>
+    <thead><tr><th>#</th><th>Username</th><th>Email</th><th>Joined</th><th>Admin</th></tr></thead>
     <tbody>
         {% for u in recent_users %}
         <tr>
-            <td>{{ u.id }}</td>
-            <td>{{ u.username }}</td>
-            <td>{{ u.email }}</td>
+            <td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.email }}</td>
             <td>{{ u.created_at.strftime('%d %b %Y') }}</td>
             <td>{{ '✓' if u.is_admin else '—' }}</td>
         </tr>
@@ -153,5 +217,164 @@
     </tbody>
 </table>
 
+
+<script>
+// ── SHARED HELPERS ──────────────────────────────────────────
+
+function inputToDMY(val) {
+    if (!val) return null;
+    const [y,m,d] = val.split('-');
+    return `${d}-${m}-${y}`;
+}
+
+function feedback(elId, msg, isError=false) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.style.color  = isError ? '#ff7c7c' : '#9f55ff';
+    setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+async function adminPost(url, body) {
+    const res  = await fetch(url, {
+        method: 'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+    });
+    return [res.ok, await res.json()];
+}
+
+
+// ── DATE OVERRIDE ───────────────────────────────────────────
+
+document.getElementById('setDateBtn').addEventListener('click', async () => {
+    const dmy = inputToDMY(document.getElementById('overrideDateInput').value);
+    if (!dmy) { feedback('dateFeedback','Pick a date first.', true); return; }
+    const [ok,data] = await adminPost('/admin/set_date',{date:dmy});
+    if (!ok) { feedback('dateFeedback', data.error, true); return; }
+    feedback('dateFeedback','✓ ' + data.message);
+    const s = document.getElementById('dateStatus');
+    s.className = 'admin-status status-active';
+    s.innerHTML = `⚠ Override active — app thinks today is <strong>${dmy}</strong>`;
+});
+
+document.getElementById('resetDateBtn').addEventListener('click', async () => {
+    const [ok,data] = await adminPost('/admin/reset_date',{});
+    if (!ok) { feedback('dateFeedback','Reset failed.', true); return; }
+    document.getElementById('overrideDateInput').value = '';
+    feedback('dateFeedback','✓ Reset to real today');
+    const s = document.getElementById('dateStatus');
+    s.className = 'admin-status status-default';
+    s.textContent = 'No override — using real system date.';
+});
+
+
+// ── RATE LIMITS ─────────────────────────────────────────────
+
+document.getElementById('saveRlBtn').addEventListener('click', async () => {
+    const body = {};
+    ['rl_login','rl_register','rl_upload','rl_generate'].forEach(key => {
+        const val = document.getElementById(`rl_${key}`).value.trim();
+        if (val) body[key] = val;
+    });
+    const [ok,data] = await adminPost('/admin/set_rate_limits', body);
+    feedback('rlFeedback', ok ? '✓ Rate limits saved' : data.error, !ok);
+});
+
+document.getElementById('resetRlBtn').addEventListener('click', async () => {
+    const [ok,data] = await adminPost('/admin/reset_rate_limits',{});
+    if (ok) {
+        // Reload page so inputs show new defaults
+        window.location.reload();
+    } else {
+        feedback('rlFeedback', data.error, true);
+    }
+});
+
+
+// ── MAX TOKENS ──────────────────────────────────────────────
+
+document.getElementById('saveTokensBtn').addEventListener('click', async () => {
+    const val = parseInt(document.getElementById('maxTokensInput').value);
+    const [ok,data] = await adminPost('/admin/set_max_tokens',{max_tokens:val});
+    feedback('tokensFeedback', ok ? '✓ ' + data.message : data.error, !ok);
+});
+
+
+// ── MODEL LIST ──────────────────────────────────────────────
+
+let currentModels = {{ model_list | tojson }};
+
+function renderModelRows() {
+    const container = document.getElementById('modelRows');
+    container.innerHTML = '';
+    currentModels.forEach((model, i) => {
+        const row   = document.createElement('div');
+        row.className = 'model-row';
+
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size:11px;color:#666;min-width:60px;';
+        badge.textContent   = i === 0 ? 'Primary' : `Fallback ${i}`;
+
+        const input = document.createElement('input');
+        input.type      = 'text';
+        input.className = 'admin-input';
+        input.value     = model;
+        input.addEventListener('input', () => { currentModels[i] = input.value.trim(); });
+
+        const del = document.createElement('button');
+        del.className   = 'model-remove-btn';
+        del.textContent = '✕';
+        del.title       = 'Remove';
+        del.addEventListener('click', () => {
+            if (currentModels.length <= 1) {
+                alert('Keep at least one model.');
+                return;
+            }
+            currentModels.splice(i, 1);
+            renderModelRows();
+        });
+
+        row.appendChild(badge);
+        row.appendChild(input);
+        row.appendChild(del);
+        container.appendChild(row);
+    });
+}
+
+document.getElementById('addModelBtn').addEventListener('click', () => {
+    currentModels.push('');
+    renderModelRows();
+    // Focus the new input
+    const inputs = document.querySelectorAll('#modelRows .admin-input');
+    inputs[inputs.length - 1].focus();
+});
+
+document.getElementById('saveModelsBtn').addEventListener('click', async () => {
+    const models = currentModels.filter(m => m.trim());
+    if (!models.length) { feedback('modelsFeedback','Add at least one model.', true); return; }
+    const [ok,data] = await adminPost('/admin/set_model_list',{models});
+    feedback('modelsFeedback', ok ? '✓ Model list saved' : data.error, !ok);
+    if (ok) currentModels = data.models;
+});
+
+document.getElementById('resetModelsBtn').addEventListener('click', async () => {
+    const [ok,data] = await adminPost('/admin/reset_model_list',{});
+    if (ok) {
+        currentModels = data.models;
+        renderModelRows();
+        feedback('modelsFeedback','✓ Reset to defaults');
+    } else {
+        feedback('modelsFeedback', data.error, true);
+    }
+});
+
+renderModelRows();
+</script>
+
 </body>
 </html>
+<!-- NOTE FOR DEVELOPER: In Progress.html, add this line to the data script block:
+    window.IS_ADMIN = {{ current_user.is_admin | tojson }};
+    And in the progress_page route in app.py it already passes userid=current_user.id.
+    The is_admin flag is read by Progress.js to show/hide detailed failure info.
+-->

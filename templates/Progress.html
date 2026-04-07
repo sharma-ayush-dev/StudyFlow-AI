@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StudyFlow — Progress</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='Progress.css') }}">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<div class="status-nav">
+    <div class="logo" style="font-size:22px;font-weight:600;letter-spacing:2px;">
+        StudyFlow
+    </div>
+    <div class="nav-user">
+        <span class="nav-username">{{ username }}</span>
+        <a href="{{ url_for('schedule_page') }}">
+            <button class="nav-logout">View Schedule</button>
+        </a>
+        <a href="{{ url_for('logout') }}">
+            <button class="nav-logout">Logout</button>
+        </a>
+    </div>
+</div>
+
+<h1 class="page-title">Progress Check-in</h1>
+<p class="progress-subtitle">
+    Today: <strong>{{ today_str }}</strong> &nbsp;·&nbsp;
+    Update how far you've got on each topic, then regenerate if needed.
+</p>
+
+<!-- ═══════════════════════════════════════
+     MAIN PANEL: topic progress update
+═══════════════════════════════════════ -->
+<div class="progress-wrapper" id="progressWrapper">
+
+    <div class="card topics-card" id="progressTopicsCard">
+        <!-- Rendered by Progress.js -->
+        <div style="text-align:center;padding:40px;color:#777;">Loading…</div>
+    </div>
+
+</div>
+
+<!-- ACTION BUTTONS -->
+<div class="progress-actions" id="progressActions">
+    <button class="generate-btn" id="saveProgressBtn"
+            style="margin:0;">
+        ✓ Save Progress
+    </button>
+    <button class="edit-toggle-btn" id="regenBtn"
+            style="font-size:16px;padding:13px 32px;">
+        ↺ Regenerate Schedule
+    </button>
+</div>
+
+<!-- LOADER (shared) -->
+<div id="progressLoader" style="display:none;text-align:center;padding:30px 0;">
+    <div class="loader-ring"></div>
+    <p id="progressLoaderMsg" style="color:#aaa;font-size:15px;margin-top:12px;">
+        Saving…
+    </p>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     COMPARISON PANEL (hidden until regen)
+═══════════════════════════════════════ -->
+<div id="comparisonSection" class="hidden">
+
+    <h2 class="comparison-title">Which schedule do you want to keep?</h2>
+    <p class="comparison-sub">
+        Your old schedule is on the left. The newly generated one is on the right.
+        Pick the one that works better for you.
+    </p>
+
+    <div class="comparison-grid">
+
+        <!-- OLD -->
+        <div class="comparison-card" id="oldScheduleCard">
+            <div class="comparison-card-header">
+                <span class="comparison-label old-label">Current Schedule</span>
+                <button class="keep-btn keep-old-btn" id="keepOldBtn">
+                    Keep This
+                </button>
+            </div>
+            <div class="comparison-scroll" id="oldScheduleContent"></div>
+        </div>
+
+        <!-- NEW -->
+        <div class="comparison-card" id="newScheduleCard">
+            <div class="comparison-card-header">
+                <span class="comparison-label new-label">New Schedule</span>
+                <button class="keep-btn keep-new-btn" id="keepNewBtn">
+                    Keep This
+                </button>
+            </div>
+            <div class="comparison-scroll" id="newScheduleContent"></div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Inject server data for JS -->
+<script>
+    window.TOPIC_STATUS   = {{ topic_status  | tojson | safe }};
+    window.PAST_SCHEDULE  = {{ past_schedule | tojson | safe }};
+    window.FULL_SCHEDULE  = {{ full_schedule | tojson | safe }};
+    window.TODAY_STR      = {{ today_str     | tojson | safe }};
+    window.USER_ID        = {{ userid        | tojson | safe }};
+    window.IS_ADMIN       = {{ current_user.is_admin | tojson | safe }};
+</script>
+<script src="{{ url_for('static', filename='Progress.js') }}"></script>
+
+</body>
+</html>

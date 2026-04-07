@@ -1,0 +1,214 @@
+/* ════════════════════════════════════════
+   PROGRESS.CSS
+════════════════════════════════════════ */
+
+/* ── PAGE SUBTITLE ── */
+
+.progress-subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 15px;
+    margin-bottom: 36px;
+}
+
+.progress-subtitle strong {
+    color: #9f55ff;
+}
+
+/* ── MAIN WRAPPER ── */
+
+.progress-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 0 20px;
+}
+
+.progress-wrapper .topics-card {
+    width: 760px;
+    max-height: 620px;
+}
+
+/* ── OVERDUE BADGE ── */
+
+.overdue-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 8px;
+    background: rgba(123, 47, 247, 0.2);
+    border: 1px solid rgba(123, 47, 247, 0.45);
+    border-radius: 10px;
+    font-size: 11px;
+    color: #bf7fff;
+    vertical-align: middle;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* ── ACTION BUTTONS ROW ── */
+
+.progress-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin: 40px auto 50px;
+    flex-wrap: wrap;
+}
+
+/* ════════════════════════════════════════
+   COMPARISON SECTION
+════════════════════════════════════════ */
+
+.comparison-title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 600;
+    margin: 50px 0 10px;
+    color: #eee;
+}
+
+.comparison-sub {
+    text-align: center;
+    color: #777;
+    font-size: 14px;
+    margin-bottom: 36px;
+}
+
+/* TWO-COLUMN GRID */
+
+.comparison-grid {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    padding: 0 40px 80px;
+    flex-wrap: wrap;
+}
+
+/* INDIVIDUAL CARD */
+
+.comparison-card {
+    background: #070707;
+    border-radius: 20px;
+    width: 480px;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+        0 0 30px rgba(123, 47, 247, 0.4),
+        0 0 60px rgba(123, 47, 247, 0.15);
+}
+
+/* CARD HEADER */
+
+.comparison-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #1e1e2e;
+}
+
+.comparison-label {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.old-label { color: #aaa; }
+.new-label { color: #9f55ff; }
+
+/* KEEP BUTTON */
+
+.keep-btn {
+    padding: 8px 22px;
+    border: none;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.keep-old-btn {
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+}
+
+.keep-old-btn:hover {
+    border-color: #888;
+    color: white;
+}
+
+.keep-new-btn {
+    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+    color: white;
+}
+
+.keep-new-btn:hover {
+    box-shadow: 0 0 14px rgba(123, 47, 247, 0.55);
+    transform: translateY(-1px);
+}
+
+.keep-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* SCROLLABLE CONTENT AREA */
+
+.comparison-scroll {
+    padding: 16px 24px;
+    overflow-y: auto;
+    max-height: 560px;
+    flex: 1;
+}
+
+/* DATE BLOCK */
+
+.cmp-date-block {
+    margin-bottom: 20px;
+}
+
+.cmp-date-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #9f55ff;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #1e1e2e;
+}
+
+/* SUBJECT */
+
+.cmp-subject {
+    margin-bottom: 10px;
+    padding-left: 8px;
+}
+
+.cmp-subject-name {
+    font-size: 13px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+/* TOPIC ROW */
+
+.cmp-topic-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 14px;
+    color: #ccc;
+    border-bottom: 1px solid #111;
+    gap: 12px;
+}
+
+.cmp-hours {
+    color: #9f55ff;
+    font-weight: 600;
+    white-space: nowrap;
+}
