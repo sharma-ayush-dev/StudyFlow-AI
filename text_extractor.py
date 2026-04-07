@@ -1,289 +1,216 @@
 import os
-import base64
-import json
 import re
+import json
+import base64
+import datetime
 from pypdf import PdfReader
 from docx import Document
 from openai import OpenAI
 import apikey
-import datetime
 
 
-today_date = datetime.date.today().strftime("%d-%m-%Y")
+client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=apikey.key)
 
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=apikey.key
-)
+# ── FALLBACK MODEL LIST ──────────────────────────────────────
+# Tried in order — same pattern as schedule_planner.py.
+# Export so app.py can display and let admin override them.
+VISION_MODELS = [
+    "qwen/qwen2-vl-72b-instruct",        # primary
+    "google/gemini-2.0-flash-001",        # fallback 1
+    "meta-llama/llama-4-maverick",        # fallback 2
+]
 
-# Vision-capable model — reads images and text in a single call.
-# Swap for any vision model on your OpenRouter plan,
-# e.g. "google/gemini-flash-1.5", "meta-llama/llama-4-maverick"
-VISION_MODEL = "nvidia/nemotron-nano-12b-v2-vl:free"
 
+# ── DATE UTILS ───────────────────────────────────────────────
 
-# ───────────────────────────────────────
-# DATE UTILITIES
-# ───────────────────────────────────────
+def _parse_date(s: str) -> datetime.date:
+    d, m, y = s.strip().split('-')
+    return datetime.date(int(y), int(m), int(d))
 
-def _parse_date(date_str: str) -> datetime.date:
-    return datetime.datetime.strptime(date_str.strip(), "%d-%m-%Y").date()
+def _format_date(d: datetime.date) -> str:
+    return d.strftime('%d-%m-%Y')
 
-def _format_date(date_obj: datetime.date) -> str:
-    return date_obj.strftime("%d-%m-%Y")
-
-def _date_range_inclusive(start_str: str, end_str: str) -> dict:
-    start = _parse_date(start_str)
-    end   = _parse_date(end_str)
-    out, cur = {}, start
-    while cur <= end:
-        out[_format_date(cur)] = "none"
+def _date_range(start: str, end: str) -> dict:
+    cur, stop = _parse_date(start), _parse_date(end)
+    out = {}
+    while cur <= stop:
+        out[_format_date(cur)] = 'none'
         cur += datetime.timedelta(days=1)
     return out
 
 
-# ───────────────────────────────────────
-# PAYLOAD NORMALISATION
-# ───────────────────────────────────────
+# ── NORMALISATION ────────────────────────────────────────────
 
-def _find_key(d: dict, *candidates):
-    for k in candidates:
-        if k in d:
-            return d[k]
-    lower_map = {dk.lower(): d[dk] for dk in d}
-    for k in candidates:
-        if k.lower() in lower_map:
-            return lower_map[k.lower()]
+def _find(d: dict, *keys):
+    for k in keys:
+        if k in d: return d[k]
+    lo = {x.lower(): d[x] for x in d}
+    for k in keys:
+        if k.lower() in lo: return lo[k.lower()]
     return None
 
 
-def _normalize_payload(payload) -> dict:
+def _normalize(payload) -> dict:
     if not isinstance(payload, dict):
-        return {"Exam_dates": {}, "Subjects": {}, "study_days": {}}
+        return {'Exam_dates': {}, 'Subjects': {}, 'study_days': {}}
 
-    raw_subjects = _find_key(payload, "Subjects", "subjects") or {}
-    raw_dates    = _find_key(payload,
-                             "Exam_dates", "exam_dates", "ExamDates",
-                             "Exam dates", "examDates") or {}
+    raw_s = _find(payload, 'Subjects', 'subjects') or {}
+    raw_d = _find(payload, 'Exam_dates', 'exam_dates', 'ExamDates', 'examDates') or {}
+    ns, nd = {}, {}
 
-    norm_subjects: dict = {}
-    norm_dates:    dict = {}
-
-    if isinstance(raw_subjects, list):
-        for s in raw_subjects:
-            if not isinstance(s, dict):
-                continue
-            name = str(s.get("subject") or s.get("name") or "").strip()
-            if not name:
-                continue
-            topics = s.get("topics") or []
+    if isinstance(raw_s, list):
+        for s in raw_s:
+            if not isinstance(s, dict): continue
+            name = str(s.get('subject') or s.get('name') or '').strip()
+            if not name: continue
+            topics = s.get('topics') or []
             if isinstance(topics, list):
-                topics_dict = {str(t).strip(): "none"
-                               for t in topics if isinstance(t, str) and t.strip()}
+                topics = {str(t).strip(): 'none' for t in topics if isinstance(t, str) and t.strip()}
             elif isinstance(topics, dict):
-                topics_dict = {str(k).strip(): "none" for k in topics if str(k).strip()}
+                topics = {str(k).strip(): 'none' for k in topics if str(k).strip()}
             else:
-                topics_dict = {}
-            if topics_dict:
-                norm_subjects[name] = topics_dict
-            ed = s.get("exam_date") or s.get("examDate")
-            if ed and str(ed).strip() not in ("null", "None", ""):
-                norm_dates[name] = str(ed).strip()
-        if isinstance(raw_dates, dict):
-            for k, v in raw_dates.items():
-                if v and str(v).strip() not in ("null", "None", ""):
-                    norm_dates[str(k).strip()] = str(v).strip()
-
-    elif isinstance(raw_subjects, dict):
-        for subj, topics in raw_subjects.items():
+                topics = {}
+            if topics: ns[name] = topics
+            ed = s.get('exam_date') or s.get('examDate')
+            if ed and str(ed).strip() not in ('null', 'None', ''):
+                nd[name] = str(ed).strip()
+        if isinstance(raw_d, dict):
+            for k, v in raw_d.items():
+                if v and str(v).strip() not in ('null', 'None', ''):
+                    nd[str(k).strip()] = str(v).strip()
+    elif isinstance(raw_s, dict):
+        for subj, topics in raw_s.items():
             subj = str(subj).strip()
-            if not subj:
-                continue
+            if not subj: continue
             if isinstance(topics, list):
-                topics = {str(t).strip(): "none" for t in topics if t}
+                topics = {str(t).strip(): 'none' for t in topics if t}
             elif isinstance(topics, str):
-                topics = {t.strip(): "none" for t in topics.split("\n") if t.strip()}
+                topics = {t.strip(): 'none' for t in topics.split('\n') if t.strip()}
             elif not isinstance(topics, dict):
                 topics = {}
-            norm_topics = {str(k).strip(): "none" for k in topics if str(k).strip()}
-            if norm_topics:
-                norm_subjects[subj] = norm_topics
-        if isinstance(raw_dates, dict):
-            for subj, date in raw_dates.items():
-                if date and str(date).strip() not in ("null", "None", ""):
-                    norm_dates[str(subj).strip()] = str(date).strip()
+            nt = {str(k).strip(): 'none' for k in topics if str(k).strip()}
+            if nt: ns[subj] = nt
+        if isinstance(raw_d, dict):
+            for subj, date in raw_d.items():
+                if date and str(date).strip() not in ('null', 'None', ''):
+                    nd[str(subj).strip()] = str(date).strip()
 
-    return {"Exam_dates": norm_dates, "Subjects": norm_subjects, "study_days": {}}
+    return {'Exam_dates': nd, 'Subjects': ns, 'study_days': {}}
 
 
-def _filter_dates_to_known_subjects(payload: dict) -> dict:
-    subjects   = payload.get("Subjects")   or {}
-    exam_dates = payload.get("Exam_dates") or {}
-    payload["Exam_dates"] = {s: d for s, d in exam_dates.items() if subjects.get(s)}
+def _filter_dates(payload: dict) -> dict:
+    subjects = payload.get('Subjects') or {}
+    payload['Exam_dates'] = {s: d for s, d in (payload.get('Exam_dates') or {}).items()
+                              if subjects.get(s)}
     return payload
 
 
-def _ensure_study_days(payload: dict) -> dict:
-    exam_dates  = payload.get("Exam_dates") or {}
-    valid_dates = []
-    for d in exam_dates.values():
-        if isinstance(d, str) and d:
-            try:
-                valid_dates.append(_parse_date(d))
-            except ValueError:
-                pass
-    if not valid_dates:
-        payload["study_days"] = {}
-        return payload
-    last_exam = max(valid_dates)
-    payload["study_days"] = _date_range_inclusive(today_date, _format_date(last_exam))
+def _ensure_study_days(payload: dict, today_str: str) -> dict:
+    valid = []
+    for d in (payload.get('Exam_dates') or {}).values():
+        try: valid.append(_parse_date(d))
+        except: pass
+    if not valid:
+        payload['study_days'] = {}
+    else:
+        payload['study_days'] = _date_range(today_str, _format_date(max(valid)))
     return payload
 
 
-def _extract_json_from_llm(text: str) -> dict:
+def _extract_json(text: str) -> dict:
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     text = re.sub(r'```(?:json)?', '', text).strip()
-    start = text.find("{")
-    end   = text.rfind("}") + 1
-    if start == -1 or end == 0:
-        raise ValueError("No JSON object found in LLM output")
-    return json.loads(text[start:end])
+    s, e = text.find('{'), text.rfind('}') + 1
+    if s == -1 or e == 0: raise ValueError('No JSON found')
+    return json.loads(text[s:e])
 
 
-# ───────────────────────────────────────
-# FILE READERS
-# ───────────────────────────────────────
+# ── FILE READERS ─────────────────────────────────────────────
 
 def extract_pdf(path: str) -> str:
-    reader = PdfReader(path)
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    return '\n'.join(p.extract_text() or '' for p in PdfReader(path).pages)
 
 def extract_docx(path: str) -> str:
-    doc = Document(path)
-    return "\n".join(p.text for p in doc.paragraphs)
+    return '\n'.join(p.text for p in Document(path).paragraphs)
 
 def extract(path: str) -> str:
     ext = os.path.splitext(path)[1].lower()
-    if ext == ".pdf":   return extract_pdf(path)
-    if ext == ".docx":  return extract_docx(path)
-    raise Exception(f"extract() does not support {ext}. Pass path to organize_with_llm().")
+    if ext == '.pdf':  return extract_pdf(path)
+    if ext == '.docx': return extract_docx(path)
+    raise Exception(f'extract() does not support {ext}')
 
 
-# ───────────────────────────────────────
-# FILE → LLM CONTENT PARTS
-# ───────────────────────────────────────
-
-def _file_to_content_parts(path: str, label: str) -> list:
+def _file_parts(path: str, label: str) -> list:
     ext   = os.path.splitext(path)[1].lower()
-    parts = [{"type": "text",
-              "text": f"\n\n--- {label} ({os.path.basename(path)}) ---\n"}]
+    parts = [{'type': 'text', 'text': f'\n---{label}---\n'}]
     if ext in ('.png', '.jpg', '.jpeg', '.webp'):
         with open(path, 'rb') as f:
-            b64  = base64.b64encode(f.read()).decode()
+            b64 = base64.b64encode(f.read()).decode()
         mime = 'image/png' if ext == '.png' else 'image/jpeg'
-        parts.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:{mime};base64,{b64}"}
-        })
+        parts.append({'type': 'image_url', 'image_url': {'url': f'data:{mime};base64,{b64}'}})
     elif ext == '.pdf':
-        parts.append({"type": "text", "text": extract_pdf(path) or "(empty PDF)"})
+        parts.append({'type': 'text', 'text': extract_pdf(path) or '(empty)'})
     elif ext == '.docx':
-        parts.append({"type": "text", "text": extract_docx(path) or "(empty DOCX)"})
+        parts.append({'type': 'text', 'text': extract_docx(path) or '(empty)'})
     else:
-        raise Exception(f"Unsupported file type: {ext}")
+        raise Exception(f'Unsupported: {ext}')
     return parts
 
 
-# ───────────────────────────────────────
-# MAIN: ORGANIZE WITH LLM
-# ───────────────────────────────────────
+# ── MAIN ─────────────────────────────────────────────────────
 
-def organize_with_llm(file_paths: list, manual_text: str = None) -> dict:
-    """
-    file_paths   : saved file paths; order = syllabus file(s) first, datesheet LAST.
-    manual_text  : optional plain text typed by the user in the browser
-                   (used as an extra syllabus source when files can't be uploaded).
+# Compact prompt — reduces token usage significantly
+_PROMPT = """Extract structured study planner data from the provided SYLLABUS and DATESHEET sources.
 
-    Returns:
-    {
-      "Exam_dates":  { "SubjectName": "DD-MM-YYYY" },
-      "Subjects":    { "SubjectName": { "TopicName": "none" } },
-      "study_days":  { "DD-MM-YYYY": "none" }
-    }
-    """
+Return ONLY this JSON (no markdown, no explanation):
+{"Exam_dates":{"SubjectName":"DD-MM-YYYY"},"Subjects":{"SubjectName":{"Topic 1":"none","Topic 2":"none"}}}
+
+Rules:
+- Only include subjects present in SYLLABUS sources
+- 4-8 topics per subject, prefer chapter/unit titles
+- Dates in DD-MM-YYYY format; omit if not found for a subject"""
+
+
+def organize_with_llm(file_paths: list,
+                      manual_text: str = None,
+                      today_str:   str = None,
+                      model_list:  list = None) -> dict:
+    if today_str is None:
+        today_str = datetime.date.today().strftime('%d-%m-%Y')
+    if model_list is None:
+        model_list = VISION_MODELS
     if not file_paths and not manual_text:
-        raise ValueError("No input provided to organize_with_llm()")
+        raise ValueError('No input provided')
 
-    content: list = []
-
+    content = []
     if file_paths:
-        syllabus_paths = file_paths[:-1]
-        datesheet_path = file_paths[-1]
-
-        for i, path in enumerate(syllabus_paths):
-            content.extend(_file_to_content_parts(path, f"SYLLABUS {i + 1}"))
-
-        content.extend(_file_to_content_parts(datesheet_path, "DATESHEET"))
-
-    # Manual text typed in the browser — treated as an additional syllabus source
+        for i, p in enumerate(file_paths[:-1]):
+            content.extend(_file_parts(p, f'SYLLABUS {i+1}'))
+        content.extend(_file_parts(file_paths[-1], 'DATESHEET'))
     if manual_text:
-        content.append({
-            "type": "text",
-            "text": f"\n\n--- MANUAL SYLLABUS TEXT (pasted by user) ---\n{manual_text}\n"
-        })
+        content.append({'type': 'text', 'text': f'\n---MANUAL SYLLABUS---\n{manual_text}\n'})
+    content.append({'type': 'text', 'text': _PROMPT})
 
-    content.append({"type": "text", "text": """
+    messages = [{'role': 'user', 'content': content}]
+    failure_reasons = []
 
-You are preparing structured data for a study planner.
+    for i, model in enumerate(model_list):
+        try:
+            print(f'[EXTRACT] Trying model {i+1}/{len(model_list)}: {model}')
+            resp    = client.chat.completions.create(model=model, temperature=0, messages=messages)
+            choice  = resp.choices[0] if resp.choices else None
+            if not choice or not choice.message.content:
+                raise ValueError(f'[{model}] Empty response (finish_reason={getattr(choice, "finish_reason", "?")})')
+            raw     = choice.message.content
+            parsed  = _extract_json(raw)
+            normed  = _normalize(parsed)
+            normed  = _filter_dates(normed)
+            normed  = _ensure_study_days(normed, today_str)
+            return normed
+        except Exception as e:
+            reason = f'[{model}] {type(e).__name__}: {e}'
+            print(f'[ERROR] {reason}')
+            failure_reasons.append(reason)
 
-You have been given:
-- One or more SYLLABUS sources (files and/or pasted text) — subjects and their topics.
-- One DATESHEET source — exam dates (may be a photographed printed table).
-
-YOUR TASKS:
-1. From the SYLLABUS sources, extract each subject name and its topics.
-2. From the DATESHEET, read the exam dates for each subject.
-3. Match each exam date to the correct syllabus subject (allow for minor name differences).
-4. CRITICAL: Only include subjects that appear in the SYLLABUS sources.
-
-Rules for topics:
-- Extract 4–8 meaningful topics per subject.
-- Prefer unit or chapter titles when available.
-- All topic values must be the string "none".
-
-Rules for dates:
-- Output all dates in DD-MM-YYYY format (e.g. 02-04-2026).
-- If no exam date can be found for a syllabus subject, omit it from Exam_dates.
-
-Return ONLY valid JSON — no explanation, no markdown fences:
-{
-  "Exam_dates": { "SubjectName": "DD-MM-YYYY" },
-  "Subjects": {
-    "SubjectName": {
-      "Topic 1": "none",
-      "Topic 2": "none"
-    }
-  }
-}
-"""})
-
-    response = client.chat.completions.create(
-        model=VISION_MODEL,
-        temperature=0,
-        messages=[{"role": "user", "content": content}]
-    )
-
-    raw = response.choices[0].message.content
-
-    try:
-        parsed     = _extract_json_from_llm(raw)
-        normalized = _normalize_payload(parsed)
-        normalized = _filter_dates_to_known_subjects(normalized)
-        normalized = _ensure_study_days(normalized)
-        return normalized
-    except Exception as e:
-        print("=" * 60)
-        print("LLM RAW OUTPUT (parsing failed):")
-        print(raw)
-        print("=" * 60)
-        raise Exception(f"LLM JSON parsing failed: {e}")
+    print('LLM FAILURES:\n' + '\n'.join(failure_reasons))
+    raise RuntimeError(f'All extraction models failed:\n' + '\n'.join(failure_reasons))

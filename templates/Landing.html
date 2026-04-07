@@ -4,100 +4,66 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StudyFlow AI</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
-
 <body>
 
-<header class="navbar">
-    <div class="logo">StudyFlow</div>
-
-    <nav>
-        <a href="#">Home</a>
-        <a href="#">Features</a>
-        <a href="#">About</a>
-    </nav>
-
-    {% if current_user.is_authenticated %}
-        <!-- Logged-in navbar: username + quick nav + logout -->
-        <div class="nav-user">
-            <span class="nav-username">{{ current_user.username }}</span>
-            <a href="{{ url_for('upload_page') }}">
-                <button class="nav-logout">Upload New</button>
-            </a>
-            <a href="{{ url_for('schedule_page') }}">
-                <button class="btn-primary" style="padding:8px 20px;font-size:14px;">
-                    My Schedule
-                </button>
-            </a>
-            <a href="{{ url_for('logout') }}">
-                <button class="nav-logout">Logout</button>
-            </a>
-        </div>
-    {% else %}
-        <!-- Logged-out navbar: single Login button -->
-        <button class="btn-primary" id="openAuthBtn">Login</button>
-    {% endif %}
-</header>
-
+{% include '_navbar.html' %}
 
 <section class="hero">
     <span class="badge">Introducing AI</span>
-    <h1>Upload Your Syllabus & Datesheet</h1>
+    <h1>Upload Your Syllabus &amp; Datesheet</h1>
     <p>
         StudyFlow AI analyses your syllabus and exam schedule to generate
         a smart day-by-day study plan automatically.
     </p>
 
     {% if current_user.is_authenticated %}
-        <!-- Logged-in hero: two action buttons -->
-        <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
-            <a href="{{ url_for('upload_page') }}">
-                <button class="btn-primary"
-                        style="font-size:18px;padding:16px 40px;">
-                    Upload New Syllabus
-                </button>
-            </a>
-            <a href="{{ url_for('schedule_page') }}">
-                <button class="nav-logout"
-                        style="font-size:18px;padding:16px 40px;border-radius:25px;">
-                    View My Schedule
-                </button>
-            </a>
-        </div>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+        <a href="{{ url_for('upload_page') }}">
+            <button class="btn-primary" style="font-size:17px;padding:15px 36px;">
+                Upload New Syllabus
+            </button>
+        </a>
+        <a href="{{ url_for('schedule_page') }}">
+            <button class="nav-logout" style="font-size:17px;padding:15px 36px;border-radius:25px;">
+                View My Schedule
+            </button>
+        </a>
+        <a href="{{ url_for('progress_page') }}">
+            <button class="nav-logout" style="font-size:17px;padding:15px 36px;border-radius:25px;">
+                Check Progress
+            </button>
+        </a>
+    </div>
     {% else %}
-        <!-- Logged-out hero: Get Started opens the auth modal -->
-        <button class="btn-primary"
-                style="font-size:18px;padding:16px 40px;"
-                id="heroGetStarted">
-            Get Started →
-        </button>
+    <button class="btn-primary" style="font-size:18px;padding:16px 40px;" id="heroGetStarted">
+        Get Started →
+    </button>
     {% endif %}
 </section>
 
-
-<!-- ═══ AUTH MODAL (only rendered when logged out) ═══ -->
+<!-- AUTH MODAL — only for logged-out users -->
 {% if not current_user.is_authenticated %}
 <div id="authOverlay" class="auth-overlay hidden">
 <div class="auth-modal">
 
     <button class="auth-close" id="closeAuthBtn">✕</button>
 
-    <!-- LOGIN PANEL -->
     <div id="loginPanel" class="auth-panel">
         <h2 class="auth-title">Welcome back</h2>
         <p class="auth-sub">Log in to your StudyFlow account</p>
         <div id="loginError" class="auth-error hidden"></div>
 
         <label class="auth-label">Username or Email</label>
-        <input id="loginIdentifier" class="auth-input"
-               type="text" placeholder="you@example.com" autocomplete="username">
+        <input id="loginIdentifier" class="auth-input" type="text"
+               placeholder="you@example.com" autocomplete="username">
 
         <label class="auth-label">Password</label>
-        <input id="loginPassword" class="auth-input"
-               type="password" placeholder="••••••••" autocomplete="current-password">
+        <input id="loginPassword" class="auth-input" type="password"
+               placeholder="••••••••" autocomplete="current-password">
 
         <label class="auth-remember">
             <input type="checkbox" id="loginRemember"> Remember me for 7 days
@@ -111,29 +77,26 @@
         </p>
     </div>
 
-    <!-- REGISTER PANEL -->
     <div id="registerPanel" class="auth-panel hidden">
         <h2 class="auth-title">Create account</h2>
         <p class="auth-sub">Start planning smarter today</p>
         <div id="registerError" class="auth-error hidden"></div>
 
         <label class="auth-label">Username</label>
-        <input id="regUsername" class="auth-input"
-               type="text" placeholder="studymaster99" autocomplete="username">
+        <input id="regUsername" class="auth-input" type="text"
+               placeholder="studymaster99" autocomplete="username">
 
         <label class="auth-label">Email</label>
-        <input id="regEmail" class="auth-input"
-               type="email" placeholder="you@example.com" autocomplete="email">
+        <input id="regEmail" class="auth-input" type="email"
+               placeholder="you@example.com" autocomplete="email">
 
-        <label class="auth-label">
-            Password <span class="auth-hint">(min 8 chars)</span>
-        </label>
-        <input id="regPassword" class="auth-input"
-               type="password" placeholder="••••••••" autocomplete="new-password">
+        <label class="auth-label">Password <span class="auth-hint">(min 8 chars)</span></label>
+        <input id="regPassword" class="auth-input" type="password"
+               placeholder="••••••••" autocomplete="new-password">
 
         <label class="auth-label">Confirm Password</label>
-        <input id="regConfirm" class="auth-input"
-               type="password" placeholder="••••••••" autocomplete="new-password">
+        <input id="regConfirm" class="auth-input" type="password"
+               placeholder="••••••••" autocomplete="new-password">
 
         <button class="auth-btn" id="registerSubmit">Create Account</button>
 
@@ -145,7 +108,6 @@
 
 </div>
 </div>
-
 <script src="{{ url_for('static', filename='auth.js') }}"></script>
 {% endif %}
 

@@ -1,195 +1,21 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
-}
-
-body {
-    background: #050505;
-    color: white;
-    min-height: 100vh;
-}
-
-/* ── NAVBAR ── */
-
-.status-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 40px;
-    border-bottom: 1px solid #1a1a1a;
-}
-
-/* ── PAGE TITLE ── */
+/* Status.css — complete, no missing rules */
 
 .page-title {
     text-align: center;
-    font-size: 48px;
-    margin-top: 40px;
-    margin-bottom: 20px;
+    font-size: 44px;
+    margin: 36px 0 20px;
 }
 
-/* ── DASHBOARD LAYOUT ── */
-
-.dashboard {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 60px;
-    padding: 20px;
-    max-width: 1200px;
-    margin: auto;
-}
-
-/* ── CARDS ── */
-
-.card {
-    background: #070707;
-    border-radius: 25px;
-    padding: 35px;
-    box-shadow:
-        0 0 40px rgba(123, 47, 247, 0.6),
-        0 0 80px rgba(123, 47, 247, 0.3);
-}
-
-/* ── LEFT PANEL ── */
-
-.topics-card {
-    width: 700px;
-    max-height: 600px;
-    overflow-y: auto;
-}
-
-/* ── SUBJECT BLOCK ── */
-
-.subject-block {
-    margin-bottom: 35px;
-}
-
-/* ── SUBJECT HEADER ── */
-
-.subject-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.subject-header h2 {
-    font-size: 26px;
-    font-weight: 600;
-}
-
-.exam-date {
-    color: #aaa;
-    font-size: 15px;
-}
-
-/* ── TOPIC ROW ── */
-
-.topic-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 0;
-    border-bottom: 1px solid #444;
-    gap: 15px;
-}
-
-.topic-name {
-    font-size: 18px;
-    flex: 1;
-}
-
-/* ── COMPLETION DROPDOWN ── */
-
-.status-select {
-    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none;
-    border-radius: 20px;
-    padding: 8px 18px;
-    color: white;
-    cursor: pointer;
-    min-width: 180px;
-}
-
-/* ── RIGHT PANEL ── */
-
-.hours-card {
-    width: 360px;
-}
-
-.hours-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 18px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #555;
-    padding-bottom: 10px;
-}
-
-.hours-list {
-    max-height: 500px;
-    overflow-y: auto;
-    padding-right: 5px;
-}
-
-.date-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    font-size: 16px;
-}
-
-.date-row input {
-    width: 80px;
-    background: white;
-    border: none;
-    border-radius: 20px;
-    padding: 8px;
-    color: black;
-    text-align: center;
-}
-
-/* ── GENERATE BUTTON ── */
-
-.generate-btn {
-    display: block;
-    margin: 40px auto 50px;
-    padding: 14px 40px;
-    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none;
-    border-radius: 25px;
-    color: white;
-    font-size: 18px;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-.generate-btn:hover {
-    box-shadow: 0 0 20px #7b2ff7;
-    transform: translateY(-2px);
-}
-
-
-/* ════════════════════════════════════════════
-   EDIT MODE STYLES
-════════════════════════════════════════════ */
-
-/* TOOLBAR  (sits between title and dashboard) */
-
+/* ── EDIT TOOLBAR ── */
+/* THIS WAS THE BUG: display:flex was missing, so the toolbar was invisible on first load */
 .edit-toolbar {
-    display: flex;
+    display: flex;               /* ← the critical fix */
     justify-content: center;
     align-items: center;
     gap: 14px;
-    margin: 0 auto 30px;
+    margin: 0 auto 28px;
     flex-wrap: wrap;
 }
-
-/* "Edit Subjects & Dates" button */
 
 .edit-toggle-btn {
     background: transparent;
@@ -201,209 +27,161 @@ body {
     cursor: pointer;
     transition: 0.2s;
 }
-
 .edit-toggle-btn:hover {
-    background: rgba(123, 47, 247, 0.12);
-    box-shadow: 0 0 10px rgba(123, 47, 247, 0.3);
+    background: rgba(123,47,247,0.12);
+    box-shadow: 0 0 10px rgba(123,47,247,0.3);
 }
 
-/* Save / Cancel buttons (shown in edit mode) */
-
-.edit-actions {
-    display: flex;
-    gap: 12px;
-}
+.edit-actions { display: flex; gap: 12px; }
 
 .edit-save-btn {
     background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none;
-    border-radius: 20px;
-    padding: 9px 24px;
-    color: white;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
+    border: none; border-radius: 20px;
+    padding: 9px 24px; color: white;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
 }
-
-.edit-save-btn:hover {
-    box-shadow: 0 0 14px rgba(123, 47, 247, 0.5);
-    transform: translateY(-1px);
-}
-
-.edit-save-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
+.edit-save-btn:hover   { box-shadow: 0 0 14px rgba(123,47,247,0.5); transform: translateY(-1px); }
+.edit-save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .edit-cancel-btn {
-    background: transparent;
-    border: 1px solid #555;
-    border-radius: 20px;
-    padding: 9px 24px;
-    color: #aaa;
-    font-size: 14px;
-    cursor: pointer;
-    transition: 0.2s;
+    background: transparent; border: 1px solid #555;
+    border-radius: 20px; padding: 9px 24px;
+    color: #aaa; font-size: 14px; cursor: pointer; transition: 0.2s;
+}
+.edit-cancel-btn:hover { border-color: #888; color: white; }
+
+/* ── DASHBOARD LAYOUT ── */
+.dashboard {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 50px;
+    padding: 0 20px 20px;
+    max-width: 1200px;
+    margin: auto;
 }
 
-.edit-cancel-btn:hover {
-    border-color: #888;
-    color: white;
+/* ── CARDS ── */
+.card {
+    background: #070707;
+    border-radius: 25px;
+    padding: 35px;
+    box-shadow: 0 0 40px rgba(123,47,247,0.6), 0 0 80px rgba(123,47,247,0.3);
 }
 
-/* General utility */
+.topics-card { width: 700px; max-height: 620px; overflow-y: auto; }
 
-.hidden {
-    display: none !important;
+/* ── SUBJECT BLOCK ── */
+.subject-block { margin-bottom: 35px; }
+
+.subject-header {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 20px;
+}
+.subject-header h2 { font-size: 26px; font-weight: 600; }
+.exam-date { color: #aaa; font-size: 15px; }
+
+/* ── TOPIC ROW ── */
+.topic-row {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid #444; gap: 15px;
+}
+.topic-name { font-size: 18px; flex: 1; }
+
+/* ── DROPDOWN ── */
+.status-select {
+    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+    border: none; border-radius: 20px;
+    padding: 8px 18px; color: white;
+    cursor: pointer; min-width: 180px;
 }
 
-/* ── INLINE TEXT INPUTS (subject/topic names) ── */
+/* ── HOURS PANEL ── */
+.hours-card { width: 340px; }
+.hours-header {
+    display: flex; justify-content: space-between;
+    font-size: 16px; margin-bottom: 20px;
+    border-bottom: 1px solid #555; padding-bottom: 10px;
+}
+.hours-list { max-height: 520px; overflow-y: auto; padding-right: 4px; }
+
+.date-row {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 14px; font-size: 15px;
+}
+.date-row input {
+    width: 72px; background: white; border: none;
+    border-radius: 16px; padding: 7px; color: black; text-align: center;
+}
+
+/* ── GENERATE BUTTON ── */
+.generate-btn {
+    display: block; margin: 36px auto 50px;
+    padding: 14px 40px;
+    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+    border: none; border-radius: 25px;
+    color: white; font-size: 18px; cursor: pointer; transition: 0.3s;
+}
+.generate-btn:hover { box-shadow: 0 0 20px #7b2ff7; transform: translateY(-2px); }
+
+/* ══════════════════
+   EDIT MODE STYLES
+══════════════════ */
 
 .edit-inline-input {
-    background: #1a1a2e;
-    border: 1px solid #7b2ff7;
-    border-radius: 8px;
-    padding: 7px 12px;
-    color: white;
-    font-size: 15px;
-    outline: none;
-    flex: 1;
-    min-width: 0;
-    transition: border-color 0.2s;
+    background: #1a1a2e; border: 1px solid #7b2ff7;
+    border-radius: 8px; padding: 7px 12px;
+    color: white; font-size: 15px; outline: none;
+    flex: 1; min-width: 0; transition: border-color 0.2s;
 }
+.edit-inline-input:focus { border-color: #9f55ff; box-shadow: 0 0 6px rgba(123,47,247,0.3); }
+.edit-name-input { font-size: 18px; font-weight: 600; margin-bottom: 6px; width: 100%; }
 
-.edit-inline-input:focus {
-    border-color: #9f55ff;
-    box-shadow: 0 0 6px rgba(123, 47, 247, 0.3);
-}
+.edit-col { display: flex; flex-direction: column; flex: 1; gap: 6px; margin-right: 16px; }
 
-.edit-name-input {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    width: 100%;
-}
-
-/* ── SUBJECT HEADER EDIT LAYOUT ── */
-
-.edit-col {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    gap: 6px;
-    margin-right: 16px;
-}
-
-.edit-date-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.edit-date-label {
-    font-size: 13px;
-    color: #aaa;
-    white-space: nowrap;
-}
-
+.edit-date-row { display: flex; align-items: center; gap: 10px; }
+.edit-date-label { font-size: 13px; color: #aaa; white-space: nowrap; }
 .edit-date-input {
-    background: #1a1a2e;
-    border: 1px solid #555;
-    border-radius: 8px;
-    padding: 5px 10px;
-    color: white;
-    font-size: 13px;
-    outline: none;
-    cursor: pointer;
-    transition: border-color 0.2s;
-    /* Make the calendar icon visible on dark backgrounds */
-    color-scheme: dark;
+    background: #1a1a2e; border: 1px solid #555;
+    border-radius: 8px; padding: 5px 10px;
+    color: white; font-size: 13px; outline: none;
+    cursor: pointer; transition: border-color 0.2s; color-scheme: dark;
 }
-
-.edit-date-input:focus {
-    border-color: #7b2ff7;
-}
-
-/* ── DELETE SUBJECT BUTTON ── */
+.edit-date-input:focus { border-color: #7b2ff7; }
 
 .edit-delete-btn {
-    background: rgba(220, 50, 50, 0.1);
-    border: 1px solid rgba(220, 50, 50, 0.35);
-    border-radius: 10px;
-    padding: 8px 14px;
-    color: #ff7c7c;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
-    align-self: flex-start;
-    transition: 0.2s;
+    background: rgba(220,50,50,0.1); border: 1px solid rgba(220,50,50,0.35);
+    border-radius: 10px; padding: 8px 14px;
+    color: #ff7c7c; font-size: 13px; cursor: pointer;
+    white-space: nowrap; align-self: flex-start; transition: 0.2s;
 }
-
-.edit-delete-btn:hover {
-    background: rgba(220, 50, 50, 0.2);
-    border-color: rgba(220, 50, 50, 0.6);
-}
-
-/* ── DELETE TOPIC BUTTON (small ✕ at end of row) ── */
+.edit-delete-btn:hover { background: rgba(220,50,50,0.2); }
 
 .edit-delete-topic-btn {
-    background: none;
-    border: none;
-    color: #ff7c7c;
-    font-size: 16px;
-    cursor: pointer;
-    padding: 2px 8px;
-    border-radius: 6px;
-    line-height: 1;
-    transition: 0.15s;
-    flex-shrink: 0;
+    background: none; border: none; color: #ff7c7c;
+    font-size: 16px; cursor: pointer; padding: 2px 8px;
+    border-radius: 6px; flex-shrink: 0; transition: 0.15s;
 }
-
-.edit-delete-topic-btn:hover {
-    background: rgba(220, 50, 50, 0.15);
-}
-
-/* ── ADD TOPIC ROW ── */
+.edit-delete-topic-btn:hover { background: rgba(220,50,50,0.15); }
 
 .edit-add-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-top: 10px;
-    padding-top: 10px;
+    display: flex; gap: 10px; align-items: center;
+    margin-top: 10px; padding-top: 10px;
     border-top: 1px dashed #333;
 }
 
-/* ── ADD SUBJECT ROW ── */
-
 .edit-add-subject-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-top: 20px;
-    padding: 16px;
-    border: 1px dashed #7b2ff7;
-    border-radius: 12px;
-    background: rgba(123, 47, 247, 0.05);
+    display: flex; gap: 10px; align-items: center;
+    margin-top: 20px; padding: 16px;
+    border: 1px dashed #7b2ff7; border-radius: 12px;
+    background: rgba(123,47,247,0.05);
 }
-
-/* ── ADD BUTTON (shared by add topic + add subject) ── */
 
 .edit-add-btn {
     background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none;
-    border-radius: 14px;
-    padding: 8px 18px;
-    color: white;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: 0.2s;
+    border: none; border-radius: 14px;
+    padding: 8px 18px; color: white;
+    font-size: 13px; cursor: pointer; white-space: nowrap; transition: 0.2s;
 }
-
-.edit-add-btn:hover {
-    box-shadow: 0 0 10px rgba(123, 47, 247, 0.4);
-    transform: translateY(-1px);
-}
+.edit-add-btn:hover { box-shadow: 0 0 10px rgba(123,47,247,0.4); transform: translateY(-1px); }

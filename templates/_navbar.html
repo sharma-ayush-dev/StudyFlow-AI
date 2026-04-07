@@ -1,0 +1,42 @@
+<nav class="main-nav">
+    <a href="{{ url_for('landing') }}" class="logo">StudyFlow</a>
+
+    {% if current_user.is_authenticated %}
+    <div class="nav-links">
+        <a href="{{ url_for('upload_page') }}"
+           class="{{ 'nav-active' if request.endpoint == 'upload_page' else '' }}">
+            Upload
+        </a>
+        <a href="{{ url_for('status_page') }}"
+           class="{{ 'nav-active' if request.endpoint == 'status_page' else '' }}">
+            Topics
+        </a>
+        <a href="{{ url_for('schedule_page') }}"
+           class="{{ 'nav-active' if request.endpoint == 'schedule_page' else '' }}">
+            Schedule
+        </a>
+        <a href="{{ url_for('progress_page') }}"
+           class="{{ 'nav-active' if request.endpoint == 'progress_page' else '' }}">
+            Progress
+        </a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin_dashboard') }}"
+           class="{{ 'nav-active' if request.endpoint == 'admin_dashboard' else '' }} nav-admin">
+            Admin
+        </a>
+        {% endif %}
+    </div>
+    <div class="nav-user">
+        <span class="nav-username">{{ current_user.username }}</span>
+        <a href="{{ url_for('logout') }}">
+            <button class="nav-logout">Logout</button>
+        </a>
+    </div>
+    {% else %}
+    <div></div><!-- spacer so login btn right-aligns -->
+    <button class="btn-primary nav-login-btn" id="openAuthBtn"
+            style="padding:9px 24px;font-size:14px;">
+        Login
+    </button>
+    {% endif %}
+</nav>

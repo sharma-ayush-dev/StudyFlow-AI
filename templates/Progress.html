@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>StudyFlow — Progress</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='Progress.css') }}">
+</head>
+<body>
+{% include '_navbar.html' %}
+<h1 class="page-title">Progress Check-in</h1>
+<p class="progress-subtitle">
+    Today: <strong>{{ today_str }}</strong> &nbsp;·&nbsp;
+    Update how far you've got, then regenerate if needed.
+</p>
+<div class="progress-wrapper" id="progressWrapper">
+    <div class="card topics-card" id="progressTopicsCard">
+        <div style="text-align:center;padding:40px;color:#777;">Loading…</div>
+    </div>
+</div>
+<div class="progress-actions" id="progressActions">
+    <button class="generate-btn" id="saveProgressBtn" style="margin:0;">✓ Save Progress</button>
+    <button class="edit-toggle-btn" id="regenBtn" style="font-size:16px;padding:13px 32px;">↺ Regenerate Schedule</button>
+</div>
+<div id="progressLoader" style="display:none;text-align:center;padding:30px 0;">
+    <div class="loader-ring"></div>
+    <p id="progressLoaderMsg" style="color:#aaa;font-size:15px;margin-top:12px;">Saving…</p>
+</div>
+<div id="comparisonSection" class="hidden">
+    <h2 class="comparison-title">Which schedule do you want to keep?</h2>
+    <p class="comparison-sub">Old on the left, new on the right.</p>
+    <div class="comparison-grid">
+        <div class="comparison-card">
+            <div class="comparison-card-header">
+                <span class="comparison-label old-label">Current Schedule</span>
+                <button class="keep-btn keep-old-btn" id="keepOldBtn">Keep This</button>
+            </div>
+            <div class="comparison-scroll" id="oldScheduleContent"></div>
+        </div>
+        <div class="comparison-card">
+            <div class="comparison-card-header">
+                <span class="comparison-label new-label">New Schedule</span>
+                <button class="keep-btn keep-new-btn" id="keepNewBtn">Keep This</button>
+            </div>
+            <div class="comparison-scroll" id="newScheduleContent"></div>
+        </div>
+    </div>
+</div>
+<script>
+    window.TOPIC_STATUS  = {{ topic_status  | tojson | safe }};
+    window.PAST_SCHEDULE = {{ past_schedule | tojson | safe }};
+    window.FULL_SCHEDULE = {{ full_schedule | tojson | safe }};
+    window.TODAY_STR     = {{ today_str     | tojson | safe }};
+    window.USER_ID       = {{ userid        | tojson | safe }};
+    window.IS_ADMIN      = {{ is_admin      | tojson | safe }};
+</script>
+<script src="{{ url_for('static', filename='Progress.js') }}"></script>
+</body>
+</html>

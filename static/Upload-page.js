@@ -1,65 +1,83 @@
-/* ════════════════════════════════════════
+/* ═══════════════════════════════════════════
    UPLOAD-PAGE.JS
-   - Fetches userid dynamically from /me
-   - Sends files + optional manual text
-   - Shows loading animation during upload
-   - Disables button after first click (rate limit UI)
-════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 
-const syllabusInput = document.getElementById('syllabusInput');
-const datesheetInput = document.getElementById('datesheetInput');
-const syllabusName  = document.getElementById('syllabusName');
-const datesheetName = document.getElementById('datesheetName');
+const fileInput     = document.getElementById('fileInput');
+const fileNames     = document.getElementById('fileNames');
 const uploadBtn     = document.getElementById('uploadBtn');
 const uploadLoader  = document.getElementById('uploadLoader');
 const loaderMsg     = document.getElementById('loaderMsg');
+const manualText    = document.getElementById('manualText');
+const wordCountText = document.getElementById('wordCountText');
+const WORD_LIMIT    = window.WORD_LIMIT || 2000;
 
-// ── MANUAL TEXT TOGGLE ────────────────────────────────
+// ── MANUAL TEXT TOGGLE ──────────────────────────────────────
 
 document.getElementById('manualToggle').addEventListener('click', () => {
     const box = document.getElementById('manualTextBox');
-    const isHidden = box.style.display === 'none';
-    box.style.display = isHidden ? 'flex' : 'none';
+    box.style.display = box.style.display === 'none' ? 'flex' : 'none';
 });
 
+// ── WORD COUNT + CLIENT-SIDE SANITIZATION ───────────────────
 
-// ── FILE SELECT LISTENERS ─────────────────────────────
+function countWords(text) {
+    return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
 
-syllabusInput.addEventListener('change', () => {
-    if (syllabusInput.files.length > 0) {
-        syllabusName.textContent = syllabusInput.files.length + ' file(s) selected';
+// Strip HTML tags client-side before sending (defence in depth — server also sanitizes)
+function sanitizeText(text) {
+    return text
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+        .trim();
+}
+
+manualText?.addEventListener('input', () => {
+    const words = countWords(manualText.value);
+    wordCountText.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    wordCountText.style.color = words > WORD_LIMIT ? '#ff7c7c' : '#666';
+});
+
+// ── FILE SELECT + DRAG & DROP ───────────────────────────────
+
+fileInput.addEventListener('change', () => {
+    updateFileLabel(fileInput.files);
+});
+
+function updateFileLabel(files) {
+    if (!files || !files.length) {
+        fileNames.textContent = 'No files chosen';
+        return;
     }
-});
+    fileNames.textContent = Array.from(files).map(f => f.name).join(', ');
+}
 
-datesheetInput.addEventListener('change', () => {
-    if (datesheetInput.files.length > 0) {
-        datesheetName.textContent = datesheetInput.files[0].name;
+const dropArea = document.getElementById('fileDropArea');
+
+dropArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropArea.classList.add('drag-over');
+});
+dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+dropArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropArea.classList.remove('drag-over');
+    const dt  = e.dataTransfer;
+    // Assign dropped files to the input
+    try {
+        fileInput.files = dt.files;
+    } catch (_) {
+        // DataTransfer assignment may fail in some browsers — show names anyway
     }
+    updateFileLabel(dt.files);
 });
 
-
-// ── DRAG & DROP ───────────────────────────────────────
-
-document.getElementById('syllabusDrop').addEventListener('dragover', e => e.preventDefault());
-document.getElementById('syllabusDrop').addEventListener('drop', e => {
-    e.preventDefault();
-    syllabusInput.files = e.dataTransfer.files;
-    syllabusName.textContent = e.dataTransfer.files.length + ' file(s) selected';
-});
-
-document.getElementById('datesheetDrop').addEventListener('dragover', e => e.preventDefault());
-document.getElementById('datesheetDrop').addEventListener('drop', e => {
-    e.preventDefault();
-    datesheetInput.files = e.dataTransfer.files;
-    datesheetName.textContent = e.dataTransfer.files[0].name;
-});
-
-
-// ── LOADING HELPERS ───────────────────────────────────
+// ── LOADER ──────────────────────────────────────────────────
 
 const loaderMessages = [
     'Extracting content…',
-    'Reading your syllabus…',
+    'Reading your files…',
     'Identifying topics…',
     'Matching exam dates…',
     'Almost there…'
@@ -67,7 +85,7 @@ const loaderMessages = [
 let loaderInterval = null;
 
 function startLoader() {
-    uploadBtn.style.display   = 'none';
+    uploadBtn.style.display  = 'none';
     uploadLoader.style.display = 'block';
     let i = 0;
     loaderMsg.textContent = loaderMessages[0];
@@ -83,22 +101,20 @@ function stopLoader() {
     uploadBtn.style.display    = 'block';
 }
 
-
-// ── UPLOAD ────────────────────────────────────────────
+// ── UPLOAD ──────────────────────────────────────────────────
 
 uploadBtn.addEventListener('click', async () => {
+    const hasFiles  = fileInput.files && fileInput.files.length > 0;
+    const rawText   = manualText?.value || '';
+    const cleanText = sanitizeText(rawText);
+    const words     = countWords(cleanText);
 
-    const hasFiles  = syllabusInput.files.length > 0 || datesheetInput.files.length > 0;
-    const manualTxt = (document.getElementById('manualText')?.value || '').trim();
-
-    if (!hasFiles && !manualTxt) {
-        alert('Please upload at least one file or paste your syllabus text.');
+    if (!hasFiles && !cleanText) {
+        alert('Please upload files or paste your syllabus text.');
         return;
     }
-
-    // Must have a datesheet if files are being uploaded
-    if (syllabusInput.files.length > 0 && !datesheetInput.files.length) {
-        alert('Please also upload your datesheet.');
+    if (words > WORD_LIMIT) {
+        alert(`Text exceeds the ${WORD_LIMIT}-word limit (you have ${words} words). Please shorten it.`);
         return;
     }
 
@@ -107,21 +123,14 @@ uploadBtn.addEventListener('click', async () => {
     try {
         const formData = new FormData();
 
-        for (const file of syllabusInput.files) {
-            formData.append('files', file);
+        if (hasFiles) {
+            Array.from(fileInput.files).forEach(f => formData.append('files', f));
         }
-        if (datesheetInput.files.length) {
-            formData.append('files', datesheetInput.files[0]);
-        }
-        if (manualTxt) {
-            formData.append('manual_text', manualTxt);
+        if (cleanText) {
+            formData.append('manual_text', cleanText);
         }
 
-        const res = await fetch('/upload', {
-            method: 'POST',
-            body:   formData
-        });
-
+        const res  = await fetch('/upload', { method: 'POST', body: formData });
         const data = await res.json();
 
         if (!res.ok) {
@@ -134,7 +143,7 @@ uploadBtn.addEventListener('click', async () => {
 
     } catch (err) {
         console.error(err);
-        alert('Upload failed. Please check your connection and try again.');
+        alert('Upload failed. Check your connection and try again.');
         stopLoader();
     }
 });
