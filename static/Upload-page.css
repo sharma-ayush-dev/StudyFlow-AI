@@ -1,207 +1,203 @@
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family: 'Inter', sans-serif;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
 }
 
-body{
-background:#050505;
-color:white;
+body {
+    background: #050505;
+    color: white;
 }
 
 /* NAVBAR */
 
-.navbar{
-display:flex;
-justify-content:space-between;
-align-items:center;
-padding:20px 80px;
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 80px;
 }
 
-.logo{
-font-size:24px;
-font-weight:600;
-letter-spacing:2px;
+.logo {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 2px;
 }
 
-nav a{
-margin:0 20px;
-text-decoration:none;
-color:#aaa;
-font-size:14px;
+nav a {
+    margin: 0 20px;
+    text-decoration: none;
+    color: #aaa;
+    font-size: 14px;
 }
 
-nav a:hover{
-color:white;
+nav a:hover {
+    color: white;
 }
 
 
 /* BUTTONS */
 
-.btn-primary{
-background:linear-gradient(135deg,#7b2ff7,#9f55ff);
-border:none;
-padding:12px 26px;
-border-radius:25px;
-color:white;
-cursor:pointer;
-font-size:15px;
-transition:0.3s;
+.btn-primary {
+    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+    border: none;
+    padding: 12px 26px;
+    border-radius: 25px;
+    color: white;
+    cursor: pointer;
+    font-size: 15px;
+    transition: 0.3s;
 }
 
-.btn-primary:hover{
-box-shadow:0 0 20px #7b2ff7;
-transform:translateY(-2px);
+.btn-primary:hover {
+    background: linear-gradient(135deg, #8c46ff, #b37fff);
 }
+
 
 
 /* HERO CENTER */
 
-.hero{
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-text-align:center;
-padding:80px 20px;
+.hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 80px 20px;
 }
 
 
 /* BADGE */
 
-.badge{
-border:1px solid #7b2ff7;
-padding:6px 18px;
-border-radius:20px;
-font-size:12px;
-color:#9f55ff;
-margin-bottom:20px;
+.badge {
+    border: 1px solid #7b2ff7;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #9f55ff;
+    margin-bottom: 20px;
 }
 
 
 /* HERO TEXT */
 
-.hero h1{
-font-size:52px;
-margin-bottom:15px;
-letter-spacing:1px;
+.hero h1 {
+    font-size: 52px;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
 }
 
-.hero p{
-max-width:700px;
-color:#bbb;
-margin-bottom:40px;
-font-size:18px;
-line-height:1.6;
+.hero p {
+    max-width: 700px;
+    color: #bbb;
+    margin-bottom: 40px;
+    font-size: 18px;
+    line-height: 1.6;
 }
 
 
 /* UPLOAD BOX */
 
-.upload-box{
-background:#0c0c12;
-padding:50px;
-border-radius:20px;
-width:600px;
+.upload-box {
+    background: #0c0c12;
+    padding: 50px;
+    border-radius: 20px;
+    width: 600px;
 
-display:flex;
-flex-direction:column;
-gap:25px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
 
-border:1px solid #1a1a1a;
-transition:0.4s;
+    border: 1px solid #1a1a1a;
+    transition: 0.4s;
 }
 
-.upload-box h3{
-font-size:32px;
+.upload-box h3 {
+    font-size: 32px;
 }
 
 
-/* HOVER EFFECT */
-
-.upload-box:hover{
-transform:translateY(-10px);
-
-box-shadow:
-0 10px 40px rgba(123,47,247,0.3),
-0 0 15px rgba(123,47,247,0.5);
+/* HOVER EFFECT REMOVED */
+.upload-box:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 
 /* DRAG DROP AREA */
 
-.drop-area{
+.drop-area {
 
-border:2px dashed #7b2ff7;
-border-radius:12px;
+    border: 2px dashed #7b2ff7;
+    border-radius: 12px;
 
-padding:40px;
+    padding: 40px;
 
-display:flex;
-flex-direction:column;
-align-items:center;
-justify-content:center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 
-cursor:pointer;
-transition:0.3s;
+    cursor: pointer;
+    transition: 0.3s;
 
-background:#09090f;
+    background: #09090f;
 }
 
-.drop-area p{
-font-size:23px;
+.drop-area p {
+    font-size: 23px;
 }
 
 
 /* DRAG HOVER */
 
-.drop-area:hover{
-background:#0e0e17;
-box-shadow:0 0 15px rgba(123,47,247,0.4);
+.drop-area:hover {
+    background: #0e0e17;
 }
 
-.drop-area.drag-over{
-background:#0f0f1a;
-border-color:#9f55ff;
-box-shadow:0 0 20px rgba(123,47,247,0.6);
+
+.drop-area.drag-over {
+    background: #0f0f1a;
+    border-color: #9f55ff;
 }
+
 
 
 /* HIDE REAL INPUT */
 
-.file-btn input{
-display:none;
+.file-btn input {
+    display: none;
 }
 
 /* CUSTOM FILE BUTTON */
 
-.file-btn{
-margin-top:10px;
-display:inline-block;
-padding:14px 30px;
-background:linear-gradient(135deg,#7b2ff7,#9f55ff);
-border-radius:25px;
-cursor:pointer;
-font-size:15px;
-color:white;
-transition:0.3s;
+.file-btn {
+    margin-top: 10px;
+    display: inline-block;
+    padding: 14px 30px;
+    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 15px;
+    color: white;
+    transition: 0.3s;
 }
 
-.file-btn:hover{
-box-shadow:0 0 15px #7b2ff7;
-transform:translateY(-2px);
-}
-
-.file-name{
-margin-top:15px;
-font-size:14px;
-color:#bbb;
+.file-btn:hover {
+    background: linear-gradient(135deg, #8c46ff, #b37fff);
 }
 
 
-.upload-btn{
-margin-top:10px;
-font-size:20px;
-padding:14px;
+.file-name {
+    margin-top: 15px;
+    font-size: 14px;
+    color: #bbb;
+}
+
+
+.upload-btn {
+    margin-top: 10px;
+    font-size: 20px;
+    padding: 14px;
 }

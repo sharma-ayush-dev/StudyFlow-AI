@@ -1,0 +1,331 @@
+/* ═══════════════════════════════════════════
+   NEW-LANDING.CSS
+═══════════════════════════════════════════ */
+
+/* Global Reset (Assuming we supplement auth.css) */
+body, html {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+    /* The background is inherited from auth.css (#050505), but just in case: */
+    background-color: #050505;
+    color: white;
+    overflow-x: hidden;
+}
+
+/* Navigation Bar Entry Animation */
+.main-nav {
+    animation: slideDownFade 0.8s ease-out forwards;
+    opacity: 0; /* Let animation take over */
+}
+
+/* Landing Container for Split Layout */
+.landing-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Subtract an approximate navbar height */
+    min-height: calc(100vh - 80px); 
+    padding: 0 8%;
+    gap: 40px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Optional Background Glow for Landing */
+.landing-container::before {
+    content: "";
+    position: absolute;
+    top: 30%;
+    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(123, 47, 247, 0.08) 0%, rgba(5, 5, 5, 0) 70%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* ── LEFT CONTENT (Text & Buttons) ── */
+.content-left {
+    flex: 1;
+    max-width: 600px;
+    animation: slideInLeft 1s ease-out forwards;
+}
+
+.badge {
+    display: inline-block;
+    border: 1px solid #7b2ff7;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #9f55ff;
+    margin-bottom: 24px;
+    font-weight: 500;
+    background: rgba(123, 47, 247, 0.05);
+}
+
+.landing-title {
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -1.5px;
+    background: linear-gradient(135deg, #ffffff 0%, #a0a0a5 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    transition: font-size 0.3s ease;
+}
+
+.landing-title.small {
+    font-size: 48px;
+    margin-bottom: 30px;
+}
+
+.landing-subtitle {
+    font-size: 18px;
+    color: #bbbbbc;
+    line-height: 1.6;
+    margin-bottom: 40px;
+    max-width: 90%;
+}
+
+.cta-group {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.btn-secondary {
+    padding: 12px 28px;
+    border-radius: 25px;
+    color: white;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    cursor: pointer;
+    transition: 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+
+.btn-text {
+    background: none;
+    border: none;
+    color: #9f55ff;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    transition: 0.3s;
+    margin-top: 10px;
+}
+
+.btn-text:hover {
+    color: white;
+}
+
+
+.back-home-link {
+    display: inline-flex;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 30px;
+    transition: 0.3s ease;
+}
+
+.back-home-link:hover {
+    color: #9f55ff;
+}
+
+
+.back-home-link svg {
+    margin-right: 8px;
+    transition: 0.3s ease;
+}
+
+.back-home-link:hover svg {
+    color: #7b2ff7;
+}
+
+/* ── HOW IT WORKS STEPS ── */
+.steps-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+    margin-bottom: 40px;
+    text-align: left;
+}
+
+.step-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(123, 47, 247, 0.1);
+    padding: 24px;
+    border-radius: 16px;
+    transition: 0.3s;
+}
+
+.step-item:hover {
+    background: rgba(123, 47, 247, 0.05);
+    border-color: rgba(123, 47, 247, 0.3);
+}
+
+
+.step-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: #7b2ff7;
+    margin-bottom: 12px;
+    display: block;
+    letter-spacing: 2px;
+}
+
+.step-item h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: white;
+}
+
+.step-item p {
+    font-size: 14px;
+    color: #999;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── RIGHT CONTENT (Spline area) ── */
+.content-right {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 600px;
+    position: relative;
+    animation: fadeIn 1.5s ease-out forwards;
+}
+
+.spline-placeholder {
+    width: 100%;
+    height: 500px;
+    border: 2px dashed rgba(123, 47, 247, 0.3);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(123, 47, 247, 0.02);
+    color: #9f55ff;
+    transition: all 0.3s ease;
+}
+
+.spline-placeholder:hover {
+    background: rgba(123, 47, 247, 0.05);
+    border-color: rgba(123, 47, 247, 0.5);
+}
+
+
+.spline-placeholder p {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.spline-placeholder span {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── RESPONSIVE DESIGN ── */
+@media (max-width: 992px) {
+    .landing-container {
+        flex-direction: column;
+        text-align: center;
+        padding: 50px 5%;
+        gap: 60px;
+    }
+    
+    .content-left {
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .landing-subtitle {
+        max-width: 100%;
+    }
+    
+    .content-right {
+        width: 100%;
+        min-height: 400px;
+    }
+    
+    .spline-placeholder {
+        height: 400px;
+    }
+}
+
+/* ── ANIMATIONS ── */
+@keyframes slideDownFade {
+    from { 
+        opacity: 0; 
+        transform: translateY(-20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ── STATE TRANSITIONS ── */
+.fade-transition {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.fade-transition.out {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.fade-transition.in {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.hidden {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .footer-content {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+}

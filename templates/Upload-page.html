@@ -1,84 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StudyFlow — Upload</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyFlow — Upload</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-{% include '_navbar.html' %}
+    {% include '_navbar.html' %}
 
-<section class="hero">
-    <span class="badge">Introducing AI</span>
-    <h1>Upload Your Syllabus & Datesheet</h1>
-    <p>StudyFlow AI analyses your files to build a smart day-by-day study plan.</p>
+    <section class="hero">
+        <span class="badge">Launch Your Plan</span>
+        <h1>Upload Your Syllabus & Datesheet</h1>
+        <p>StudyFlow AI analyses your files to build a smart day-by-day study plan.</p>
 
-    <div class="upload-box">
-        <h3>Upload Files</h3>
-        <p style="font-size:13px;color:#888;text-align:center;margin-top:-10px;">
-            Add all files here — syllabus file(s) first, then the datesheet as the last file.
-        </p>
+        <div class="upload-box">
+            <h3>Upload Files</h3>
+            <p style="font-size:13px;color:#888;text-align:center;margin-top:-10px;">
+                Add all files here — syllabus file(s) first, then the datesheet as the last file.
+            </p>
 
-        <!-- SINGLE combined drop area -->
-        <div class="drop-area" id="fileDropArea">
-            <p>Drag & Drop Files Here</p>
-            <label class="file-btn">
-                Choose Files
-                <input type="file" multiple id="fileInput">
-            </label>
-            <span class="file-name" id="fileNames">No files chosen</span>
-        </div>
+            <!-- SINGLE combined drop area -->
+            <div class="drop-area" id="fileDropArea">
+                <p>Drag & Drop Files Here</p>
+                <label class="file-btn">
+                    Choose Files
+                    <input type="file" multiple id="fileInput">
+                </label>
+                <span class="file-name" id="fileNames">No files chosen</span>
+            </div>
 
-        <!-- MANUAL TEXT FALLBACK -->
-        <div id="manualToggleRow" style="text-align:center;">
-            <span id="manualToggle"
-                  style="font-size:13px;color:#9f55ff;cursor:pointer;text-decoration:underline;">
-                Can't upload? Paste text instead
-            </span>
-        </div>
-
-        <div id="manualTextBox" style="display:none;flex-direction:column;gap:6px;">
-            <label style="font-size:13px;color:#ccc;">
-                Paste syllabus &amp; datesheet text
-                <span style="color:#666;font-size:12px;">
-                    (limit: {{ word_limit }} words)
+            <!-- MANUAL TEXT FALLBACK -->
+            <div id="manualToggleRow" style="text-align:center;">
+                <span id="manualToggle" style="font-size:13px;color:#9f55ff;cursor:pointer;text-decoration:underline;">
+                    Can't upload? Paste text instead
                 </span>
-            </label>
-            <textarea id="manualText" rows="7"
-                      placeholder="Unit 1: DC Circuits&#10;Exam: Maths — 03-04-2026&#10;..."
-                      style="background:#1a1a2e;border:1px solid #333;border-radius:10px;
+            </div>
+
+            <div id="manualTextBox" style="display:none;flex-direction:column;gap:6px;">
+                <label style="font-size:13px;color:#ccc;">
+                    Paste syllabus &amp; datesheet text
+                    <span style="color:#666;font-size:12px;">
+                        (limit: {{ word_limit }} words)
+                    </span>
+                </label>
+                <textarea id="manualText" rows="7"
+                    placeholder="Unit 1: DC Circuits&#10;Exam: Maths — 03-04-2026&#10;..." style="background:#1a1a2e;border:1px solid #333;border-radius:10px;
                              padding:12px;color:white;font-size:14px;resize:vertical;
                              font-family:Inter,sans-serif;outline:none;width:100%;">
             </textarea>
-            <div id="wordCountRow"
-                 style="display:flex;justify-content:space-between;font-size:12px;color:#666;">
-                <span id="wordCountText">0 words</span>
-                <span id="wordCountLimit">limit: {{ word_limit }}</span>
+                <div id="wordCountRow" style="display:flex;justify-content:space-between;font-size:12px;color:#666;">
+                    <span id="wordCountText">0 words</span>
+                    <span id="wordCountLimit">limit: {{ word_limit }}</span>
+                </div>
+            </div>
+
+            <button class="btn-primary upload-btn" id="uploadBtn">
+                Generate Study Plan
+            </button>
+
+            <!-- LOADING STATE -->
+            <div id="uploadLoader" style="display:none;text-align:center;padding:10px 0;">
+                <div class="loader-ring"></div>
+                <p id="loaderMsg" style="color:#aaa;font-size:14px;margin-top:10px;">
+                    Extracting content…
+                </p>
             </div>
         </div>
+    </section>
 
-        <button class="btn-primary upload-btn" id="uploadBtn">
-            Generate Study Plan
-        </button>
+    <script>
+        window.WORD_LIMIT = {{ word_limit }};
+    </script>
+    <script src="{{ url_for('static', filename='Upload-page.js') }}"></script>
 
-        <!-- LOADING STATE -->
-        <div id="uploadLoader" style="display:none;text-align:center;padding:10px 0;">
-            <div class="loader-ring"></div>
-            <p id="loaderMsg" style="color:#aaa;font-size:14px;margin-top:10px;">
-                Extracting content…
-            </p>
-        </div>
-    </div>
-</section>
-
-<script>
-    window.WORD_LIMIT = {{ word_limit }};
-</script>
-<script src="{{ url_for('static', filename='Upload-page.js') }}"></script>
+    {% include '_footer.html' %}
 
 </body>
+
 </html>

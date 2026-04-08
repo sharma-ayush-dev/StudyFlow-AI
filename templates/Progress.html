@@ -56,5 +56,8 @@
     window.IS_ADMIN      = {{ is_admin      | tojson | safe }};
 </script>
 <script src="{{ url_for('static', filename='Progress.js') }}"></script>
+
+{% include '_footer.html' %}
+
 </body>
 </html>

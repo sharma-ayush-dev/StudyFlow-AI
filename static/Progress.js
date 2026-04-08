@@ -76,24 +76,65 @@ function renderTopicList() {
                 nameSpan.appendChild(badge);
             }
 
-            const select = document.createElement('select');
-            select.className       = 'status-select';
-            select.dataset.subject = subjName;
-            select.dataset.topic   = topicName;
+            // ── CUSTOM GLASSMORPHIC SELECT ──
+            const customSelect = document.createElement('div');
+            customSelect.className = 'custom-select';
+            customSelect.dataset.subject = subjName;
+            customSelect.dataset.topic   = topicName;
 
-            [['0','0% — Not Started'],['25','25% — Just Begun'],
-             ['50','50% — Halfway'],['75','75% — Almost Done'],
-             ['100','100% — Completed']
-            ].forEach(([val, label]) => {
-                const opt = document.createElement('option');
-                opt.value       = val;
+            const trigger = document.createElement('div');
+            trigger.className = 'select-trigger';
+
+            const optionsData = [
+                ['0','0% — Not Started'],['25','25% — Just Begun'],
+                ['50','50% — Halfway'],['75','75% — Almost Done'],
+                ['100','100% — Completed']
+            ];
+
+            // Set initial trigger text
+            const initOpt = optionsData.find(o => o[0] === String(currentPct));
+            trigger.innerHTML = `<span class="value">${initOpt ? initOpt[1] : optionsData[0][1]}</span>`;
+            customSelect.dataset.value = currentPct;
+
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'select-options';
+
+            optionsData.forEach(([val, label]) => {
+                const opt = document.createElement('div');
+                opt.className = 'option' + (String(val) === String(currentPct) ? ' selected' : '');
                 opt.textContent = label;
-                if (String(currentPct) === val) opt.selected = true;
-                select.appendChild(opt);
+                opt.dataset.value = val;
+
+                opt.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Update UI
+                    trigger.querySelector('.value').textContent = label;
+                    customSelect.dataset.value = val;
+                    // Close menu
+                    customSelect.classList.remove('active');
+                    // Update selected visual class
+                    optionsContainer.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                });
+                optionsContainer.appendChild(opt);
             });
 
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Close all other dropdowns first
+                document.querySelectorAll('.custom-select').forEach(s => {
+                    if (s !== customSelect) s.classList.remove('active');
+                });
+                customSelect.classList.toggle('active');
+            });
+
+            customSelect.appendChild(trigger);
+            customSelect.appendChild(optionsContainer);
+
             row.appendChild(nameSpan);
-            row.appendChild(select);
+            row.appendChild(customSelect);
+
+
             topicsDiv.appendChild(row);
         });
 
@@ -107,14 +148,15 @@ function renderTopicList() {
 
 function collectUpdatedSubjects() {
     const subjects = {};
-    document.querySelectorAll('.status-select').forEach(sel => {
+    document.querySelectorAll('.custom-select').forEach(sel => {
         const subj  = sel.dataset.subject;
         const topic = sel.dataset.topic;
         if (!subjects[subj]) subjects[subj] = {};
-        subjects[subj][topic] = sel.value;
+        subjects[subj][topic] = sel.dataset.value || '0';
     });
     return subjects;
 }
+
 
 
 // ── NOTICE BANNER ──────────────────────────────────────────
@@ -345,4 +387,10 @@ document.getElementById('keepNewBtn').addEventListener('click', () => handleKeep
 
 
 // ── INIT ───────────────────────────────────────────────────
-renderTopicList();
+
+// Close dropdowns if clicking outside
+document.addEventListener('click', () => {
+    document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('active'));
+});
+
+renderTopicList();

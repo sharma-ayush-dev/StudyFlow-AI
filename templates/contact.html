@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us | StudyFlow AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .contact-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 120px 5% 80px;
+            display: flex;
+            align-items: flex-start;
+            gap: 80px;
+        }
+        .contact-info {
+            flex: 1;
+        }
+        .contact-info h1 {
+            font-size: 56px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #ffffff 0%, #a0a0a5 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .contact-info p {
+            font-size: 18px;
+            color: #bbbbbc;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .info-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .info-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(123, 47, 247, 0.1);
+            padding: 24px;
+            border-radius: 16px;
+        }
+        .info-card h3 {
+            color: #9f55ff;
+            font-size: 14px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .info-card span {
+            color: white;
+            font-size: 16px;
+        }
+
+        .contact-form-area {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 48px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .form-group {
+            margin-bottom: 24px;
+        }
+        .form-label {
+            display: block;
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px;
+            color: white;
+            font-size: 15px;
+            transition: 0.3s;
+        }
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #7b2ff7;
+            background: rgba(123, 47, 247, 0.05);
+        }
+        .form-textarea {
+            height: 150px;
+            resize: none;
+        }
+
+        @media (max-width: 992px) {
+            .contact-container {
+                flex-direction: column;
+                padding-top: 100px;
+            }
+            .contact-info, .contact-form-area {
+                width: 100%;
+            }
+            .contact-info h1 {
+                font-size: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% include '_navbar.html' %}
+
+<main class="contact-container">
+    <div class="contact-info">
+        <div class="badge">Get in Touch</div>
+        <h1>Have questions? We're here to help.</h1>
+        <p>Whether you're looking for technical support, have a feature suggestion, or just want to say hello, we'd love to hear from you.</p>
+        
+        <div class="info-cards">
+            <div class="info-card">
+                <h3>Email Us</h3>
+                <span>support@studyflow.ai</span>
+            </div>
+            <div class="info-card">
+                <h3>Office</h3>
+                <span>Silicon Valley, CA</span>
+            </div>
+            <div class="info-card">
+                <h3>Follow</h3>
+                <span>@studyflow_ai</span>
+            </div>
+            <div class="info-card">
+                <h3>Response</h3>
+                <span>Within 24 hours</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="contact-form-area">
+        <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-input" placeholder="Your Name">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input type="text" class="form-input" placeholder="How can we help?">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Message</label>
+            <textarea class="form-textarea" placeholder="Your message here..."></textarea>
+        </div>
+        <button class="btn-primary" style="width: 100%;">Send Message</button>
+    </div>
+</main>
+
+<div style="display: flex; justify-content: center; margin-bottom: 80px;">
+    <a href="{{ url_for('landing') }}" class="back-home-link" style="margin-bottom: 0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Back to Home
+    </a>
+</div>
+
+{% include '_footer.html' %}
+
+{% include '_auth_modal.html' %}
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!-- AUTH MODAL — Shared across all pages -->
+{% if not current_user.is_authenticated %}
+<div id="authOverlay" class="auth-overlay hidden">
+<div class="auth-modal">
+
+    <button class="auth-close" id="closeAuthBtn">✕</button>
+
+    <div id="loginPanel" class="auth-panel">
+        <h2 class="auth-title">Welcome back</h2>
+        <p class="auth-sub">Log in to your StudyFlow account</p>
+        <div id="loginError" class="auth-error hidden"></div>
+
+        <label class="auth-label">Username or Email</label>
+        <input id="loginIdentifier" class="auth-input" type="text"
+               placeholder="you@example.com" autocomplete="username">
+
+        <label class="auth-label">Password</label>
+        <input id="loginPassword" class="auth-input" type="password"
+               placeholder="••••••••" autocomplete="current-password">
+
+        <label class="auth-remember">
+            <input type="checkbox" id="loginRemember"> Remember me for 7 days
+        </label>
+
+        <button class="auth-btn" id="loginSubmit">Log In</button>
+
+        <p class="auth-switch">
+            Don't have an account?
+            <span class="auth-link" id="goToRegister">Create one</span>
+        </p>
+    </div>
+
+    <div id="registerPanel" class="auth-panel hidden">
+        <h2 class="auth-title">Create account</h2>
+        <p class="auth-sub">Start planning smarter today</p>
+        <div id="registerError" class="auth-error hidden"></div>
+
+        <label class="auth-label">Username</label>
+        <input id="regUsername" class="auth-input" type="text"
+               placeholder="studymaster99" autocomplete="username">
+
+        <label class="auth-label">Email</label>
+        <input id="regEmail" class="auth-input" type="email"
+               placeholder="you@example.com" autocomplete="email">
+
+        <label class="auth-label">Password <span class="auth-hint">(min 8 chars)</span></label>
+        <input id="regPassword" class="auth-input" type="password"
+               placeholder="••••••••" autocomplete="new-password">
+
+        <label class="auth-label">Confirm Password</label>
+        <input id="regConfirm" class="auth-input" type="password"
+               placeholder="••••••••" autocomplete="new-password">
+
+        <button class="auth-btn" id="registerSubmit">Create Account</button>
+
+        <p class="auth-switch">
+            Already have an account?
+            <span class="auth-link" id="goToLogin">Log in</span>
+        </p>
+    </div>
+
+</div>
+</div>
+<script src="{{ url_for('static', filename='auth.js') }}"></script>
+{% endif %}

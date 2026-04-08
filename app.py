@@ -356,7 +356,7 @@ def log_request(response):
 
 @app.route('/')
 def landing():
-    return render_template('Landing.html')
+    return render_template('New-landing.html')
 
 
 @app.route('/register', methods=['POST'])
@@ -484,6 +484,21 @@ def progress_page():
         userid        = current_user.id,
         is_admin      = current_user.is_admin
     )
+
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
 
 
 # ─────────────────────────────────────────────

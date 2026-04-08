@@ -113,9 +113,9 @@ body { background: #050505; color: white; min-height: 100vh; }
 }
 
 .btn-primary:hover {
-    box-shadow: 0 0 20px rgba(123,47,247,0.6);
-    transform: translateY(-2px);
+    background: linear-gradient(135deg, #8c46ff, #b37fff);
 }
+
 
 /* ══════════════════════════════════════════
    LOADER RING
@@ -148,7 +148,7 @@ body { background: #050505; color: white; min-height: 100vh; }
     padding: 44px 40px 36px;
     width: 100%; max-width: 420px;
     position: relative;
-    box-shadow: 0 0 40px rgba(123,47,247,0.55), 0 0 80px rgba(123,47,247,0.25);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     animation: modalIn 0.22s ease;
 }
 @keyframes modalIn {
@@ -194,7 +194,7 @@ body { background: #050505; color: white; min-height: 100vh; }
     color: white; font-size: 16px; font-weight: 600;
     cursor: pointer; transition: 0.2s;
 }
-.auth-btn:hover { box-shadow: 0 0 20px rgba(123,47,247,0.6); transform: translateY(-1px); }
+.auth-btn:hover { background: linear-gradient(135deg, #8c46ff, #b37fff); }
 .auth-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .auth-switch { text-align: center; font-size: 13px; color: #888; margin-top: 4px; }
@@ -213,3 +213,55 @@ body { background: #050505; color: white; min-height: 100vh; }
    UTILITY
 ══════════════════════════════════════════ */
 .hidden { display: none !important; }
+
+/* ══════════════════════════════════════════
+   GLOBAL FOOTER
+══════════════════════════════════════════ */
+.main-footer {
+    width: 100%;
+    padding: 30px 8%;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(5, 5, 5, 0.8);
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 2;
+    margin-top: 60px;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footer-content p {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+    margin: 0;
+}
+
+.footer-links {
+    display: flex;
+    gap: 24px;
+}
+
+.footer-links a {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    text-decoration: none !important;
+    transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: #fff !important;
+}
+
+@media (max-width: 768px) {
+    .footer-content {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+}
