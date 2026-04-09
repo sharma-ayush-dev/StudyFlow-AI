@@ -254,18 +254,25 @@ function buildSubjectHeader(subjectName) {
         dateLabel.textContent = 'Exam date:';
 
         const dateInput = document.createElement('input');
-        dateInput.type = 'date';
+        dateInput.type = 'text'; // Use text so flatpickr handles the UI
         dateInput.className = 'edit-date-input';
-        dateInput.value = dmyToInputVal(state.Exam_dates[subjectName] || '');
-        dateInput.addEventListener('change', () => {
-            const dmy = inputValToDmy(dateInput.value);
-            if (dmy) {
-                state.Exam_dates[subjectName] = dmy;
-            } else {
-                delete state.Exam_dates[subjectName];
+        dateInput.placeholder = 'DD-MM-YYYY';
+        
+        // Initialize Flatpickr for a premium experience
+        flatpickr(dateInput, {
+            dateFormat: "d-m-Y",
+            defaultDate: state.Exam_dates[subjectName] || null,
+            disableMobile: "true",
+            onChange: (selectedDates, dateStr) => {
+                if (dateStr) {
+                    state.Exam_dates[subjectName] = dateStr;
+                } else {
+                    delete state.Exam_dates[subjectName];
+                }
+                hasUnsavedEdits = true;
             }
-            hasUnsavedEdits = true;
         });
+
 
         const dateRow = document.createElement('div');
         dateRow.className = 'edit-date-row';

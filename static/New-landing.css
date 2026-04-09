@@ -3,7 +3,8 @@
 ═══════════════════════════════════════════ */
 
 /* Global Reset (Assuming we supplement auth.css) */
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -17,7 +18,8 @@ body, html {
 /* Navigation Bar Entry Animation */
 .main-nav {
     animation: slideDownFade 0.8s ease-out forwards;
-    opacity: 0; /* Let animation take over */
+    opacity: 0;
+    /* Let animation take over */
 }
 
 /* Landing Container for Split Layout */
@@ -26,7 +28,7 @@ body, html {
     align-items: center;
     justify-content: space-between;
     /* Subtract an approximate navbar height */
-    min-height: calc(100vh - 80px); 
+    min-height: calc(100vh - 80px);
     padding: 0 8%;
     gap: 40px;
     position: relative;
@@ -51,7 +53,21 @@ body, html {
     flex: 1;
     max-width: 600px;
     animation: slideInLeft 1s ease-out forwards;
+    position: relative;
+    z-index: 10;
+    pointer-events: none;
+    /* Let mouse pass through to Spline robot */
 }
+
+/* Restoring clickability only for the interactive elements */
+.content-left .badge,
+.content-left .cta-group,
+.content-left .back-home-link,
+.content-left .btn-text {
+    pointer-events: auto;
+}
+
+
 
 .badge {
     display: inline-block;
@@ -217,39 +233,52 @@ body, html {
     align-items: center;
     height: 600px;
     position: relative;
-    animation: fadeIn 1.5s ease-out forwards;
+    overflow: visible;
+    /* Allow iframe to expand for tracking */
+    opacity: 0;
+    background: transparent;
+    border: none;
+    transition: opacity 1s ease;
+    z-index: 0;
 }
 
-.spline-placeholder {
-    width: 100%;
-    height: 500px;
-    border: 2px dashed rgba(123, 47, 247, 0.3);
-    border-radius: 24px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background: rgba(123, 47, 247, 0.02);
-    color: #9f55ff;
-    transition: all 0.3s ease;
+/* Panoramic Iframe: Expands tracking but keeps robot centered in container */
+.content-right iframe {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    /* Catch mouse movements behind content */
 }
 
-.spline-placeholder:hover {
-    background: rgba(123, 47, 247, 0.05);
-    border-color: rgba(123, 47, 247, 0.5);
+/* New class to trigger the smooth entry */
+.content-right.ready {
+    animation: splineFadeIn 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 
-.spline-placeholder p {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 8px;
+
+
+@keyframes splineFadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+        filter: blur(5px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
 }
 
-.spline-placeholder span {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.4);
-}
+
+/* Legacy placeholder removed */
+
 
 /* ── RESPONSIVE DESIGN ── */
 @media (max-width: 992px) {
@@ -259,23 +288,23 @@ body, html {
         padding: 50px 5%;
         gap: 60px;
     }
-    
+
     .content-left {
         max-width: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
     }
-    
+
     .landing-subtitle {
         max-width: 100%;
     }
-    
+
     .content-right {
         width: 100%;
         min-height: 400px;
     }
-    
+
     .spline-placeholder {
         height: 400px;
     }
@@ -283,24 +312,37 @@ body, html {
 
 /* ── ANIMATIONS ── */
 @keyframes slideDownFade {
-    from { 
-        opacity: 0; 
-        transform: translateY(-20px); 
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
     }
-    to { 
-        opacity: 1; 
-        transform: translateY(0); 
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
 @keyframes slideInLeft {
-    from { opacity: 0; transform: translateX(-30px); }
-    to { opacity: 1; transform: translateX(0); }
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* ── STATE TRANSITIONS ── */

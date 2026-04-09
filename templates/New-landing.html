@@ -1,37 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyFlow AI</title>
-    
+
     <!-- Importing your shared StudyFlow authentication and navbar styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-    
+
     <!-- Landing page specific styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-{% include '_navbar.html' %}
+    {% include '_navbar.html' %}
 
     <!-- Main Landing Section (Split Layout) -->
     <main class="landing-container">
-        
+
         <!-- Left Side: Dynamic Text Area -->
         <div class="content-left">
-            
+
             <!-- Hero Content (Initial View) -->
             <div id="hero-content" class="fade-transition">
                 <div class="badge">Study Smarter, Not Harder</div>
-                
+
                 <h1 class="landing-title">Your AI-Powered <br>Study Planner</h1>
-                
+
                 <p class="landing-subtitle">
-                    Upload your syllabus and let StudyFlow instantly build a smart, day-by-day study schedule tailored to your deadlines. Clear the clutter and focus on what matters.
+                    Upload your syllabus and let StudyFlow instantly build a smart, day-by-day study schedule tailored
+                    to your deadlines. Clear the clutter and focus on what matters.
                 </p>
-                
+
                 <div class="cta-group">
                     {% if current_user.is_authenticated %}
                     <a href="{{ url_for('upload_page') }}" class="btn-primary">Start Planning</a>
@@ -46,7 +49,7 @@
             <div id="how-it-works-content" class="fade-transition hidden">
                 <div class="badge">The Process</div>
                 <h2 class="landing-title small">How It Works</h2>
-                
+
                 <div class="steps-grid">
                     <div class="step-item">
                         <span class="step-num">01</span>
@@ -72,7 +75,11 @@
 
                 <div class="cta-group">
                     <button class="btn-text" id="backToHeroBtn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
                         Back to Home
                     </button>
                 </div>
@@ -82,10 +89,13 @@
 
         <!-- Right Side: Spline 3D Object Area -->
         <div class="content-right" id="splineContainer">
-            <iframe src='https://my.spline.design/rememberallrobot-XF3IAIWXimKEHnLaIt1WdsTJ/' frameborder='0' width='100%' height='100%' allowtransparency="true" style="background: transparent;"></iframe>
-            
+            <iframe src='https://my.spline.design/rememberallrobot-XF3IAIWXimKEHnLaIt1WdsTJ/' frameborder='0'
+                width='100%' height='100%' allowtransparency="true" style="background: transparent;"></iframe>
+
             <!-- Hide 'Built with Spline' Watermark -->
-            <div style="position: absolute; bottom: 10px; right: 10px; width: 160px; height: 50px; background-color: #050505; z-index: 10; pointer-events: auto;"></div>
+            <div
+                style="position: absolute; bottom: 10px; right: 10px; width: 160px; height: 50px; background-color: #050505; z-index: 10; pointer-events: auto;">
+            </div>
         </div>
 
     </main>
@@ -98,4 +108,5 @@
 
     <script src="{{ url_for('static', filename='New-landing.js') }}"></script>
 </body>
+
 </html>

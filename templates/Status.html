@@ -1,55 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Topics Status</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+    <meta charset="UTF-8">
+    <title>Topics Status</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Flatpickr for premium date picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
+
 <body>
 
-{% include '_navbar.html' %}
+    {% include '_navbar.html' %}
 
-<h1 class="page-title">Topics Status</h1>
+    <h1 class="page-title">Topics Status</h1>
 
-<!-- EDIT TOOLBAR — always rendered, always visible on load -->
-<div class="edit-toolbar" id="editToolbar">
-    <button class="edit-toggle-btn" id="editToggleBtn">✏️ Edit Subjects &amp; Dates</button>
-    <div class="edit-actions hidden" id="editActions">
-        <button class="edit-save-btn"   id="saveEditsBtn">✓ Save Changes</button>
-        <button class="edit-cancel-btn" id="cancelEditsBtn">✕ Cancel</button>
-    </div>
-</div>
-
-<div class="dashboard">
-
-    <div class="card topics-card" id="topicsCard">
-        <div style="text-align:center;padding:40px;color:#777;">Loading…</div>
+    <!-- EDIT TOOLBAR — always rendered, always visible on load -->
+    <div class="edit-toolbar" id="editToolbar">
+        <button class="edit-toggle-btn" id="editToggleBtn">✏️ Edit Subjects &amp; Dates</button>
+        <div class="edit-actions hidden" id="editActions">
+            <button class="edit-save-btn" id="saveEditsBtn">✓ Save Changes</button>
+            <button class="edit-cancel-btn" id="cancelEditsBtn">✕ Cancel</button>
+        </div>
     </div>
 
-    <div class="card hours-card">
-        <div class="hours-list" id="hoursList"></div>
+    <div class="dashboard">
+
+        <div class="card topics-card" id="topicsCard">
+            <div style="text-align:center;padding:40px;color:#777;">Loading…</div>
+        </div>
+
+        <div class="card hours-card">
+            <div class="hours-list" id="hoursList"></div>
+        </div>
+
+
     </div>
 
+    <button id="generateBtn" class="generate-btn">Generate Schedule</button>
 
-</div>
+    <div id="statusLoader" style="display:none;text-align:center;padding:20px 0 50px;">
+        <div class="loader-ring"></div>
+        <p id="statusLoaderMsg" style="color:#aaa;font-size:15px;margin-top:12px;">
+            Building your schedule…
+        </p>
+    </div>
 
-<button id="generateBtn" class="generate-btn">Generate Schedule</button>
-
-<div id="statusLoader" style="display:none;text-align:center;padding:20px 0 50px;">
-    <div class="loader-ring"></div>
-    <p id="statusLoaderMsg" style="color:#aaa;font-size:15px;margin-top:12px;">
-        Building your schedule…
-    </p>
-</div>
-
-<script>
-    window.INITIAL_DATA = {{ data | tojson | safe }};
-</script>
-<script src="{{ url_for('static', filename='Status.js') }}?v={{ range(1, 1000) | random }}"></script>
+    <script>
+            window.INITIAL_DATA = {{ data | tojson | safe }};
+    </script>
+    <script src="{{ url_for('static', filename='Status.js') }}?v={{ range(1, 1000) | random }}"></script>
 
 
-{% include '_footer.html' %}
+    {% include '_footer.html' %}
 
 </body>
+
 </html>

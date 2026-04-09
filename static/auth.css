@@ -3,6 +3,9 @@
 ═══════════════════════════════════════════ */
 
 /* ── RESET ── */
+html {
+    scrollbar-gutter: stable; /* Prevents page shaking when scrollbar appears */
+}
 *, *::before, *::after {
     margin: 0; padding: 0; box-sizing: border-box;
     font-family: 'Inter', sans-serif;
@@ -24,6 +27,8 @@ body { background: #050505; color: white; min-height: 100vh; }
     backdrop-filter: blur(8px);
     z-index: 100;
 }
+
+
 
 .main-nav .logo {
     font-size: 20px;
@@ -228,6 +233,8 @@ body { background: #050505; color: white; min-height: 100vh; }
     margin-top: 60px;
 }
 
+
+
 .footer-content {
     display: flex;
     justify-content: space-between;
@@ -265,3 +272,11 @@ body { background: #050505; color: white; min-height: 100vh; }
         text-align: center;
     }
 }
+
+/* ══════════════════════════════════════════
+   ANIMATIONS
+   ══════════════════════════════════════════ */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

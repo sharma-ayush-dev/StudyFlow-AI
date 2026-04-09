@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='Progress.css') }}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 {% include '_navbar.html' %}
@@ -20,8 +21,8 @@
     </div>
 </div>
 <div class="progress-actions" id="progressActions">
-    <button class="generate-btn" id="saveProgressBtn" style="margin:0;">✓ Save Progress</button>
-    <button class="edit-toggle-btn" id="regenBtn" style="font-size:16px;padding:13px 32px;">↺ Regenerate Schedule</button>
+    <button class="generate-btn" id="saveProgressBtn">✓ Save Progress</button>
+    <button class="edit-toggle-btn" id="regenBtn">↺ Regenerate Schedule</button>
 </div>
 <div id="progressLoader" style="display:none;text-align:center;padding:30px 0;">
     <div class="loader-ring"></div>

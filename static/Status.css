@@ -8,6 +8,7 @@
     font-weight: 700;
     margin: 40px 0 10px;
     letter-spacing: -1px;
+    animation: fadeIn 0.8s ease-out;
 }
 
 /* ── EDIT TOOLBAR ── */
@@ -86,30 +87,11 @@
     padding: 0 20px 40px;
     max-width: 1200px;
     margin: auto;
-    animation: slideIn 0.8s ease-out;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
 
-    to {
-        opacity: 1;
-    }
-}
 
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(15px);
-    }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 /* ── CARDS ── */
 .card {
@@ -120,6 +102,7 @@
     backdrop-filter: blur(12px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     transition: border-color 0.3s ease;
+    animation: fadeIn 0.8s ease-out both;
 }
 
 .card:hover {
@@ -142,7 +125,8 @@
     /* Match left card behavior */
     display: flex;
     flex-direction: column;
-    padding: 32px; /* Restore proper padding since header is gone */
+    padding: 32px;
+    /* Restore proper padding since header is gone */
 }
 
 .hours-list,
@@ -405,17 +389,20 @@
 /* ── GENERATE BUTTON ── */
 .generate-btn {
     display: block;
-    margin: 40px auto 60px;
-    padding: 16px 48px;
+    width: 100%;
+    max-width: 400px;
+    margin: 40px auto 20px;
     background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none;
-    border-radius: 30px;
     color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 20px;
     font-size: 18px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(123, 47, 247, 0.2);
+    box-shadow: 0 10px 30px rgba(123, 47, 247, 0.3);
+    animation: fadeIn 0.8s ease-out 0.2s both; /* Slight delay for better flow */
 }
 
 .generate-btn:hover {
@@ -424,25 +411,63 @@
 
 
 /* ── EDIT MODE INLINE STYLES ── */
+.edit-date-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    /* Add breathing room */
+    padding: 0 4px;
+}
+
+.edit-date-label {
+    font-size: 13px;
+    color: #888;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.edit-date-input {
+    background: #11111a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+    flex: 1;
+    max-width: 200px;
+    /* Prevent over-expansion */
+}
+
+.edit-date-input:focus {
+    border-color: #7b2ff7;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
+}
+
 .edit-inline-input {
     background: #11111a;
     border: 1px solid #333;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 10px 14px;
     color: white;
     font-size: 15px;
     outline: none;
     flex: 1;
-    transition: border-color 0.2s;
+    transition: all 0.2s ease;
 }
 
 .edit-inline-input:focus {
     border-color: #7b2ff7;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
 }
 
 .edit-name-input {
     font-size: 18px;
     font-weight: 700;
+    margin-bottom: 8px;
+    /* Extra space below the main title */
 }
 
 .edit-delete-btn {
@@ -462,6 +487,31 @@
     border-color: #ff7c7c;
 }
 
+.edit-delete-topic-btn {
+    background: rgba(220, 50, 50, 0.1);
+    border: 1px solid rgba(220, 50, 50, 0.2);
+    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ff7c7c;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
+}
+
+.edit-delete-topic-btn:hover {
+    background: rgba(220, 50, 50, 0.2);
+    border-color: #ff7c7c;
+    color: #fff;
+    transform: scale(1.1);
+}
+
+
 .edit-add-btn {
     background: rgba(123, 47, 247, 0.1);
     border: 1px dashed #7b2ff7;
@@ -474,4 +524,111 @@
 
 .edit-add-btn:hover {
     background: rgba(123, 47, 247, 0.2);
+}
+
+.edit-add-row,
+.edit-add-subject-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    align-items: center;
+}
+
+.edit-add-row .edit-inline-input,
+.edit-add-subject-row .edit-inline-input {
+    border-radius: 14px;
+    /* Matching the button's roundedness */
+}
+
+
+/* ═══════════════════════════════════════════
+   CRYSTAL DARK FLATPICKR THEME
+   ═══════════════════════════════════════════ */
+
+.flatpickr-calendar {
+    background: rgba(12, 12, 21, 0.98) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(123, 47, 247, 0.3) !important;
+    border-radius: 20px;
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6) !important;
+    font-family: 'Inter', sans-serif !important;
+    margin-top: 10px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.flatpickr-calendar.arrowTop:after,
+.flatpickr-calendar.arrowTop:before {
+    border-bottom-color: rgba(123, 47, 247, 0.3) !important;
+}
+
+.flatpickr-months {
+    padding: 10px 0;
+}
+
+.flatpickr-month {
+    color: #fff !important;
+    fill: #fff !important;
+}
+
+.flatpickr-current-month {
+    font-size: 110%;
+    font-weight: 600;
+}
+
+.flatpickr-weekday {
+    color: #888 !important;
+    font-weight: 500 !important;
+}
+
+.flatpickr-day {
+    color: #ccc !important;
+    border-radius: 12px !important;
+    transition: all 0.2s ease;
+}
+
+.flatpickr-day:hover {
+    background: rgba(123, 47, 247, 0.15) !important;
+    color: #fff !important;
+    border-color: rgba(123, 47, 247, 0.4) !important;
+}
+
+.flatpickr-day.today {
+    border-color: #7b2ff7 !important;
+    color: #7b2ff7 !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover {
+    background: #7b2ff7 !important;
+    border-color: #7b2ff7 !important;
+    color: #fff !important;
+    box-shadow: 0 0 15px rgba(123, 47, 247, 0.4);
+}
+
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    color: #444 !important;
+}
+
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+    color: #9f55ff !important;
+    fill: #9f55ff !important;
+    padding: 10px;
+    transition: transform 0.2s ease;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+    color: #fff !important;
+    transform: scale(1.1);
+}
+
+/* Custom icon for the field */
+.edit-date-input {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239f55ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px !important;
 }

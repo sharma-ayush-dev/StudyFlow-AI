@@ -1,17 +1,11 @@
-body{
-    background:#050505;
-    color:white;
-    font-family: 'Inter', sans-serif;
-    margin:0;
-    line-height: 1.6;
-}
-
 .title{
     text-align:center;
     font-size: 38px;
     font-weight: 700;
-    margin: 40px 0 10px;
+    margin: 40px 0 30px; /* Increased bottom margin for more breathing room */
     letter-spacing: -0.5px;
+    animation: fadeIn 0.8s ease-out; /* Smooth entrance */
+    will-change: opacity, transform; /* Hardware acceleration for smooth animation */
 }
 
 .schedule-container{
@@ -19,6 +13,7 @@ body{
     max-width: 900px;
     margin: 0 auto;
     padding: 40px 20px 100px;
+    min-height: 60vh; /* Buffer to prevent page collapse while fetching data */
 }
 
 /* ── EMPTY STATE ── */
@@ -59,10 +54,7 @@ body{
     margin: 0 auto 32px;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+
 
 /* ── DATE BLOCK (CARDS) ── */
 .date-block{
@@ -72,6 +64,8 @@ body{
     background:#0c0c15;
     border: 1px solid #1a1a1a;
     transition: 0.3s ease;
+    animation: fadeIn 1s ease-out both; /* Fade in cards */
+    will-change: opacity, transform; /* Hardware acceleration */
 }
 
 .date-block:hover {

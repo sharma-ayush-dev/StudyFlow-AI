@@ -3,10 +3,10 @@
 ═══════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     // Example: Add an interactive click effect for the Start Planning button
     const startBtn = document.getElementById('startPlanningBtn');
-    
+
     if (startBtn) {
         startBtn.addEventListener('click', (e) => {
             // If you want it to navigate to the upload page, you would update the href in HTML
@@ -25,15 +25,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function swapContent(from, to) {
         // Start fade out
         from.classList.add('out');
-        
+
         // Wait for fade out animation to finish
         setTimeout(() => {
             from.classList.add('hidden');
             from.classList.remove('out');
-            
+
             to.classList.remove('hidden');
             to.classList.add('in');
-            
+
             // Clean up 'in' class after animation
             setTimeout(() => {
                 to.classList.remove('in');
@@ -53,14 +53,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // You can initialize your Spline events here once you add the Spline viewer
+    // ── SPLINE LOADING SYNC ──────────────────────────
     const splineContainer = document.getElementById('splineContainer');
-    
-    if (splineContainer) {
-        // Spline code can go here
-        // Usually, you embed a <script type="module" src="https://unpkg.com/@splinetool/viewer@1.x.x/build/spline-viewer.js"></script>
-        // and put <spline-viewer url="..."></spline-viewer> inside the HTML right side container.
-        console.log('Spline container is ready for injection.');
+    const splineIframe = splineContainer ? splineContainer.querySelector('iframe') : null;
+
+    if (splineIframe) {
+        // Wait for the iframe to load its 3D assets
+        splineIframe.addEventListener('load', () => {
+            console.log('Spline object loaded. Triggering fade-in.');
+            setTimeout(() => {
+                splineContainer.classList.add('ready');
+            }, 500); // Small extra buffer for rendering
+        });
     }
+
 
 });
