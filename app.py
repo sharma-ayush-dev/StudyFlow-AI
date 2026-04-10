@@ -478,6 +478,21 @@ def study_page(subject: str, topic: str):
     )
 
 
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+
 # ─────────────────────────────────────────────
 # STUDY / CHAT API
 # ─────────────────────────────────────────────

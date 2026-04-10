@@ -25,9 +25,9 @@
 // ─────────────────────────────────────────────
 
 let state = JSON.parse(JSON.stringify(window.INITIAL_DATA));  // deep copy
-let snapshot   = null;    // pre-edit snapshot for cancel
-let editMode   = false;
-let userId     = null;
+let snapshot = null;    // pre-edit snapshot for cancel
+let editMode = false;
+let userId = null;
 let isGenerating = false;
 let hasUnsavedEdits = false;
 
@@ -74,12 +74,12 @@ function recalcStudyDays() {
         return;
     }
 
-    const today    = new Date();
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
     const lastExam = new Date(Math.max(...examDates.map(d => d.getTime())));
 
     const days = {};
-    const cur  = new Date(today);
+    const cur = new Date(today);
     while (cur <= lastExam) {
         const key = formatDMY(cur);
         // Preserve any hours the user already entered
@@ -105,32 +105,71 @@ function renderHoursPanel() {
     }
 
     dates.forEach(date => {
-        const row  = document.createElement('div');
-        row.className  = 'date-row';
+        const row = document.createElement('div');
+        row.className = 'date-row';
         row.dataset.date = date;
 
         const label = document.createElement('span');
         label.textContent = date;
 
-        const input = document.createElement('input');
-        input.type        = 'number';
-        input.placeholder = 'hrs';
-        input.min         = '0';
-        input.max         = '24';
+        // ── CUSTOM STEPPER ──
+        const stepper = document.createElement('div');
+        stepper.className = 'hours-stepper';
 
-        // Re-populate if user already entered hours this session
+        const btnMinus = document.createElement('button');
+        btnMinus.className = 'step-btn';
+        btnMinus.type = 'button'; // Prevent any form submission
+        btnMinus.innerHTML = '&minus;'; // Clean look
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.value = '0';
+        input.min = '0';
+        input.max = '24';
+
+        const btnPlus = document.createElement('button');
+        btnPlus.className = 'step-btn';
+        btnPlus.type = 'button';
+        btnPlus.innerHTML = '&plus;';
+
+        // Initial value
         const stored = state.study_days[date];
         if (stored && stored !== 'none') {
             input.value = stored;
+        } else {
+            input.value = '0';
+            state.study_days[date] = '0';
         }
 
-        // Keep state in sync as user types
-        input.addEventListener('input', () => {
-            state.study_days[date] = input.value.trim() || '0';
-        });
+        // Logic
+        btnMinus.onclick = (e) => {
+            e.stopPropagation();
+            let val = parseInt(input.value) || 0;
+            if (val > 0) {
+                val--;
+                input.value = val;
+                state.study_days[date] = String(val);
+                hasUnsavedEdits = true;
+            }
+        };
+
+        btnPlus.onclick = (e) => {
+            e.stopPropagation();
+            let val = parseInt(input.value) || 0;
+            if (val < 24) {
+                val++;
+                input.value = val;
+                state.study_days[date] = String(val);
+                hasUnsavedEdits = true;
+            }
+        };
+
+        stepper.appendChild(btnMinus);
+        stepper.appendChild(input);
+        stepper.appendChild(btnPlus);
 
         row.appendChild(label);
-        row.appendChild(input);
+        row.appendChild(stepper);
         list.appendChild(row);
     });
 }
@@ -161,6 +200,7 @@ function renderTopicsPanel() {
         card.appendChild(buildAddSubjectRow());
     }
 }
+
 
 
 function buildSubjectBlock(subjectName) {
@@ -201,8 +241,8 @@ function buildSubjectHeader(subjectName) {
 
         // Subject name input
         const nameInput = document.createElement('input');
-        nameInput.className   = 'edit-inline-input edit-name-input';
-        nameInput.value       = subjectName;
+        nameInput.className = 'edit-inline-input edit-name-input';
+        nameInput.value = subjectName;
         nameInput.placeholder = 'Subject name';
         nameInput.addEventListener('change', () => {
             renameSubject(subjectName, nameInput.value.trim());
@@ -210,22 +250,29 @@ function buildSubjectHeader(subjectName) {
 
         // Exam date picker
         const dateLabel = document.createElement('label');
-        dateLabel.className   = 'edit-date-label';
+        dateLabel.className = 'edit-date-label';
         dateLabel.textContent = 'Exam date:';
 
         const dateInput = document.createElement('input');
-        dateInput.type      = 'date';
+        dateInput.type = 'text'; // Use text so flatpickr handles the UI
         dateInput.className = 'edit-date-input';
-        dateInput.value     = dmyToInputVal(state.Exam_dates[subjectName] || '');
-        dateInput.addEventListener('change', () => {
-            const dmy = inputValToDmy(dateInput.value);
-            if (dmy) {
-                state.Exam_dates[subjectName] = dmy;
-            } else {
-                delete state.Exam_dates[subjectName];
+        dateInput.placeholder = 'DD-MM-YYYY';
+        
+        // Initialize Flatpickr for a premium experience
+        flatpickr(dateInput, {
+            dateFormat: "d-m-Y",
+            defaultDate: state.Exam_dates[subjectName] || null,
+            disableMobile: "true",
+            onChange: (selectedDates, dateStr) => {
+                if (dateStr) {
+                    state.Exam_dates[subjectName] = dateStr;
+                } else {
+                    delete state.Exam_dates[subjectName];
+                }
+                hasUnsavedEdits = true;
             }
-            hasUnsavedEdits = true;
         });
+
 
         const dateRow = document.createElement('div');
         dateRow.className = 'edit-date-row';
@@ -237,9 +284,9 @@ function buildSubjectHeader(subjectName) {
 
         // Delete subject button
         const delBtn = document.createElement('button');
-        delBtn.className   = 'edit-delete-btn';
+        delBtn.className = 'edit-delete-btn';
         delBtn.textContent = '🗑 Delete Subject';
-        delBtn.title       = 'Remove this subject entirely';
+        delBtn.title = 'Remove this subject entirely';
         delBtn.addEventListener('click', () => deleteSubject(subjectName));
 
         header.appendChild(leftCol);
@@ -259,7 +306,7 @@ function buildTopicsList(subjectName) {
     if (!topics.length) {
         const empty = document.createElement('p');
         empty.style.cssText = 'color:#666;font-size:14px;padding:8px 0;';
-        empty.textContent   = 'No topics. Add one below.';
+        empty.textContent = 'No topics. Add one below.';
         wrapper.appendChild(empty);
         return wrapper;
     }
@@ -279,42 +326,85 @@ function buildTopicRow(subjectName, topicName) {
     if (!editMode) {
         // ── READ VIEW ──
         const nameEl = document.createElement('span');
-        nameEl.className   = 'topic-name';
+        nameEl.className = 'topic-name';
         nameEl.textContent = topicName;
 
-        const select = document.createElement('select');
-        select.className = 'status-select';
-        select.dataset.subject = subjectName;
-        select.dataset.topic   = topicName;
+        // ── CUSTOM SELECT ──
+        const customSelect = document.createElement('div');
+        customSelect.className = 'custom-select';
+        customSelect.dataset.subject = subjectName;
+        customSelect.dataset.topic = topicName;
 
-        [['0','0% — Not Started'],
-         ['25','25% — Just Begun'],
-         ['50','50% — Halfway'],
-         ['75','75% — Almost Done'],
-         ['100','100% — Completed']].forEach(([val, label]) => {
-            const opt = document.createElement('option');
-            opt.value       = val;
+        const trigger = document.createElement('div');
+        trigger.className = 'select-trigger';
+
+        const currentValue = state.Subjects[subjectName][topicName] || '0';
+        const optionsData = [
+            ['0', '0% — Not Started'],
+            ['25', '25% — Just Begun'],
+            ['50', '50% — Halfway'],
+            ['75', '75% — Almost Done'],
+            ['100', '100% — Completed']
+        ];
+
+        // Set initial trigger text
+        const initOpt = optionsData.find(o => o[0] === currentValue);
+        trigger.innerHTML = `<span class="value">${initOpt ? initOpt[1] : optionsData[0][1]}</span>`;
+        customSelect.dataset.value = currentValue;
+
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'select-options';
+
+        optionsData.forEach(([val, label]) => {
+            const opt = document.createElement('div');
+            opt.className = 'option' + (val === currentValue ? ' selected' : '');
             opt.textContent = label;
-            select.appendChild(opt);
+            opt.dataset.value = val;
+
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Update state
+                state.Subjects[subjectName][topicName] = val;
+                // Update UI
+                trigger.querySelector('.value').textContent = label;
+                customSelect.dataset.value = val;
+                // Close menu
+                customSelect.classList.remove('active');
+                // Update selected class
+                optionsContainer.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+            });
+            optionsContainer.appendChild(opt);
         });
 
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other dropdowns
+            document.querySelectorAll('.custom-select').forEach(s => {
+                if (s !== customSelect) s.classList.remove('active');
+            });
+            customSelect.classList.toggle('active');
+        });
+
+        customSelect.appendChild(trigger);
+        customSelect.appendChild(optionsContainer);
         row.appendChild(nameEl);
-        row.appendChild(select);
+        row.appendChild(customSelect);
 
     } else {
         // ── EDIT VIEW ──
         const nameInput = document.createElement('input');
-        nameInput.className   = 'edit-inline-input';
-        nameInput.value       = topicName;
+        nameInput.className = 'edit-inline-input';
+        nameInput.value = topicName;
         nameInput.placeholder = 'Topic name';
         nameInput.addEventListener('change', () => {
             renameTopic(subjectName, topicName, nameInput.value.trim());
         });
 
         const delBtn = document.createElement('button');
-        delBtn.className   = 'edit-delete-topic-btn';
+        delBtn.className = 'edit-delete-topic-btn';
         delBtn.textContent = '✕';
-        delBtn.title       = 'Delete this topic';
+        delBtn.title = 'Delete this topic';
         delBtn.addEventListener('click', () => deleteTopic(subjectName, topicName));
 
         row.appendChild(nameInput);
@@ -330,11 +420,11 @@ function buildAddTopicRow(subjectName) {
     row.className = 'edit-add-row';
 
     const input = document.createElement('input');
-    input.className   = 'edit-inline-input';
+    input.className = 'edit-inline-input';
     input.placeholder = 'New topic name…';
 
     const addBtn = document.createElement('button');
-    addBtn.className   = 'edit-add-btn';
+    addBtn.className = 'edit-add-btn';
     addBtn.textContent = '+ Add Topic';
     addBtn.addEventListener('click', () => {
         const name = input.value.trim();
@@ -359,11 +449,11 @@ function buildAddSubjectRow() {
     row.className = 'edit-add-subject-row';
 
     const input = document.createElement('input');
-    input.className   = 'edit-inline-input';
+    input.className = 'edit-inline-input';
     input.placeholder = 'New subject name…';
 
     const addBtn = document.createElement('button');
-    addBtn.className   = 'edit-add-btn';
+    addBtn.className = 'edit-add-btn';
     addBtn.textContent = '+ Add Subject';
     addBtn.addEventListener('click', () => {
         const name = input.value.trim();
@@ -496,7 +586,7 @@ document.getElementById('editToggleBtn').addEventListener('click', enterEditMode
 document.getElementById('cancelEditsBtn').addEventListener('click', () => {
     if (hasUnsavedEdits &&
         !confirm('Discard all unsaved changes?')) return;
-    state    = JSON.parse(JSON.stringify(snapshot));
+    state = JSON.parse(JSON.stringify(snapshot));
     snapshot = null;
     hasUnsavedEdits = false;
     exitEditMode();
@@ -520,14 +610,14 @@ async function saveEdits() {
 
     const payload = {
         Exam_dates: state.Exam_dates,
-        Subjects:   cleanSubjects,
+        Subjects: cleanSubjects,
         study_days: state.study_days
     };
 
     const res = await fetch(`/save_extracted/${userId}`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload)
+        body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
@@ -543,7 +633,7 @@ async function saveEdits() {
 
 document.getElementById('saveEditsBtn').addEventListener('click', async () => {
     const btn = document.getElementById('saveEditsBtn');
-    btn.disabled    = true;
+    btn.disabled = true;
     btn.textContent = '…Saving';
 
     try {
@@ -553,7 +643,7 @@ document.getElementById('saveEditsBtn').addEventListener('click', async () => {
     } catch (err) {
         alert('Failed to save: ' + err.message);
     } finally {
-        btn.disabled    = false;
+        btn.disabled = false;
         btn.textContent = '✓ Save Changes';
     }
 });
@@ -565,14 +655,14 @@ document.getElementById('saveEditsBtn').addEventListener('click', async () => {
 
 function collectPayload() {
     const examDates = {};
-    const subjects  = {};
+    const subjects = {};
 
-    // Read completion % from the dropdowns currently in the DOM
-    document.querySelectorAll('.status-select').forEach(sel => {
-        const subj  = sel.dataset.subject;
+    // Read completion % from the custom dropdowns currently in the DOM
+    document.querySelectorAll('.custom-select').forEach(sel => {
+        const subj = sel.dataset.subject;
         const topic = sel.dataset.topic;
         if (!subjects[subj]) subjects[subj] = {};
-        subjects[subj][topic] = sel.value;
+        subjects[subj][topic] = sel.dataset.value || '0';
     });
 
     // Exam dates come from state (may differ from dropdowns)
@@ -581,7 +671,7 @@ function collectPayload() {
     // Study hours come from the hours panel inputs
     const studyDays = {};
     document.querySelectorAll('#hoursList .date-row').forEach(row => {
-        const date  = row.dataset.date;
+        const date = row.dataset.date;
         const hours = row.querySelector('input').value.trim() || '0';
         studyDays[date] = hours;
     });
@@ -603,9 +693,9 @@ const loaderMessages = [
 let loaderInterval = null;
 
 function startLoader() {
-    document.getElementById('generateBtn').style.display    = 'none';
-    document.getElementById('statusLoader').style.display   = 'block';
-    document.getElementById('editToolbar').style.display    = 'none';
+    document.getElementById('generateBtn').style.display = 'none';
+    document.getElementById('statusLoader').style.display = 'block';
+    document.getElementById('editToolbar').style.display = 'none';
     let i = 0;
     document.getElementById('statusLoaderMsg').textContent = loaderMessages[0];
     loaderInterval = setInterval(() => {
@@ -616,16 +706,15 @@ function startLoader() {
 
 function stopLoader() {
     clearInterval(loaderInterval);
-    document.getElementById('statusLoader').style.display  = 'none';
-    document.getElementById('generateBtn').style.display   = 'block';
-    document.getElementById('editToolbar').style.display   = 'flex';
+    document.getElementById('statusLoader').style.display = 'none';
+    document.getElementById('generateBtn').style.display = 'block';
+    document.getElementById('editToolbar').style.display = 'flex';
 }
 
 
 // ─────────────────────────────────────────────
 // GENERATE SCHEDULE
 // ─────────────────────────────────────────────
-
 document.getElementById('generateBtn').addEventListener('click', async () => {
     if (isGenerating) return;
 
@@ -647,9 +736,9 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         const payload = collectPayload();
 
         const saveRes = await fetch(`/submit_status/${userId}`, {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(payload)
+            body: JSON.stringify(payload)
         });
         if (!saveRes.ok) throw new Error('Failed to save status');
 
@@ -678,9 +767,14 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
 async function init() {
     // Get userId from /me
-    const res  = await fetch('/me');
+    const res = await fetch('/me');
     const data = await res.json();
     userId = data.id;
+
+    // Close dropdowns if clicking outside
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('active'));
+    });
 
     // Initial render
     renderTopicsPanel();

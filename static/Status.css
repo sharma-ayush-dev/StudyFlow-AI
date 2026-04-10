@@ -1,187 +1,634 @@
-/* Status.css — complete, no missing rules */
+/* ═══════════════════════════════════════════
+   STATUS.CSS  — Premium Dashboard Styles
+   ═══════════════════════════════════════════ */
 
 .page-title {
     text-align: center;
-    font-size: 44px;
-    margin: 36px 0 20px;
+    font-size: 42px;
+    font-weight: 700;
+    margin: 40px 0 10px;
+    letter-spacing: -1px;
+    animation: fadeIn 0.8s ease-out;
 }
 
 /* ── EDIT TOOLBAR ── */
-/* THIS WAS THE BUG: display:flex was missing, so the toolbar was invisible on first load */
 .edit-toolbar {
-    display: flex;               /* ← the critical fix */
+    display: flex;
     justify-content: center;
     align-items: center;
     gap: 14px;
-    margin: 0 auto 28px;
+    margin: 0 auto 32px;
     flex-wrap: wrap;
+    animation: fadeIn 0.6s ease-out;
 }
 
 .edit-toggle-btn {
-    background: transparent;
-    border: 1px solid #7b2ff7;
+    background: rgba(123, 47, 247, 0.05);
+    border: 1px solid rgba(123, 47, 247, 0.3);
     border-radius: 20px;
-    padding: 9px 24px;
+    padding: 10px 24px;
     color: #9f55ff;
     font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: 0.2s;
-}
-.edit-toggle-btn:hover {
-    background: rgba(123,47,247,0.12);
-    box-shadow: 0 0 10px rgba(123,47,247,0.3);
+    transition: all 0.2s ease;
 }
 
-.edit-actions { display: flex; gap: 12px; }
+.edit-toggle-btn:hover {
+    background: rgba(123, 47, 247, 0.1);
+    border-color: #7b2ff7;
+}
+
+
+.edit-actions {
+    display: flex;
+    gap: 12px;
+}
 
 .edit-save-btn {
     background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none; border-radius: 20px;
-    padding: 9px 24px; color: white;
-    font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 24px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
-.edit-save-btn:hover   { box-shadow: 0 0 14px rgba(123,47,247,0.5); transform: translateY(-1px); }
-.edit-save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.edit-save-btn:hover {
+    background: linear-gradient(135deg, #8c46ff, #b37fff);
+}
+
 
 .edit-cancel-btn {
-    background: transparent; border: 1px solid #555;
-    border-radius: 20px; padding: 9px 24px;
-    color: #aaa; font-size: 14px; cursor: pointer; transition: 0.2s;
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 10px 24px;
+    color: #888;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
-.edit-cancel-btn:hover { border-color: #888; color: white; }
+
+.edit-cancel-btn:hover {
+    border-color: #555;
+    color: white;
+}
 
 /* ── DASHBOARD LAYOUT ── */
 .dashboard {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    gap: 50px;
-    padding: 0 20px 20px;
+    gap: 32px;
+    padding: 0 20px 40px;
     max-width: 1200px;
     margin: auto;
 }
 
+
+
+
+
 /* ── CARDS ── */
 .card {
-    background: #070707;
-    border-radius: 25px;
-    padding: 35px;
-    box-shadow: 0 0 40px rgba(123,47,247,0.6), 0 0 80px rgba(123,47,247,0.3);
+    background: rgba(12, 12, 21, 0.7);
+    border: 1px solid #1a1a1a;
+    border-radius: 28px;
+    padding: 32px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    transition: border-color 0.3s ease;
+    animation: fadeIn 0.8s ease-out both;
 }
 
-.topics-card { width: 700px; max-height: 620px; overflow-y: auto; }
+.card:hover {
+    border-color: rgba(123, 47, 247, 0.2);
+}
+
+.topics-card {
+    flex: 2;
+    min-width: 0;
+    height: 600px;
+    overflow-y: auto;
+}
+
+.hours-card {
+    flex: 1;
+    max-width: 360px;
+    min-width: 300px;
+    height: 600px;
+    overflow-y: auto;
+    /* Match left card behavior */
+    display: flex;
+    flex-direction: column;
+    padding: 32px;
+    /* Restore proper padding since header is gone */
+}
+
+.hours-list,
+.topics-content-wrapper {
+    position: relative;
+    z-index: 1;
+}
+
+/* Custom Scrollbar for both cards */
+.topics-card::-webkit-scrollbar,
+.hours-card::-webkit-scrollbar {
+    width: 6px;
+}
+
+.topics-card::-webkit-scrollbar-track,
+.hours-card::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.topics-card::-webkit-scrollbar-thumb,
+.hours-card::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.topics-card::-webkit-scrollbar-thumb:hover,
+.hours-card::-webkit-scrollbar-thumb:hover {
+    background: rgba(123, 47, 247, 0.3);
+}
 
 /* ── SUBJECT BLOCK ── */
-.subject-block { margin-bottom: 35px; }
+.subject-block {
+    margin-bottom: 50px;
+    padding: 0 8px;
+}
 
 .subject-header {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    /* Stronger separator */
+    padding-bottom: 16px;
 }
-.subject-header h2 { font-size: 26px; font-weight: 600; }
-.exam-date { color: #aaa; font-size: 15px; }
+
+.subject-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+}
+
+.exam-date {
+    color: #7b2ff7;
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(123, 47, 247, 0.1);
+    padding: 4px 12px;
+    border-radius: 12px;
+}
 
 /* ── TOPIC ROW ── */
 .topic-row {
-    display: flex; align-items: center;
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    padding: 12px 0; border-bottom: 1px solid #444; gap: 15px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    gap: 20px;
 }
-.topic-name { font-size: 18px; flex: 1; }
 
-/* ── DROPDOWN ── */
-.status-select {
-    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none; border-radius: 20px;
-    padding: 8px 18px; color: white;
-    cursor: pointer; min-width: 180px;
+.topic-row:last-child {
+    border-bottom: none;
+}
+
+.topic-name {
+    font-size: 16px;
+    color: #ccc;
+    flex: 1;
+}
+
+/* ── CUSTOM STATUS SELECT ── */
+.custom-select {
+    position: relative;
+    width: 220px;
+    user-select: none;
+    z-index: 1;
+}
+
+.custom-select.active {
+    z-index: 1000;
+}
+
+.select-trigger {
+    background: rgba(17, 17, 26, 0.8);
+    border: 1px solid rgba(123, 47, 247, 0.3);
+    border-radius: 16px;
+    padding: 10px 18px;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.select-trigger:hover {
+    border-color: #7b2ff7;
+    background: rgba(123, 47, 247, 0.05);
+}
+
+.select-trigger::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid #9f55ff;
+    border-bottom: 2px solid #9f55ff;
+    transform: rotate(45deg);
+    transition: transform 0.3s ease;
+    margin-bottom: 3px;
+}
+
+.custom-select.active .select-trigger {
+    border-color: #9f55ff;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
+}
+
+.custom-select.active .select-trigger::after {
+    transform: rotate(-135deg);
+    margin-bottom: -3px;
+}
+
+.select-options {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 100%;
+    background: rgba(15, 15, 25, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    padding: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: none;
+    backdrop-filter: blur(15px);
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease-out;
+}
+
+.custom-select.active .select-options {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.option {
+    padding: 12px 16px;
+    border-radius: 12px;
+    color: #ccc;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.option:hover {
+    background: rgba(123, 47, 247, 0.15);
+    color: #fff;
+    padding-left: 20px;
+}
+
+.option.selected {
+    background: rgba(123, 47, 247, 0.3);
+    color: #fff;
+    font-weight: 600;
 }
 
 /* ── HOURS PANEL ── */
-.hours-card { width: 340px; }
-.hours-header {
-    display: flex; justify-content: space-between;
-    font-size: 16px; margin-bottom: 20px;
-    border-bottom: 1px solid #555; padding-bottom: 10px;
-}
-.hours-list { max-height: 520px; overflow-y: auto; padding-right: 4px; }
-
 .date-row {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 14px; font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    font-size: 15px;
+    padding-left: 4px;
 }
+
+.date-row span {
+    color: #ccc;
+}
+
 .date-row input {
-    width: 72px; background: white; border: none;
-    border-radius: 16px; padding: 7px; color: black; text-align: center;
+    width: 48px;
+    background: transparent;
+    border: none;
+    color: white;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.date-row input::-webkit-outer-spin-button,
+.date-row input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.hours-stepper {
+    display: flex;
+    align-items: center;
+    background: #11111a;
+    border: 1px solid #333;
+    border-radius: 14px;
+    padding: 2px;
+    transition: all 0.3s ease;
+}
+
+.hours-stepper:focus-within {
+    border-color: #7b2ff7;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
+}
+
+.step-btn {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: 10px;
+    color: #9f55ff;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.step-btn:hover {
+    background: rgba(123, 47, 247, 0.2);
+    color: white;
+}
+
+.step-btn:active {
+    transform: scale(0.9);
+}
+
+/* ── STATUS SYMBOL / BADGE ── */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
 }
 
 /* ── GENERATE BUTTON ── */
 .generate-btn {
-    display: block; margin: 36px auto 50px;
-    padding: 14px 40px;
+    display: block;
+    width: 100%;
+    max-width: 400px;
+    margin: 40px auto 20px;
     background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none; border-radius: 25px;
-    color: white; font-size: 18px; cursor: pointer; transition: 0.3s;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(123, 47, 247, 0.3);
+    animation: fadeIn 0.8s ease-out 0.2s both; /* Slight delay for better flow */
 }
-.generate-btn:hover { box-shadow: 0 0 20px #7b2ff7; transform: translateY(-2px); }
 
-/* ══════════════════
-   EDIT MODE STYLES
-══════════════════ */
+.generate-btn:hover {
+    background: linear-gradient(135deg, #8c46ff, #b37fff);
+}
+
+
+/* ── EDIT MODE INLINE STYLES ── */
+.edit-date-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    /* Add breathing room */
+    padding: 0 4px;
+}
+
+.edit-date-label {
+    font-size: 13px;
+    color: #888;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.edit-date-input {
+    background: #11111a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+    flex: 1;
+    max-width: 200px;
+    /* Prevent over-expansion */
+}
+
+.edit-date-input:focus {
+    border-color: #7b2ff7;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
+}
 
 .edit-inline-input {
-    background: #1a1a2e; border: 1px solid #7b2ff7;
-    border-radius: 8px; padding: 7px 12px;
-    color: white; font-size: 15px; outline: none;
-    flex: 1; min-width: 0; transition: border-color 0.2s;
+    background: #11111a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 15px;
+    outline: none;
+    flex: 1;
+    transition: all 0.2s ease;
 }
-.edit-inline-input:focus { border-color: #9f55ff; box-shadow: 0 0 6px rgba(123,47,247,0.3); }
-.edit-name-input { font-size: 18px; font-weight: 600; margin-bottom: 6px; width: 100%; }
 
-.edit-col { display: flex; flex-direction: column; flex: 1; gap: 6px; margin-right: 16px; }
-
-.edit-date-row { display: flex; align-items: center; gap: 10px; }
-.edit-date-label { font-size: 13px; color: #aaa; white-space: nowrap; }
-.edit-date-input {
-    background: #1a1a2e; border: 1px solid #555;
-    border-radius: 8px; padding: 5px 10px;
-    color: white; font-size: 13px; outline: none;
-    cursor: pointer; transition: border-color 0.2s; color-scheme: dark;
+.edit-inline-input:focus {
+    border-color: #7b2ff7;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
 }
-.edit-date-input:focus { border-color: #7b2ff7; }
+
+.edit-name-input {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    /* Extra space below the main title */
+}
 
 .edit-delete-btn {
-    background: rgba(220,50,50,0.1); border: 1px solid rgba(220,50,50,0.35);
-    border-radius: 10px; padding: 8px 14px;
-    color: #ff7c7c; font-size: 13px; cursor: pointer;
-    white-space: nowrap; align-self: flex-start; transition: 0.2s;
+    background: rgba(220, 50, 50, 0.1);
+    border: 1px solid rgba(220, 50, 50, 0.3);
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: #ff7c7c;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
-.edit-delete-btn:hover { background: rgba(220,50,50,0.2); }
+
+.edit-delete-btn:hover {
+    background: rgba(220, 50, 50, 0.2);
+    border-color: #ff7c7c;
+}
 
 .edit-delete-topic-btn {
-    background: none; border: none; color: #ff7c7c;
-    font-size: 16px; cursor: pointer; padding: 2px 8px;
-    border-radius: 6px; flex-shrink: 0; transition: 0.15s;
+    background: rgba(220, 50, 50, 0.1);
+    border: 1px solid rgba(220, 50, 50, 0.2);
+    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ff7c7c;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
 }
-.edit-delete-topic-btn:hover { background: rgba(220,50,50,0.15); }
 
-.edit-add-row {
-    display: flex; gap: 10px; align-items: center;
-    margin-top: 10px; padding-top: 10px;
-    border-top: 1px dashed #333;
+.edit-delete-topic-btn:hover {
+    background: rgba(220, 50, 50, 0.2);
+    border-color: #ff7c7c;
+    color: #fff;
+    transform: scale(1.1);
 }
 
-.edit-add-subject-row {
-    display: flex; gap: 10px; align-items: center;
-    margin-top: 20px; padding: 16px;
-    border: 1px dashed #7b2ff7; border-radius: 12px;
-    background: rgba(123,47,247,0.05);
-}
 
 .edit-add-btn {
-    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none; border-radius: 14px;
-    padding: 8px 18px; color: white;
-    font-size: 13px; cursor: pointer; white-space: nowrap; transition: 0.2s;
+    background: rgba(123, 47, 247, 0.1);
+    border: 1px dashed #7b2ff7;
+    padding: 10px 20px;
+    border-radius: 14px;
+    color: #9f55ff;
+    font-weight: 600;
+    transition: 0.2s;
 }
-.edit-add-btn:hover { box-shadow: 0 0 10px rgba(123,47,247,0.4); transform: translateY(-1px); }
+
+.edit-add-btn:hover {
+    background: rgba(123, 47, 247, 0.2);
+}
+
+.edit-add-row,
+.edit-add-subject-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    align-items: center;
+}
+
+.edit-add-row .edit-inline-input,
+.edit-add-subject-row .edit-inline-input {
+    border-radius: 14px;
+    /* Matching the button's roundedness */
+}
+
+
+/* ═══════════════════════════════════════════
+   CRYSTAL DARK FLATPICKR THEME
+   ═══════════════════════════════════════════ */
+
+.flatpickr-calendar {
+    background: rgba(12, 12, 21, 0.98) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(123, 47, 247, 0.3) !important;
+    border-radius: 20px;
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6) !important;
+    font-family: 'Inter', sans-serif !important;
+    margin-top: 10px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.flatpickr-calendar.arrowTop:after,
+.flatpickr-calendar.arrowTop:before {
+    border-bottom-color: rgba(123, 47, 247, 0.3) !important;
+}
+
+.flatpickr-months {
+    padding: 10px 0;
+}
+
+.flatpickr-month {
+    color: #fff !important;
+    fill: #fff !important;
+}
+
+.flatpickr-current-month {
+    font-size: 110%;
+    font-weight: 600;
+}
+
+.flatpickr-weekday {
+    color: #888 !important;
+    font-weight: 500 !important;
+}
+
+.flatpickr-day {
+    color: #ccc !important;
+    border-radius: 12px !important;
+    transition: all 0.2s ease;
+}
+
+.flatpickr-day:hover {
+    background: rgba(123, 47, 247, 0.15) !important;
+    color: #fff !important;
+    border-color: rgba(123, 47, 247, 0.4) !important;
+}
+
+.flatpickr-day.today {
+    border-color: #7b2ff7 !important;
+    color: #7b2ff7 !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover {
+    background: #7b2ff7 !important;
+    border-color: #7b2ff7 !important;
+    color: #fff !important;
+    box-shadow: 0 0 15px rgba(123, 47, 247, 0.4);
+}
+
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    color: #444 !important;
+}
+
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+    color: #9f55ff !important;
+    fill: #9f55ff !important;
+    padding: 10px;
+    transition: transform 0.2s ease;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+    color: #fff !important;
+    transform: scale(1.1);
+}
+
+/* Custom icon for the field */
+.edit-date-input {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239f55ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px !important;
+}

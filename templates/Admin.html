@@ -124,6 +124,7 @@
 </style>
 </head>
 <body>
+{% include '_ambient_bg.html' %}
 
 {% include '_navbar.html' %}
 
@@ -681,6 +682,8 @@ document.querySelectorAll('.section-header').forEach(hdr => {
 // Auto-open the first section
 document.querySelector('.section-body.open')?.classList.add('open');
 </script>
+
+{% include '_footer.html' %}
 
 </body>
 </html>
