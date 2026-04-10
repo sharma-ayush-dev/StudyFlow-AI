@@ -1,11 +1,13 @@
-/* Progress.js - updated for new subtopic schema */
+/* Progress.js — fixed */
 
-const userId = window.USER_ID;
-const topicStatus = window.TOPIC_STATUS;
+const userId       = window.USER_ID;
+const topicStatus  = window.TOPIC_STATUS;
 const pastSchedule = window.PAST_SCHEDULE;
 const fullSchedule = window.FULL_SCHEDULE;
-const todayStr = window.TODAY_STR;
-const isAdmin = window.IS_ADMIN || false;
+const todayStr     = window.TODAY_STR;
+const isAdmin      = window.IS_ADMIN || false;
+
+// ── OVERDUE SET ──────────────────────────────────────────────
 
 function buildOverdueSet() {
     const overdue = new Set();
@@ -18,19 +20,25 @@ function buildOverdueSet() {
 }
 const overdueSet = buildOverdueSet();
 
+
+// ── RENDER TOPIC LIST ────────────────────────────────────────
+
 function renderTopicList() {
-    const card = document.getElementById('progressTopicsCard');
+    const card     = document.getElementById('progressTopicsCard');
     const subjects = topicStatus.Subjects || {};
     card.innerHTML = '';
+
     if (!Object.keys(subjects).length) {
-        card.innerHTML = '<p style="color:#666;padding:20px;">No topic data found.</p>';
+        card.innerHTML = '<p style="color:#666;padding:20px;">No topic data found. Generate a schedule first.</p>';
         return;
     }
+
     Object.entries(subjects).forEach(([subjName, topics]) => {
 
-        const block = document.createElement('div');
+        const block  = document.createElement('div');
         block.className = 'subject-block';
 
+        // Header
         const header = document.createElement('div');
         header.className = 'subject-header';
 
@@ -38,34 +46,43 @@ function renderTopicList() {
         nameEl.textContent = subjName;
 
         const examEl = document.createElement('span');
-        examEl.className = 'exam-date';
+        examEl.className   = 'exam-date';
         examEl.textContent = (topicStatus.Exam_dates || {})[subjName] || 'No exam date';
 
         header.appendChild(nameEl);
         header.appendChild(examEl);
-
         block.appendChild(header);
 
-        const topicsDiv = document.createElement('div'); topicsDiv.className = 'topics';
+        // Topics
+        const topicsDiv = document.createElement('div');
+        topicsDiv.className = 'topics';
+
         Object.entries(topics).forEach(([topicName, tdata]) => {
-            // tdata can be { status, subtopics } (new) or a string (old)
+
+            // BUG FIX 3: was using undefined `currentPct`, correct var is `currentStatus`
             const currentStatus = typeof tdata === 'object' ? (tdata.status || '0') : String(tdata);
             const subtopics     = typeof tdata === 'object' ? (tdata.subtopics || []) : [];
 
-
-            const key = `${subjName}||${topicName}`;
+            const key       = `${subjName}||${topicName}`;
             const isOverdue = overdueSet.has(key);
 
+            // BUG FIX 2: `row` was never created
+            const row = document.createElement('div');
+            row.className = 'topic-row';
+
+            // BUG FIX 1: `left` was never created
+            const left = document.createElement('div');
+            left.style.flex = '1';
+
             const nameSpan = document.createElement('span');
-            nameSpan.className = 'topic-name';
+            nameSpan.className   = 'topic-name';
             nameSpan.textContent = topicName;
 
             if (isOverdue) {
                 const badge = document.createElement('span');
-                badge.className = 'overdue-badge';
+                badge.className   = 'overdue-badge';
                 badge.textContent = 'Scheduled';
-                badge.title = 'This topic was scheduled to be studied by today';
-
+                badge.title       = 'This topic was scheduled to be studied by today';
                 nameSpan.appendChild(badge);
             }
             left.appendChild(nameSpan);
@@ -73,49 +90,49 @@ function renderTopicList() {
             if (subtopics.length) {
                 const subEl = document.createElement('div');
                 subEl.style.cssText = 'font-size:12px;color:#666;margin-top:3px;';
-                subEl.textContent = subtopics.slice(0,3).join(' · ') + (subtopics.length > 3 ? ' …' : '');
+                subEl.textContent   = subtopics.slice(0, 3).join(' · ')
+                                      + (subtopics.length > 3 ? ' …' : '');
                 left.appendChild(subEl);
             }
 
-
-            // ── CUSTOM GLASSMORPHIC SELECT ──
+            // Custom glassmorphic dropdown
             const customSelect = document.createElement('div');
-            customSelect.className = 'custom-select';
+            customSelect.className       = 'custom-select';
             customSelect.dataset.subject = subjName;
-            customSelect.dataset.topic = topicName;
+            customSelect.dataset.topic   = topicName;
 
             const trigger = document.createElement('div');
             trigger.className = 'select-trigger';
 
             const optionsData = [
-                ['0', '0% — Not Started'], ['25', '25% — Just Begun'],
-                ['50', '50% — Halfway'], ['75', '75% — Almost Done'],
+                ['0',   '0% — Not Started'],
+                ['25',  '25% — Just Begun'],
+                ['50',  '50% — Halfway'],
+                ['75',  '75% — Almost Done'],
                 ['100', '100% — Completed']
             ];
 
-            // Set initial trigger text
-            const initOpt = optionsData.find(o => o[0] === String(currentPct));
+            // BUG FIX 3 (cont): was referencing undefined `currentPct`; now uses `currentStatus`
+            const initOpt = optionsData.find(o => o[0] === String(currentStatus));
             trigger.innerHTML = `<span class="value">${initOpt ? initOpt[1] : optionsData[0][1]}</span>`;
-            customSelect.dataset.value = currentPct;
+            customSelect.dataset.value = currentStatus;
 
             const optionsContainer = document.createElement('div');
             optionsContainer.className = 'select-options';
 
             optionsData.forEach(([val, label]) => {
                 const opt = document.createElement('div');
-                opt.className = 'option' + (String(val) === String(currentPct) ? ' selected' : '');
+                opt.className   = 'option' + (String(val) === String(currentStatus) ? ' selected' : '');
                 opt.textContent = label;
                 opt.dataset.value = val;
 
                 opt.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    // Update UI
                     trigger.querySelector('.value').textContent = label;
                     customSelect.dataset.value = val;
-                    // Close menu
                     customSelect.classList.remove('active');
-                    // Update selected visual class
-                    optionsContainer.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+                    optionsContainer.querySelectorAll('.option')
+                        .forEach(o => o.classList.remove('selected'));
                     opt.classList.add('selected');
                 });
                 optionsContainer.appendChild(opt);
@@ -123,7 +140,6 @@ function renderTopicList() {
 
             trigger.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // Close all other dropdowns first
                 document.querySelectorAll('.custom-select').forEach(s => {
                     if (s !== customSelect) s.classList.remove('active');
                 });
@@ -133,52 +149,46 @@ function renderTopicList() {
             customSelect.appendChild(trigger);
             customSelect.appendChild(optionsContainer);
 
-            row.appendChild(nameSpan);
+            row.appendChild(left);
             row.appendChild(customSelect);
-
-
-
             topicsDiv.appendChild(row);
         });
+
         block.appendChild(topicsDiv);
         card.appendChild(block);
     });
 }
 
+
+// ── COLLECT UPDATED SUBJECTS ─────────────────────────────────
+
 function collectUpdatedSubjects() {
     const subjects = {};
     document.querySelectorAll('.custom-select').forEach(sel => {
-        const subj = sel.dataset.subject;
+        const subj  = sel.dataset.subject;
         const topic = sel.dataset.topic;
         if (!subjects[subj]) subjects[subj] = {};
-
         subjects[subj][topic] = sel.dataset.value || '0';
-
     });
     return subjects;
 }
 
 
-
-
-// ── NOTICE BANNER ──────────────────────────────────────────
-// Shown to all users when fallback LLM was used.
-// Admin also sees the failure details.
+// ── NOTICE BANNER (defined once) ─────────────────────────────
+// BUG FIX 4: was defined twice; removed the duplicate
 
 function showNoticeBanner(notice) {
     const existing = document.getElementById('llmNoticeBanner');
     if (existing) existing.remove();
 
     const banner = document.createElement('div');
-    banner.id = 'llmNoticeBanner';
+    banner.id    = 'llmNoticeBanner';
     banner.style.cssText = `
         max-width:850px; margin:0 auto 20px; padding:14px 20px;
         background:rgba(255,180,0,0.1); border:1px solid rgba(255,180,0,0.35);
         border-radius:12px; font-size:14px; color:#ffd060; line-height:1.6;`;
 
-    banner.innerHTML = `
-        ⚠ The primary AI model was unavailable.
-        Your schedule was generated using <strong>${notice.model}</strong> instead.`;
+    banner.innerHTML = `⚠ Primary AI unavailable. Used <strong>${notice.model}</strong> instead.`;
 
     if (isAdmin && notice.reasons && notice.reasons.length) {
         const details = document.createElement('details');
@@ -187,138 +197,124 @@ function showNoticeBanner(notice) {
         summary.textContent = 'Admin: show failure details';
         summary.style.cursor = 'pointer';
         const pre = document.createElement('pre');
-        pre.style.cssText = 'font-size:12px;color:#aaa;margin-top:8px;white-space:pre-wrap;';
-        pre.textContent = notice.reasons.join('\n\n');
+        pre.style.cssText   = 'font-size:12px;color:#aaa;margin-top:8px;white-space:pre-wrap;';
+        pre.textContent     = notice.reasons.join('\n\n');
         details.appendChild(summary);
         details.appendChild(pre);
         banner.appendChild(details);
     }
 
-    // Insert above the progress wrapper
     const wrapper = document.getElementById('progressWrapper');
     wrapper.parentNode.insertBefore(banner, wrapper);
 }
 
 
-// ── LOADER ─────────────────────────────────────────────────
+// ── LOADER ───────────────────────────────────────────────────
 
 const loaderMessages = {
-    save: ['Saving progress…', 'Updating percentages…'],
+    save:  ['Saving progress…', 'Updating percentages…'],
     regen: ['Analysing your progress…', 'Rescheduling topics…',
-        'Optimising for exam dates…', 'Almost ready…']
-
+            'Optimising for exam dates…', 'Almost ready…']
 };
 let loaderInterval = null;
 
 function showLoader(type) {
     document.getElementById('progressActions').style.display = 'none';
-
-    document.getElementById('progressLoader').style.display = 'block';
+    document.getElementById('progressLoader').style.display  = 'block';
     const msgs = loaderMessages[type];
     let i = 0;
-
     document.getElementById('progressLoaderMsg').textContent = msgs[0];
     loaderInterval = setInterval(() => {
-        i = (i+1)%msgs.length;
+        i = (i + 1) % msgs.length;
         document.getElementById('progressLoaderMsg').textContent = msgs[i];
     }, 3500);
 }
+
 function hideLoader() {
     clearInterval(loaderInterval);
-    document.getElementById('progressLoader').style.display = 'none';
+    document.getElementById('progressLoader').style.display  = 'none';
     document.getElementById('progressActions').style.display = 'flex';
 }
+
+
+// ── SAVE PROGRESS ────────────────────────────────────────────
 
 document.getElementById('saveProgressBtn').addEventListener('click', async () => {
     showLoader('save');
     try {
         const res = await fetch(`/update_progress/${userId}`, {
-
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Subjects: collectUpdatedSubjects() })
-
+            body:    JSON.stringify({ Subjects: collectUpdatedSubjects() })
         });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         hideLoader();
-        const btn = document.getElementById('saveProgressBtn');
+        const btn  = document.getElementById('saveProgressBtn');
         const orig = btn.textContent;
         btn.textContent = '✓ Saved!';
         setTimeout(() => { btn.textContent = orig; }, 2000);
-    } catch (err) { hideLoader(); alert('Failed: '+err.message); }
+    } catch (err) {
+        hideLoader();
+        alert('Failed: ' + err.message);
+    }
 });
+
+
+// ── REGENERATE ───────────────────────────────────────────────
 
 document.getElementById('regenBtn').addEventListener('click', async () => {
     showLoader('regen');
     try {
         const saveRes = await fetch(`/update_progress/${userId}`, {
-
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Subjects: collectUpdatedSubjects() })
-
+            body:    JSON.stringify({ Subjects: collectUpdatedSubjects() })
         });
-        if (!saveRes.ok) throw new Error('Failed to save progress');
+        if (!saveRes.ok) throw new Error('Failed to save progress before regenerating');
 
-
-        // 2. Regenerate
         const regenRes = await fetch(`/regenerate_schedule/${userId}`, { method: 'POST' });
-        const data = await regenRes.json();
-
+        const data     = await regenRes.json();
 
         if (!regenRes.ok) {
             let msg = data.error || 'Regeneration failed';
-            if (isAdmin && data.details) msg += '\n\nAdmin details:\n'+data.details;
+            if (isAdmin && data.details) msg += '\n\nAdmin details:\n' + data.details;
             throw new Error(msg);
         }
+
         hideLoader();
         if (data.notice) showNoticeBanner(data.notice);
         renderComparison(data.old_schedule, data.new_schedule);
-    } catch (err) { hideLoader(); alert('Regeneration failed:\n'+err.message); }
+
+    } catch (err) {
+        hideLoader();
+        alert('Regeneration failed:\n' + err.message);
+    }
 });
 
-function showNoticeBanner(notice) {
-    const existing = document.getElementById('llmNoticeBanner');
-    if (existing) existing.remove();
-    const banner = document.createElement('div');
-    banner.id    = 'llmNoticeBanner';
-    banner.style.cssText = 'max-width:760px;margin:0 auto 20px;padding:14px 20px;background:rgba(255,180,0,0.1);border:1px solid rgba(255,180,0,0.35);border-radius:12px;font-size:14px;color:#ffd060;';
-    banner.innerHTML = `⚠ Primary AI unavailable. Used <strong>${notice.model}</strong> instead.`;
-    if (isAdmin && notice.reasons?.length) {
-        const details = document.createElement('details');
-        details.style.marginTop = '8px';
-        const summary = document.createElement('summary');
-        summary.textContent = 'Admin: failure details'; summary.style.cursor = 'pointer';
-        const pre = document.createElement('pre');
-        pre.style.cssText = 'font-size:12px;color:#aaa;margin-top:8px;white-space:pre-wrap;';
-        pre.textContent   = notice.reasons.join('\n\n');
-        details.appendChild(summary); details.appendChild(pre);
-        banner.appendChild(details);
-    }
-    document.getElementById('progressWrapper').parentNode.insertBefore(
-        banner, document.getElementById('progressWrapper'));
-}
+
+// ── COMPARISON RENDER ────────────────────────────────────────
 
 function sortDMY(dates) {
-
     return dates.sort((a, b) => {
-        const toMs = s => { const [d, m, y] = s.split('-'); return new Date(+y, +m - 1, +d).getTime(); };
-        return toMs(a) - toMs(b);
-
+        const ms = s => { const [d, m, y] = s.split('-'); return new Date(+y, +m - 1, +d).getTime(); };
+        return ms(a) - ms(b);
     });
 }
 
 function renderScheduleInto(containerId, scheduleData) {
-    const el = document.getElementById(containerId); el.innerHTML = '';
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
     const dates = sortDMY(Object.keys(scheduleData));
-    if (!dates.length) { el.innerHTML = '<p style="color:#666;padding:16px;">Empty schedule.</p>'; return; }
+    if (!dates.length) {
+        el.innerHTML = '<p style="color:#666;padding:16px;">Empty schedule.</p>';
+        return;
+    }
     dates.forEach(date => {
-
         const dateBlock = document.createElement('div');
         dateBlock.className = 'cmp-date-block';
 
         const dateTitle = document.createElement('div');
-        dateTitle.className = 'cmp-date-title';
+        dateTitle.className   = 'cmp-date-title';
         dateTitle.textContent = date;
         dateBlock.appendChild(dateTitle);
 
@@ -327,25 +323,32 @@ function renderScheduleInto(containerId, scheduleData) {
             subjEl.className = 'cmp-subject';
 
             const subjTitle = document.createElement('div');
-            subjTitle.className = 'cmp-subject-name';
+            subjTitle.className   = 'cmp-subject-name';
             subjTitle.textContent = subj;
             subjEl.appendChild(subjTitle);
 
-            Object.entries(topics).forEach(([topic, hours]) => {
+            Object.entries(topics).forEach(([topic, tdata]) => {
+                // BUG FIX 5: new schema is {hours, subtopics}; old schema is plain integer
+                const hours = typeof tdata === 'object' ? tdata.hours : tdata;
+
                 const row = document.createElement('div');
                 row.className = 'cmp-topic-row';
+
                 const t = document.createElement('span');
                 t.textContent = topic;
+
                 const h = document.createElement('span');
-                h.className = 'cmp-hours';
+                h.className   = 'cmp-hours';
                 h.textContent = `${hours}h`;
+
                 row.appendChild(t);
                 row.appendChild(h);
                 subjEl.appendChild(row);
-
             });
+
             dateBlock.appendChild(subjEl);
         });
+
         el.appendChild(dateBlock);
     });
 }
@@ -354,43 +357,40 @@ function renderComparison(oldSched, newSched) {
     renderScheduleInto('oldScheduleContent', oldSched);
     renderScheduleInto('newScheduleContent', newSched);
     document.getElementById('comparisonSection').classList.remove('hidden');
-    document.getElementById('progressWrapper').style.display = 'none';
-    document.getElementById('progressActions').style.display = 'none';
-
+    document.getElementById('progressWrapper').style.display  = 'none';
+    document.getElementById('progressActions').style.display  = 'none';
     document.getElementById('comparisonSection').scrollIntoView({ behavior: 'smooth' });
-
 }
 
-async function handleKeep(choice) {
 
+// ── KEEP CHOICE ──────────────────────────────────────────────
+
+async function handleKeep(choice) {
     const btn = document.getElementById(choice === 'old' ? 'keepOldBtn' : 'keepNewBtn');
-    btn.disabled = true;
+    btn.disabled    = true;
     btn.textContent = 'Saving…';
     try {
         const res = await fetch(`/keep_schedule/${userId}`, {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ choice })
-
+            body:    JSON.stringify({ choice })
         });
-        if (!res.ok) throw new Error((await res.json()).error||'Failed');
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         window.location.href = '/schedule_page';
-
     } catch (err) {
-        alert('Failed to save choice: ' + err.message);
-        btn.disabled = false;
+        alert('Failed: ' + err.message);
+        btn.disabled    = false;
         btn.textContent = 'Keep This';
     }
-
 }
 
-document.getElementById('keepOldBtn').addEventListener('click', ()=>handleKeep('old'));
-document.getElementById('keepNewBtn').addEventListener('click', ()=>handleKeep('new'));
+document.getElementById('keepOldBtn').addEventListener('click', () => handleKeep('old'));
+document.getElementById('keepNewBtn').addEventListener('click', () => handleKeep('new'));
 
 
-// ── INIT ───────────────────────────────────────────────────
+// ── INIT ─────────────────────────────────────────────────────
 
-// Close dropdowns if clicking outside
+// Close all dropdowns when clicking anywhere outside
 document.addEventListener('click', () => {
     document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('active'));
 });
