@@ -1,6 +1,4 @@
-/* ═══════════════════════════════════════════════════════════
-   PROGRESS.JS
-═══════════════════════════════════════════════════════════ */
+/* Progress.js - updated for new subtopic schema */
 
 const userId = window.USER_ID;
 const topicStatus = window.TOPIC_STATUS;
@@ -8,9 +6,6 @@ const pastSchedule = window.PAST_SCHEDULE;
 const fullSchedule = window.FULL_SCHEDULE;
 const todayStr = window.TODAY_STR;
 const isAdmin = window.IS_ADMIN || false;
-
-
-// ── OVERDUE SET ────────────────────────────────────────────
 
 function buildOverdueSet() {
     const overdue = new Set();
@@ -23,20 +18,16 @@ function buildOverdueSet() {
 }
 const overdueSet = buildOverdueSet();
 
-
-// ── RENDER TOPIC LIST ──────────────────────────────────────
-
 function renderTopicList() {
     const card = document.getElementById('progressTopicsCard');
     const subjects = topicStatus.Subjects || {};
     card.innerHTML = '';
-
     if (!Object.keys(subjects).length) {
         card.innerHTML = '<p style="color:#666;padding:20px;">No topic data found.</p>';
         return;
     }
-
     Object.entries(subjects).forEach(([subjName, topics]) => {
+
         const block = document.createElement('div');
         block.className = 'subject-block';
 
@@ -52,14 +43,15 @@ function renderTopicList() {
 
         header.appendChild(nameEl);
         header.appendChild(examEl);
+
         block.appendChild(header);
 
-        const topicsDiv = document.createElement('div');
-        topicsDiv.className = 'topics';
+        const topicsDiv = document.createElement('div'); topicsDiv.className = 'topics';
+        Object.entries(topics).forEach(([topicName, tdata]) => {
+            // tdata can be { status, subtopics } (new) or a string (old)
+            const currentStatus = typeof tdata === 'object' ? (tdata.status || '0') : String(tdata);
+            const subtopics     = typeof tdata === 'object' ? (tdata.subtopics || []) : [];
 
-        Object.entries(topics).forEach(([topicName, currentPct]) => {
-            const row = document.createElement('div');
-            row.className = 'topic-row';
 
             const key = `${subjName}||${topicName}`;
             const isOverdue = overdueSet.has(key);
@@ -73,8 +65,18 @@ function renderTopicList() {
                 badge.className = 'overdue-badge';
                 badge.textContent = 'Scheduled';
                 badge.title = 'This topic was scheduled to be studied by today';
+
                 nameSpan.appendChild(badge);
             }
+            left.appendChild(nameSpan);
+
+            if (subtopics.length) {
+                const subEl = document.createElement('div');
+                subEl.style.cssText = 'font-size:12px;color:#666;margin-top:3px;';
+                subEl.textContent = subtopics.slice(0,3).join(' · ') + (subtopics.length > 3 ? ' …' : '');
+                left.appendChild(subEl);
+            }
+
 
             // ── CUSTOM GLASSMORPHIC SELECT ──
             const customSelect = document.createElement('div');
@@ -135,16 +137,13 @@ function renderTopicList() {
             row.appendChild(customSelect);
 
 
+
             topicsDiv.appendChild(row);
         });
-
         block.appendChild(topicsDiv);
         card.appendChild(block);
     });
 }
-
-
-// ── COLLECT UPDATED PERCENTAGES ────────────────────────────
 
 function collectUpdatedSubjects() {
     const subjects = {};
@@ -152,10 +151,13 @@ function collectUpdatedSubjects() {
         const subj = sel.dataset.subject;
         const topic = sel.dataset.topic;
         if (!subjects[subj]) subjects[subj] = {};
+
         subjects[subj][topic] = sel.dataset.value || '0';
+
     });
     return subjects;
 }
+
 
 
 
@@ -204,117 +206,114 @@ const loaderMessages = {
     save: ['Saving progress…', 'Updating percentages…'],
     regen: ['Analysing your progress…', 'Rescheduling topics…',
         'Optimising for exam dates…', 'Almost ready…']
+
 };
 let loaderInterval = null;
 
 function showLoader(type) {
     document.getElementById('progressActions').style.display = 'none';
+
     document.getElementById('progressLoader').style.display = 'block';
     const msgs = loaderMessages[type];
     let i = 0;
+
     document.getElementById('progressLoaderMsg').textContent = msgs[0];
     loaderInterval = setInterval(() => {
-        i = (i + 1) % msgs.length;
+        i = (i+1)%msgs.length;
         document.getElementById('progressLoaderMsg').textContent = msgs[i];
     }, 3500);
 }
-
 function hideLoader() {
     clearInterval(loaderInterval);
     document.getElementById('progressLoader').style.display = 'none';
     document.getElementById('progressActions').style.display = 'flex';
 }
 
-
-// ── SAVE PROGRESS ──────────────────────────────────────────
-
 document.getElementById('saveProgressBtn').addEventListener('click', async () => {
     showLoader('save');
     try {
         const res = await fetch(`/update_progress/${userId}`, {
+
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ Subjects: collectUpdatedSubjects() })
+
         });
         if (!res.ok) throw new Error((await res.json()).error || 'Failed');
-
         hideLoader();
         const btn = document.getElementById('saveProgressBtn');
         const orig = btn.textContent;
         btn.textContent = '✓ Saved!';
         setTimeout(() => { btn.textContent = orig; }, 2000);
-
-    } catch (err) {
-        hideLoader();
-        alert('Failed to save progress: ' + err.message);
-    }
+    } catch (err) { hideLoader(); alert('Failed: '+err.message); }
 });
-
-
-// ── REGENERATE ─────────────────────────────────────────────
 
 document.getElementById('regenBtn').addEventListener('click', async () => {
     showLoader('regen');
     try {
-        // 1. Auto-save progress
         const saveRes = await fetch(`/update_progress/${userId}`, {
+
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ Subjects: collectUpdatedSubjects() })
+
         });
-        if (!saveRes.ok) throw new Error('Failed to save progress before regenerating');
+        if (!saveRes.ok) throw new Error('Failed to save progress');
+
 
         // 2. Regenerate
         const regenRes = await fetch(`/regenerate_schedule/${userId}`, { method: 'POST' });
         const data = await regenRes.json();
 
-        if (!regenRes.ok) {
-            // Build a useful error message for the user
-            let msg = data.error || 'Regeneration failed';
 
-            // Show full details to admin, abbreviated to regular users
-            if (isAdmin && data.details) {
-                msg += '\n\nAdmin details:\n' + data.details;
-            }
+        if (!regenRes.ok) {
+            let msg = data.error || 'Regeneration failed';
+            if (isAdmin && data.details) msg += '\n\nAdmin details:\n'+data.details;
             throw new Error(msg);
         }
-
         hideLoader();
-
-        // Show fallback notice if primary LLM failed
-        if (data.notice) {
-            showNoticeBanner(data.notice);
-        }
-
+        if (data.notice) showNoticeBanner(data.notice);
         renderComparison(data.old_schedule, data.new_schedule);
-
-    } catch (err) {
-        hideLoader();
-        alert('Regeneration failed:\n' + err.message);
-    }
+    } catch (err) { hideLoader(); alert('Regeneration failed:\n'+err.message); }
 });
 
-
-// ── COMPARISON RENDER ──────────────────────────────────────
+function showNoticeBanner(notice) {
+    const existing = document.getElementById('llmNoticeBanner');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id    = 'llmNoticeBanner';
+    banner.style.cssText = 'max-width:760px;margin:0 auto 20px;padding:14px 20px;background:rgba(255,180,0,0.1);border:1px solid rgba(255,180,0,0.35);border-radius:12px;font-size:14px;color:#ffd060;';
+    banner.innerHTML = `⚠ Primary AI unavailable. Used <strong>${notice.model}</strong> instead.`;
+    if (isAdmin && notice.reasons?.length) {
+        const details = document.createElement('details');
+        details.style.marginTop = '8px';
+        const summary = document.createElement('summary');
+        summary.textContent = 'Admin: failure details'; summary.style.cursor = 'pointer';
+        const pre = document.createElement('pre');
+        pre.style.cssText = 'font-size:12px;color:#aaa;margin-top:8px;white-space:pre-wrap;';
+        pre.textContent   = notice.reasons.join('\n\n');
+        details.appendChild(summary); details.appendChild(pre);
+        banner.appendChild(details);
+    }
+    document.getElementById('progressWrapper').parentNode.insertBefore(
+        banner, document.getElementById('progressWrapper'));
+}
 
 function sortDMY(dates) {
+
     return dates.sort((a, b) => {
         const toMs = s => { const [d, m, y] = s.split('-'); return new Date(+y, +m - 1, +d).getTime(); };
         return toMs(a) - toMs(b);
+
     });
 }
 
 function renderScheduleInto(containerId, scheduleData) {
-    const el = document.getElementById(containerId);
-    el.innerHTML = '';
-
+    const el = document.getElementById(containerId); el.innerHTML = '';
     const dates = sortDMY(Object.keys(scheduleData));
-    if (!dates.length) {
-        el.innerHTML = '<p style="color:#666;padding:16px;">Empty schedule.</p>';
-        return;
-    }
-
+    if (!dates.length) { el.innerHTML = '<p style="color:#666;padding:16px;">Empty schedule.</p>'; return; }
     dates.forEach(date => {
+
         const dateBlock = document.createElement('div');
         dateBlock.className = 'cmp-date-block';
 
@@ -343,8 +342,8 @@ function renderScheduleInto(containerId, scheduleData) {
                 row.appendChild(t);
                 row.appendChild(h);
                 subjEl.appendChild(row);
-            });
 
+            });
             dateBlock.appendChild(subjEl);
         });
         el.appendChild(dateBlock);
@@ -357,13 +356,13 @@ function renderComparison(oldSched, newSched) {
     document.getElementById('comparisonSection').classList.remove('hidden');
     document.getElementById('progressWrapper').style.display = 'none';
     document.getElementById('progressActions').style.display = 'none';
+
     document.getElementById('comparisonSection').scrollIntoView({ behavior: 'smooth' });
+
 }
 
-
-// ── KEEP CHOICE ────────────────────────────────────────────
-
 async function handleKeep(choice) {
+
     const btn = document.getElementById(choice === 'old' ? 'keepOldBtn' : 'keepNewBtn');
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -372,18 +371,21 @@ async function handleKeep(choice) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ choice })
+
         });
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        if (!res.ok) throw new Error((await res.json()).error||'Failed');
         window.location.href = '/schedule_page';
+
     } catch (err) {
         alert('Failed to save choice: ' + err.message);
         btn.disabled = false;
         btn.textContent = 'Keep This';
     }
+
 }
 
-document.getElementById('keepOldBtn').addEventListener('click', () => handleKeep('old'));
-document.getElementById('keepNewBtn').addEventListener('click', () => handleKeep('new'));
+document.getElementById('keepOldBtn').addEventListener('click', ()=>handleKeep('old'));
+document.getElementById('keepNewBtn').addEventListener('click', ()=>handleKeep('new'));
 
 
 // ── INIT ───────────────────────────────────────────────────

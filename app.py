@@ -2,7 +2,7 @@ import os
 import re
 import json
 import datetime
-import secrets
+import urllib.parse
 
 from flask import Flask, request, jsonify, render_template, redirect, url_for, abort, session
 from flask_sqlalchemy import SQLAlchemy
@@ -18,6 +18,7 @@ from werkzeug.utils import secure_filename
 
 from text_extractor import organize_with_llm, VISION_MODELS
 from schedule_planner import generate_schedule, MODELS as SCHED_MODELS, DEFAULT_MAX_TOKENS
+from teacher import get_initial_message, get_reply, get_quiz, TEACHER_MODELS
 
 
 # ─────────────────────────────────────────────
@@ -38,28 +39,23 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'}
 
-db           = Cache_obj = None   # assigned below after models
+db      = SQLAlchemy(app)
+limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri='memory://')
+cache   = Cache()
 login_manager = LoginManager()
-limiter       = Limiter(key_func=get_remote_address, default_limits=[], storage_uri='memory://')
-cache         = Cache()
 
-db = SQLAlchemy(app)
 limiter.init_app(app)
 cache.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view    = 'landing'
 login_manager.login_message = ''
 
-
-# ─────────────────────────────────────────────
-# RATE LIMIT DEFAULTS
-# ─────────────────────────────────────────────
-
 RATE_LIMIT_DEFAULTS = {
     'rl_login':    '20 per hour',
     'rl_register': '10 per hour',
     'rl_upload':   '10 per hour',
     'rl_generate': '10 per hour',
+    'rl_chat':     '60 per hour',
 }
 
 DEFAULT_WORD_LIMIT = 2000
@@ -70,21 +66,18 @@ DEFAULT_WORD_LIMIT = 2000
 # ─────────────────────────────────────────────
 
 class User(db.Model, UserMixin):
-    id               = db.Column(db.Integer,    primary_key=True)
-    username         = db.Column(db.String(80),  unique=True, nullable=False)
-    email            = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash    = db.Column(db.String(256), nullable=False)
-    is_admin         = db.Column(db.Boolean,    default=False)
-    created_at       = db.Column(db.DateTime,   default=datetime.datetime.utcnow)
-    # Increment to force-logout all sessions for this user
-    session_version  = db.Column(db.Integer,    default=0, nullable=False)
+    id              = db.Column(db.Integer,    primary_key=True)
+    username        = db.Column(db.String(80),  unique=True, nullable=False)
+    email           = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash   = db.Column(db.String(256), nullable=False)
+    is_admin        = db.Column(db.Boolean,    default=False)
+    created_at      = db.Column(db.DateTime,   default=datetime.datetime.utcnow)
+    session_version = db.Column(db.Integer,    default=0, nullable=False)
+    course          = db.Column(db.String(50),  nullable=True)   # e.g. "B.Tech Computer Science"
 
-    def set_password(self, p: str):
-        self.password_hash = generate_password_hash(
-            p, method='pbkdf2:sha256:600000', salt_length=16)
-
-    def check_password(self, p: str) -> bool:
-        return check_password_hash(self.password_hash, p)
+    def set_password(self, p): self.password_hash = generate_password_hash(
+        p, method='pbkdf2:sha256:600000', salt_length=16)
+    def check_password(self, p): return check_password_hash(self.password_hash, p)
 
 
 class StudyData(db.Model):
@@ -97,17 +90,38 @@ class StudyData(db.Model):
     pending_schedule_json = db.Column(db.Text)
 
 
+class Chat(db.Model):
+    """One chat per user+subject+topic combination. Continues across sessions."""
+    id         = db.Column(db.Integer,   primary_key=True)
+    userid     = db.Column(db.Integer,   db.ForeignKey('user.id'), nullable=False)
+    subject    = db.Column(db.String(200), nullable=False)
+    topic      = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime,  default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime,  default=datetime.datetime.utcnow,
+                            onupdate=datetime.datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('userid', 'subject', 'topic',
+                                          name='uq_user_subject_topic'),)
+
+
+class Message(db.Model):
+    """Individual message in a chat. role = 'user' | 'assistant'."""
+    id         = db.Column(db.Integer,  primary_key=True)
+    chat_id    = db.Column(db.Integer,  db.ForeignKey('chat.id'), nullable=False)
+    role       = db.Column(db.String(10), nullable=False)
+    content    = db.Column(db.Text,     nullable=False)
+    timestamp  = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
 class AppSettings(db.Model):
     key   = db.Column(db.String(64),  primary_key=True)
     value = db.Column(db.String(512), nullable=True)
 
 
 class ActivityLog(db.Model):
-    """Semantic action log — records meaningful user actions."""
     id        = db.Column(db.Integer,  primary_key=True)
     userid    = db.Column(db.Integer,  db.ForeignKey('user.id'), nullable=True)
-    action    = db.Column(db.String(50))   # upload|generate|edit|regenerate|login|register
-    detail    = db.Column(db.Text,     nullable=True)   # optional JSON string
+    action    = db.Column(db.String(50))
+    detail    = db.Column(db.Text,     nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
@@ -123,11 +137,8 @@ class RequestLog(db.Model):
 @login_manager.user_loader
 def load_user(user_id: str):
     user = User.query.get(int(user_id))
-    if user is None:
-        return None
-    # Force-logout check: session version must match
-    if session.get('session_version', 0) != (user.session_version or 0):
-        return None
+    if not user: return None
+    if session.get('session_version', 0) != (user.session_version or 0): return None
     return user
 
 
@@ -142,64 +153,48 @@ def _get_setting(key: str, fallback=None):
     except Exception:
         return fallback
 
-
 def _set_setting(key: str, value: str):
     row = AppSettings.query.get(key)
-    if row:
-        row.value = value
-    else:
-        db.session.add(AppSettings(key=key, value=value))
+    if row: row.value = value
+    else:   db.session.add(AppSettings(key=key, value=value))
     db.session.commit()
-
 
 def get_today() -> str:
     val = _get_setting('test_today')
     return val if val else datetime.date.today().strftime('%d-%m-%Y')
 
-
 def parse_dmy(s: str) -> datetime.date:
     d, m, y = s.strip().split('-')
     return datetime.date(int(y), int(m), int(d))
 
-
 def get_max_tokens() -> int:
-    val = _get_setting('max_tokens')
-    try:
-        return int(val) if val else DEFAULT_MAX_TOKENS
-    except (ValueError, TypeError):
-        return DEFAULT_MAX_TOKENS
-
-
-def get_sched_model_list() -> list:
-    val = _get_setting('sched_model_list')
-    if val:
-        try:
-            parsed = json.loads(val)
-            if isinstance(parsed, list) and parsed:
-                return parsed
-        except Exception:
-            pass
-    return SCHED_MODELS
-
-
-def get_extract_model_list() -> list:
-    val = _get_setting('extract_model_list')
-    if val:
-        try:
-            parsed = json.loads(val)
-            if isinstance(parsed, list) and parsed:
-                return parsed
-        except Exception:
-            pass
-    return VISION_MODELS
-
+    try: return int(_get_setting('max_tokens') or DEFAULT_MAX_TOKENS)
+    except: return DEFAULT_MAX_TOKENS
 
 def get_word_limit() -> int:
-    val = _get_setting('text_word_limit')
-    try:
-        return int(val) if val else DEFAULT_WORD_LIMIT
-    except (ValueError, TypeError):
-        return DEFAULT_WORD_LIMIT
+    try: return int(_get_setting('text_word_limit') or DEFAULT_WORD_LIMIT)
+    except: return DEFAULT_WORD_LIMIT
+
+def get_sched_model_list() -> list:
+    return _parse_model_list('sched_model_list', SCHED_MODELS)
+
+def get_extract_model_list() -> list:
+    return _parse_model_list('extract_model_list', VISION_MODELS)
+
+def get_teacher_model_list() -> list:
+    return _parse_model_list('teacher_model_list', TEACHER_MODELS)
+
+def _parse_model_list(key: str, default: list) -> list:
+    val = _get_setting(key)
+    if val:
+        try:
+            parsed = json.loads(val)
+            if isinstance(parsed, list) and parsed: return parsed
+        except: pass
+    return default
+
+def get_use_chinese() -> bool:
+    return _get_setting('use_chinese_prompts', 'false').lower() == 'true'
 
 
 # ─────────────────────────────────────────────
@@ -207,57 +202,44 @@ def get_word_limit() -> int:
 # ─────────────────────────────────────────────
 
 def _sanitize(text: str, max_words: int = None) -> str:
-    """
-    Strips HTML/script tags, removes control characters, normalizes whitespace.
-    Optionally truncates to max_words. Safe to pass to LLM.
-    """
-    if not isinstance(text, str):
-        return ''
+    if not isinstance(text, str): return ''
     text = text.replace('\x00', '')
-    text = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)  # control chars (keep \t\n)
+    text = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
     text = re.sub(r'<script[\s\S]*?</script>', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'<[^>]+>', '', text)   # strip remaining HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r' +', ' ', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    text = text.strip()
+    text = re.sub(r'\n{3,}', '\n\n', text).strip()
     if max_words:
         words = text.split()
-        if len(words) > max_words:
-            text = ' '.join(words[:max_words])
+        if len(words) > max_words: text = ' '.join(words[:max_words])
     return text
 
-
 def _sanitize_field(s: str, max_len: int = 200) -> str:
-    """Sanitize a short string field (username, topic name, subject name, etc.)."""
-    if not isinstance(s, str):
-        return ''
+    if not isinstance(s, str): return ''
     s = re.sub(r'[\x00-\x1f\x7f]', '', s)
     s = re.sub(r'<[^>]+>', '', s)
     return s[:max_len].strip()
 
-
 def _sanitize_email(s: str) -> str:
     s = _sanitize_field(s, 120).lower()
-    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', s):
-        return ''
-    return s
-
+    return s if re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', s) else ''
 
 def _sanitize_topics_payload(payload: dict) -> dict:
-    """Recursively sanitize all string values in the status/edit JSON payloads."""
-    if not isinstance(payload, dict):
-        return {}
+    """Recursively sanitize all string keys/values in topics JSON."""
+    if not isinstance(payload, dict): return {}
     clean = {}
     for k, v in payload.items():
-        clean_k = _sanitize_field(str(k))
+        ck = _sanitize_field(str(k))
         if isinstance(v, dict):
-            clean[clean_k] = _sanitize_topics_payload(v)
+            clean[ck] = _sanitize_topics_payload(v)
+        elif isinstance(v, list):
+            clean[ck] = [_sanitize_field(str(i)) for i in v if str(i).strip()]
         elif isinstance(v, str):
-            clean[clean_k] = _sanitize_field(v)
+            clean[ck] = _sanitize_field(v)
         elif isinstance(v, (int, float)):
-            clean[clean_k] = v
+            clean[ck] = v
         else:
-            clean[clean_k] = _sanitize_field(str(v))
+            clean[ck] = _sanitize_field(str(v))
     return clean
 
 
@@ -270,8 +252,7 @@ def _rl(key: str):
         try:
             if current_user.is_authenticated and current_user.is_admin:
                 return '10000 per hour'
-        except Exception:
-            pass
+        except: pass
         return _get_setting(key, RATE_LIMIT_DEFAULTS[key])
     return _limit
 
@@ -283,24 +264,17 @@ def _rl(key: str):
 def _get_study_data() -> StudyData | None:
     return StudyData.query.filter_by(userid=current_user.id).first()
 
-
 def _require_owner(userid: int):
-    if userid != current_user.id and not current_user.is_admin:
-        abort(403)
-
+    if userid != current_user.id and not current_user.is_admin: abort(403)
 
 def _delete_files(paths: list):
     for p in paths:
         try:
-            if os.path.exists(p):
-                os.remove(p)
-        except Exception as e:
-            print(f'[WARN] Could not delete {p}: {e}')
-
+            if os.path.exists(p): os.remove(p)
+        except Exception as e: print(f'[WARN] {p}: {e}')
 
 def _render_error(code, title, message):
     return render_template('error.html', code=code, title=title, message=message), code
-
 
 def _log_activity(action: str, detail: dict = None):
     try:
@@ -310,23 +284,21 @@ def _log_activity(action: str, detail: dict = None):
             detail = json.dumps(detail) if detail else None
         ))
         db.session.commit()
-    except Exception:
-        db.session.rollback()
-
+    except: db.session.rollback()
 
 def _extract_meta(schedule: dict) -> tuple:
     meta = schedule.pop('_meta', {})
     return schedule, meta
 
-
 def _build_llm_notice(meta: dict) -> dict | None:
-    if not meta.get('primary_failed'):
-        return None
-    return {
-        'type':    'warning',
-        'model':   meta.get('model_used', 'unknown'),
-        'reasons': meta.get('failure_reasons', [])
-    }
+    if not meta.get('primary_failed'): return None
+    return {'type': 'warning', 'model': meta.get('model_used', 'unknown'),
+            'reasons': meta.get('failure_reasons', [])}
+
+def _get_today_slot(schedule: dict, subject: str, topic: str, today_str: str) -> dict:
+    """Return today's schedule slot for a given subject+topic, or empty dict."""
+    day = schedule.get(today_str, {})
+    return day.get(subject, {}).get(topic, {})
 
 
 # ─────────────────────────────────────────────
@@ -335,18 +307,14 @@ def _build_llm_notice(meta: dict) -> dict | None:
 
 @app.after_request
 def log_request(response):
-    if request.path.startswith('/static') or request.path.startswith('/admin'):
-        return response
+    if request.path.startswith('/static') or request.path.startswith('/admin'): return response
     try:
         db.session.add(RequestLog(
-            userid      = current_user.id if current_user.is_authenticated else None,
-            method      = request.method,
-            path        = request.path,
-            status_code = response.status_code
+            userid=current_user.id if current_user.is_authenticated else None,
+            method=request.method, path=request.path, status_code=response.status_code
         ))
         db.session.commit()
-    except Exception:
-        db.session.rollback()
+    except: db.session.rollback()
     return response
 
 
@@ -366,13 +334,14 @@ def register():
     username = _sanitize_field(data.get('username', ''), 80)
     email    = _sanitize_email(data.get('email', ''))
     password = data.get('password', '')
+    course   = _sanitize_field(data.get('course', ''), 50)   # new field
 
     if not username or not email or not password:
         return jsonify({'error': 'All fields are required'}), 400
     if len(username) < 3:
         return jsonify({'error': 'Username must be at least 3 characters'}), 400
     if not re.match(r'^[A-Za-z0-9_\-]+$', username):
-        return jsonify({'error': 'Username may only contain letters, numbers, _ and -'}), 400
+        return jsonify({'error': 'Username: letters, numbers, _ and - only'}), 400
     if not email:
         return jsonify({'error': 'Invalid email address'}), 400
     if len(password) < 8:
@@ -382,16 +351,13 @@ def register():
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already registered'}), 409
 
-    user = User(username=username, email=email, session_version=0)
+    user = User(username=username, email=email, course=course or None, session_version=0)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-
     session['session_version'] = 0
     login_user(user, remember=True)
     _log_activity('register', {'username': username})
-
-    # Stay on landing page — do NOT redirect to upload_page
     return jsonify({'redirect': url_for('landing')}), 201
 
 
@@ -402,21 +368,15 @@ def login():
     identifier = _sanitize_field(data.get('identifier', ''), 120)
     password   = data.get('password', '')
     remember   = bool(data.get('remember', False))
-
     if not identifier or not password:
-        return jsonify({'error': 'Username/email and password are required'}), 400
-
+        return jsonify({'error': 'Username/email and password required'}), 400
     user = (User.query.filter_by(username=identifier).first() or
             User.query.filter_by(email=identifier.lower()).first())
-
     if not user or not user.check_password(password):
         return jsonify({'error': 'Invalid credentials'}), 401
-
     session['session_version'] = user.session_version or 0
     login_user(user, remember=remember, duration=datetime.timedelta(days=7))
     _log_activity('login')
-
-    # Stay on landing page
     return jsonify({'redirect': url_for('landing')}), 200
 
 
@@ -435,16 +395,14 @@ def logout():
 @app.route('/upload_page')
 @login_required
 def upload_page():
-    word_limit = get_word_limit()
-    return render_template('Upload-page.html', word_limit=word_limit)
+    return render_template('Upload-page.html', word_limit=get_word_limit())
 
 
 @app.route('/status')
 @login_required
 def status_page():
     user = _get_study_data()
-    if not user:
-        return redirect(url_for('upload_page'))
+    if not user: return redirect(url_for('upload_page'))
     data = json.loads(user.extracted_json)
     return render_template('Status.html', data=data)
 
@@ -459,30 +417,64 @@ def schedule_page():
 @login_required
 def progress_page():
     user = _get_study_data()
-    if not user or not user.schedule_json:
-        return redirect(url_for('schedule_page'))
-
+    if not user or not user.schedule_json: return redirect(url_for('schedule_page'))
     today_str    = get_today()
     today_date   = parse_dmy(today_str)
     schedule     = json.loads(user.schedule_json)
     topic_status = json.loads(user.topic_status) if user.topic_status else {}
+    past_schedule = {d: s for d, s in schedule.items()
+                     if _safe_parse_dmy(d) and _safe_parse_dmy(d) <= today_date}
+    return render_template('Progress.html',
+        today_str=today_str, past_schedule=past_schedule,
+        full_schedule=schedule, topic_status=topic_status,
+        userid=current_user.id, is_admin=current_user.is_admin)
 
-    past_schedule = {}
-    for date_str, subjects in schedule.items():
-        try:
-            if parse_dmy(date_str) <= today_date:
-                past_schedule[date_str] = subjects
-        except ValueError:
-            pass
 
-    return render_template(
-        'Progress.html',
-        today_str     = today_str,
-        past_schedule = past_schedule,
-        full_schedule = schedule,
-        topic_status  = topic_status,
-        userid        = current_user.id,
-        is_admin      = current_user.is_admin
+def _safe_parse_dmy(s):
+    try: return parse_dmy(s)
+    except: return None
+
+
+@app.route('/study/<subject>/<topic>')
+@login_required
+def study_page(subject: str, topic: str):
+    subject = _sanitize_field(urllib.parse.unquote(subject), 200)
+    topic   = _sanitize_field(urllib.parse.unquote(topic),   200)
+
+    user_data = _get_study_data()
+    if not user_data: return redirect(url_for('upload_page'))
+
+    schedule  = json.loads(user_data.schedule_json) if user_data.schedule_json else {}
+    today_str = get_today()
+    slot      = _get_today_slot(schedule, subject, topic, today_str)
+    hours     = slot.get('hours')
+    subtopics = slot.get('subtopics', [])
+
+    # If not in today's schedule, fall back to the topic's stored subtopics
+    if not subtopics and user_data.extracted_json:
+        extracted = json.loads(user_data.extracted_json)
+        topic_data = (extracted.get('Subjects', {})
+                               .get(subject, {})
+                               .get(topic, {}))
+        if isinstance(topic_data, dict):
+            subtopics = topic_data.get('subtopics', [])
+
+    # Get or create the chat for this user+subject+topic
+    chat = Chat.query.filter_by(
+        userid=current_user.id, subject=subject, topic=topic).first()
+    if not chat:
+        chat = Chat(userid=current_user.id, subject=subject, topic=topic)
+        db.session.add(chat)
+        db.session.commit()
+
+    return render_template('Study.html',
+        subject    = subject,
+        topic      = topic,
+        subtopics  = subtopics,
+        hours      = hours,
+        chat_id    = chat.id,
+        userid     = current_user.id,
+        today_str  = today_str
     )
 
 
@@ -502,6 +494,190 @@ def contact():
 
 
 # ─────────────────────────────────────────────
+# STUDY / CHAT API
+# ─────────────────────────────────────────────
+
+def _get_chat_or_403(chat_id: int) -> Chat:
+    chat = Chat.query.get_or_404(chat_id)
+    if chat.userid != current_user.id and not current_user.is_admin:
+        abort(403)
+    return chat
+
+def _get_chat_history(chat_id: int) -> list:
+    """Return list of {role, content} dicts in chronological order."""
+    msgs = (Message.query
+            .filter_by(chat_id=chat_id)
+            .order_by(Message.timestamp)
+            .all())
+    return [{'role': m.role, 'content': m.content} for m in msgs]
+
+def _save_message(chat_id: int, role: str, content: str) -> Message:
+    msg = Message(chat_id=chat_id, role=role, content=content)
+    db.session.add(msg)
+    # Update chat.updated_at
+    chat = Chat.query.get(chat_id)
+    if chat: chat.updated_at = datetime.datetime.utcnow()
+    db.session.commit()
+    return msg
+
+def _get_topic_context(chat: Chat) -> tuple:
+    """Get subtopics, hours, course for a chat from stored data."""
+    user      = User.query.get(chat.userid)
+    course    = user.course if user else None
+    user_data = StudyData.query.filter_by(userid=chat.userid).first()
+    if not user_data: return [], None, course
+
+    schedule  = json.loads(user_data.schedule_json) if user_data.schedule_json else {}
+    today_str = get_today()
+    slot      = _get_today_slot(schedule, chat.subject, chat.topic, today_str)
+    hours     = slot.get('hours')
+    subtopics = slot.get('subtopics', [])
+
+    if not subtopics and user_data.extracted_json:
+        extracted = json.loads(user_data.extracted_json)
+        tdata = (extracted.get('Subjects', {})
+                          .get(chat.subject, {})
+                          .get(chat.topic, {}))
+        if isinstance(tdata, dict):
+            subtopics = tdata.get('subtopics', [])
+
+    return subtopics, hours, course
+
+
+@app.route('/api/chat/<int:chat_id>/history')
+@login_required
+def chat_history(chat_id: int):
+    chat = _get_chat_or_403(chat_id)
+    msgs = (Message.query
+            .filter_by(chat_id=chat_id)
+            .order_by(Message.timestamp)
+            .all())
+    return jsonify([{
+        'id':        m.id,
+        'role':      m.role,
+        'content':   m.content,
+        'timestamp': m.timestamp.isoformat()
+    } for m in msgs])
+
+
+@app.route('/api/chat/<int:chat_id>/start', methods=['POST'])
+@login_required
+@limiter.limit(_rl('rl_chat'))
+def chat_start(chat_id: int):
+    """
+    Called by JS when a chat has no messages yet.
+    Generates the first proactive teaching message from the AI.
+    """
+    chat = _get_chat_or_403(chat_id)
+
+    # If already has messages, just return the existing history
+    existing_count = Message.query.filter_by(chat_id=chat_id).count()
+    if existing_count > 0:
+        return jsonify({'already_started': True})
+
+    subtopics, hours, course = _get_topic_context(chat)
+
+    try:
+        content, model_used, failures = get_initial_message(
+            course     = course or '',
+            subject    = chat.subject,
+            topic      = chat.topic,
+            subtopics  = subtopics,
+            hours      = hours,
+            model_list = get_teacher_model_list(),
+            use_chinese= get_use_chinese()
+        )
+        _save_message(chat_id, 'assistant', content)
+        _log_activity('study_start', {'subject': chat.subject, 'topic': chat.topic})
+
+        resp = {'content': content, 'role': 'assistant'}
+        if failures:
+            resp['notice'] = {'model': model_used, 'reasons': failures}
+        return jsonify(resp)
+
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/<int:chat_id>/send', methods=['POST'])
+@login_required
+@limiter.limit(_rl('rl_chat'))
+def chat_send(chat_id: int):
+    chat = _get_chat_or_403(chat_id)
+
+    user_message = _sanitize(
+        (request.json or {}).get('message', ''), max_words=500)
+    if not user_message:
+        return jsonify({'error': 'Empty message'}), 400
+
+    # Save user message
+    _save_message(chat_id, 'user', user_message)
+
+    # Get full history for sliding window
+    history    = _get_chat_history(chat_id)
+    # Remove the message we just saved from history (it'll be added by get_reply)
+    history    = history[:-1]
+
+    subtopics, hours, course = _get_topic_context(chat)
+
+    try:
+        content, model_used, failures = get_reply(
+            history     = history,
+            new_message = user_message,
+            course      = course or '',
+            subject     = chat.subject,
+            topic       = chat.topic,
+            subtopics   = subtopics,
+            hours       = hours,
+            model_list  = get_teacher_model_list(),
+            use_chinese = get_use_chinese()
+        )
+        _save_message(chat_id, 'assistant', content)
+
+        resp = {'content': content, 'role': 'assistant'}
+        if failures:
+            resp['notice'] = {'model': model_used, 'reasons': failures}
+        return jsonify(resp)
+
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/<int:chat_id>/quiz', methods=['POST'])
+@login_required
+@limiter.limit(_rl('rl_chat'))
+def chat_quiz(chat_id: int):
+    chat    = _get_chat_or_403(chat_id)
+    history = _get_chat_history(chat_id)
+
+    if len(history) < 2:
+        return jsonify({'error': 'Study a bit first before taking a quiz!'}), 400
+
+    subtopics, hours, course = _get_topic_context(chat)
+
+    try:
+        content, model_used, failures = get_quiz(
+            history     = history,
+            course      = course or '',
+            subject     = chat.subject,
+            topic       = chat.topic,
+            subtopics   = subtopics,
+            hours       = hours,
+            model_list  = get_teacher_model_list(),
+            use_chinese = get_use_chinese()
+        )
+        _save_message(chat_id, 'assistant', content)
+
+        resp = {'content': content, 'role': 'assistant'}
+        if failures:
+            resp['notice'] = {'model': model_used, 'reasons': failures}
+        return jsonify(resp)
+
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ─────────────────────────────────────────────
 # FILE UPLOAD
 # ─────────────────────────────────────────────
 
@@ -512,20 +688,15 @@ def upload_files():
     file_paths = []
     try:
         files       = request.files.getlist('files')
-        manual_text = _sanitize(
-            request.form.get('manual_text', ''),
-            max_words=get_word_limit()
-        )
-
+        manual_text = _sanitize(request.form.get('manual_text', ''),
+                                max_words=get_word_limit())
         if not files and not manual_text:
             return jsonify({'error': 'Please upload files or paste text'}), 400
 
         for file in files:
-            if not file.filename:
-                continue
-            filename = secure_filename(file.filename)   # prevents path traversal
-            if not filename:
-                continue
+            if not file.filename: continue
+            filename = secure_filename(file.filename)
+            if not filename: continue
             ext = os.path.splitext(filename)[1].lower()
             if ext not in ALLOWED_EXTENSIONS:
                 return jsonify({'error': f'Unsupported file type: {ext}'}), 400
@@ -537,11 +708,8 @@ def upload_files():
             return jsonify({'error': 'No valid files received'}), 400
 
         final_json = organize_with_llm(
-            file_paths,
-            manual_text  = manual_text or None,
-            today_str    = get_today(),
-            model_list   = get_extract_model_list()
-        )
+            file_paths, manual_text=manual_text or None,
+            today_str=get_today(), model_list=get_extract_model_list())
 
         existing = _get_study_data()
         if existing:
@@ -550,11 +718,8 @@ def upload_files():
             existing.schedule_json         = None
             existing.pending_schedule_json = None
         else:
-            db.session.add(StudyData(
-                userid=current_user.id,
-                extracted_json=json.dumps(final_json)
-            ))
-
+            db.session.add(StudyData(userid=current_user.id,
+                                     extracted_json=json.dumps(final_json)))
         db.session.commit()
         cache.delete(f'schedule_{current_user.id}')
         _log_activity('upload', {'files': len(file_paths), 'manual': bool(manual_text)})
@@ -568,7 +733,7 @@ def upload_files():
 
 
 # ─────────────────────────────────────────────
-# SAVE EXTRACTED DATA  (page 2 edit)
+# SAVE EXTRACTED / STATUS
 # ─────────────────────────────────────────────
 
 @app.route('/save_extracted/<int:userid>', methods=['POST'])
@@ -576,9 +741,7 @@ def upload_files():
 def save_extracted(userid):
     _require_owner(userid)
     user = _get_study_data()
-    if not user:
-        return jsonify({'error': 'No data found'}), 404
-
+    if not user: return jsonify({'error': 'No data found'}), 404
     payload = _sanitize_topics_payload(request.json or {})
     user.extracted_json = json.dumps(payload)
     db.session.commit()
@@ -586,17 +749,12 @@ def save_extracted(userid):
     return jsonify({'message': 'saved'})
 
 
-# ─────────────────────────────────────────────
-# TOPIC STATUS
-# ─────────────────────────────────────────────
-
 @app.route('/submit_status/<int:userid>', methods=['POST'])
 @login_required
 def submit_status(userid):
     _require_owner(userid)
     user = _get_study_data()
-    if not user:
-        return jsonify({'error': 'No data found'}), 404
+    if not user: return jsonify({'error': 'No data found'}), 404
     payload = _sanitize_topics_payload(request.json or {})
     user.topic_status = json.dumps(payload)
     db.session.commit()
@@ -616,13 +774,10 @@ def generate(userid):
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
 
-    schedule = generate_schedule(
-        json.loads(user.topic_status),
-        today_str  = get_today(),
-        max_tokens = get_max_tokens(),
-        model_list = get_sched_model_list()
-    )
-
+    schedule = generate_schedule(json.loads(user.topic_status),
+                                 today_str=get_today(),
+                                 max_tokens=get_max_tokens(),
+                                 model_list=get_sched_model_list())
     schedule, meta = _extract_meta(schedule)
     user.schedule_json = json.dumps(schedule)
     db.session.commit()
@@ -631,28 +786,22 @@ def generate(userid):
 
     resp = {'schedule': schedule}
     notice = _build_llm_notice(meta)
-    if notice:
-        resp['notice'] = notice
+    if notice: resp['notice'] = notice
     return jsonify(resp)
 
-
-# ─────────────────────────────────────────────
-# GET SCHEDULE  (cached)
-# ─────────────────────────────────────────────
 
 @app.route('/schedule/<int:userid>')
 @login_required
 def schedule(userid):
     _require_owner(userid)
-    cache_key = f'schedule_{userid}'
-    cached    = cache.get(cache_key)
-    if cached:
-        return jsonify(cached)
+    ck     = f'schedule_{userid}'
+    cached = cache.get(ck)
+    if cached: return jsonify(cached)
     user = _get_study_data()
     if not user or not user.schedule_json:
         return jsonify({'error': 'Schedule not found'}), 404
     data = json.loads(user.schedule_json)
-    cache.set(cache_key, data, timeout=120)
+    cache.set(ck, data, timeout=120)
     return jsonify(data)
 
 
@@ -665,12 +814,10 @@ def schedule(userid):
 def update_progress(userid):
     _require_owner(userid)
     user = _get_study_data()
-    if not user:
-        return jsonify({'error': 'No data found'}), 404
+    if not user: return jsonify({'error': 'No data found'}), 404
 
     updated_subjects = _sanitize_topics_payload(
-        (request.json or {}).get('Subjects', {})
-    )
+        (request.json or {}).get('Subjects', {}))
 
     if user.topic_status:
         status = json.loads(user.topic_status)
@@ -678,21 +825,32 @@ def update_progress(userid):
         extracted = json.loads(user.extracted_json)
         status = {
             'Exam_dates': extracted.get('Exam_dates', {}),
-            'Subjects':   {s: {t: '0' for t in topics}
-                           for s, topics in extracted.get('Subjects', {}).items()},
+            'Subjects':   {
+                s: {t: {'status': '0', 'subtopics': tdata.get('subtopics', [])
+                         if isinstance(tdata, dict) else []}
+                    for t, tdata in topics.items()}
+                for s, topics in extracted.get('Subjects', {}).items()
+            },
             'study_days': extracted.get('study_days', {})
         }
 
     for subj, topics in updated_subjects.items():
-        if subj in status['Subjects']:
-            for topic, pct in topics.items():
-                if topic in status['Subjects'][subj]:
-                    # Only allow numeric string 0-100
-                    try:
-                        val = max(0, min(100, int(pct)))
-                        status['Subjects'][subj][topic] = str(val)
-                    except (ValueError, TypeError):
-                        pass
+        if subj not in status['Subjects']: continue
+        for topic, val in topics.items():
+            if topic not in status['Subjects'][subj]: continue
+            existing_topic = status['Subjects'][subj][topic]
+            if isinstance(existing_topic, dict):
+                # New schema — only update status, preserve subtopics
+                try:
+                    pct = max(0, min(100, int(val if not isinstance(val, dict) else val.get('status', 0))))
+                    existing_topic['status'] = str(pct)
+                except (ValueError, TypeError): pass
+            else:
+                # Old flat schema fallback
+                try:
+                    pct = max(0, min(100, int(val)))
+                    status['Subjects'][subj][topic] = str(pct)
+                except (ValueError, TypeError): pass
 
     user.topic_status = json.dumps(status)
     db.session.commit()
@@ -707,14 +865,11 @@ def regenerate_schedule(userid):
     user = _get_study_data()
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
-
     try:
-        new_schedule = generate_schedule(
-            json.loads(user.topic_status),
-            today_str  = get_today(),
-            max_tokens = get_max_tokens(),
-            model_list = get_sched_model_list()
-        )
+        new_schedule = generate_schedule(json.loads(user.topic_status),
+                                         today_str=get_today(),
+                                         max_tokens=get_max_tokens(),
+                                         model_list=get_sched_model_list())
     except RuntimeError as e:
         return jsonify({'error': 'All AI models failed.', 'details': str(e)}), 500
 
@@ -723,13 +878,9 @@ def regenerate_schedule(userid):
     db.session.commit()
     _log_activity('regenerate')
 
-    resp = {
-        'old_schedule': json.loads(user.schedule_json),
-        'new_schedule': new_schedule
-    }
+    resp = {'old_schedule': json.loads(user.schedule_json), 'new_schedule': new_schedule}
     notice = _build_llm_notice(meta)
-    if notice:
-        resp['notice'] = notice
+    if notice: resp['notice'] = notice
     return jsonify(resp)
 
 
@@ -738,13 +889,10 @@ def regenerate_schedule(userid):
 def keep_schedule(userid):
     _require_owner(userid)
     user = _get_study_data()
-    if not user:
-        return jsonify({'error': 'No data found'}), 404
-
+    if not user: return jsonify({'error': 'No data found'}), 404
     choice = _sanitize_field((request.json or {}).get('choice', 'old'), 10)
     if choice == 'new' and user.pending_schedule_json:
         user.schedule_json = user.pending_schedule_json
-
     user.pending_schedule_json = None
     db.session.commit()
     cache.delete(f'schedule_{current_user.id}')
@@ -758,76 +906,60 @@ def keep_schedule(userid):
 @app.route('/me')
 @login_required
 def me():
-    return jsonify({
-        'id':       current_user.id,
-        'username': current_user.username,
-        'is_admin': current_user.is_admin
-    })
+    return jsonify({'id': current_user.id, 'username': current_user.username,
+                    'is_admin': current_user.is_admin})
 
 
 # ─────────────────────────────────────────────
-# ADMIN: DASHBOARD
+# ADMIN DASHBOARD
 # ─────────────────────────────────────────────
 
 @app.route('/admin')
 @login_required
 def admin_dashboard():
-    if not current_user.is_admin:
-        abort(403)
-
+    if not current_user.is_admin: abort(403)
     fourteen_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=14)
-    daily_logs = (
-        db.session.query(
-            db.func.date(RequestLog.timestamp).label('day'),
-            db.func.count().label('count')
-        )
+    daily_logs = (db.session.query(
+        db.func.date(RequestLog.timestamp).label('day'),
+        db.func.count().label('count'))
         .filter(RequestLog.timestamp >= fourteen_days_ago)
-        .group_by('day').order_by('day').all()
-    )
-
-    recent_activity = (
-        db.session.query(ActivityLog, User.username)
+        .group_by('day').order_by('day').all())
+    recent_activity = (db.session.query(ActivityLog, User.username)
         .outerjoin(User, User.id == ActivityLog.userid)
-        .order_by(ActivityLog.timestamp.desc())
-        .limit(50).all()
-    )
-
-    return render_template(
-        'Admin.html',
-        total_users      = User.query.count(),
-        total_requests   = RequestLog.query.count(),
-        total_schedules  = StudyData.query.filter(StudyData.schedule_json.isnot(None)).count(),
-        daily_logs       = daily_logs,
-        recent_activity  = recent_activity,
-        test_today       = _get_setting('test_today'),
-        real_today       = datetime.date.today().strftime('%d-%m-%Y'),
-        current_limits   = {k: (_get_setting(k) or v) for k, v in RATE_LIMIT_DEFAULTS.items()},
-        default_limits   = RATE_LIMIT_DEFAULTS,
-        max_tokens       = get_max_tokens(),
-        sched_models     = get_sched_model_list(),
-        extract_models   = get_extract_model_list(),
-        default_sched_models   = SCHED_MODELS,
-        default_extract_models = VISION_MODELS,
-        word_limit       = get_word_limit(),
-        default_word_limit = DEFAULT_WORD_LIMIT
-    )
+        .order_by(ActivityLog.timestamp.desc()).limit(50).all())
+    return render_template('Admin.html',
+        total_users=User.query.count(),
+        total_requests=RequestLog.query.count(),
+        total_schedules=StudyData.query.filter(StudyData.schedule_json.isnot(None)).count(),
+        total_chats=Chat.query.count(),
+        daily_logs=daily_logs, recent_activity=recent_activity,
+        test_today=_get_setting('test_today'),
+        real_today=datetime.date.today().strftime('%d-%m-%Y'),
+        current_limits={k: (_get_setting(k) or v) for k, v in RATE_LIMIT_DEFAULTS.items()},
+        default_limits=RATE_LIMIT_DEFAULTS,
+        max_tokens=get_max_tokens(),
+        sched_models=get_sched_model_list(),
+        extract_models=get_extract_model_list(),
+        teacher_models=get_teacher_model_list(),
+        default_sched_models=SCHED_MODELS,
+        default_extract_models=VISION_MODELS,
+        default_teacher_models=TEACHER_MODELS,
+        word_limit=get_word_limit(), default_word_limit=DEFAULT_WORD_LIMIT,
+        use_chinese=get_use_chinese())
 
 
 # ─────────────────────────────────────────────
-# ADMIN: USER MANAGEMENT API
+# ADMIN USER API
 # ─────────────────────────────────────────────
 
 @app.route('/admin/api/users')
 @login_required
 def admin_list_users():
-    if not current_user.is_admin:
-        abort(403)
+    if not current_user.is_admin: abort(403)
     users = User.query.order_by(User.created_at.desc()).all()
     return jsonify([{
-        'id':         u.id,
-        'username':   u.username,
-        'email':      u.email,
-        'is_admin':   u.is_admin,
+        'id': u.id, 'username': u.username, 'email': u.email,
+        'course': u.course or '', 'is_admin': u.is_admin,
         'created_at': u.created_at.strftime('%d %b %Y %H:%M'),
         'password_hash': u.password_hash
     } for u in users])
@@ -835,11 +967,9 @@ def admin_list_users():
 
 @app.route('/admin/api/users/<int:uid>/role', methods=['POST'])
 @login_required
-def admin_toggle_role(uid: int):
-    if not current_user.is_admin:
-        abort(403)
-    if uid == current_user.id:
-        return jsonify({'error': 'Cannot change your own admin status'}), 400
+def admin_toggle_role(uid):
+    if not current_user.is_admin: abort(403)
+    if uid == current_user.id: return jsonify({'error': 'Cannot change own role'}), 400
     user = User.query.get_or_404(uid)
     user.is_admin = not user.is_admin
     db.session.commit()
@@ -848,66 +978,55 @@ def admin_toggle_role(uid: int):
 
 @app.route('/admin/api/users/<int:uid>/update', methods=['POST'])
 @login_required
-def admin_update_user(uid: int):
-    if not current_user.is_admin:
-        abort(403)
+def admin_update_user(uid):
+    if not current_user.is_admin: abort(403)
     user = User.query.get_or_404(uid)
     data = request.get_json() or {}
-
     if 'username' in data:
-        new_username = _sanitize_field(data['username'], 80)
-        if not new_username or len(new_username) < 3:
-            return jsonify({'error': 'Username too short'}), 400
-        if not re.match(r'^[A-Za-z0-9_\-]+$', new_username):
-            return jsonify({'error': 'Username contains invalid characters'}), 400
-        existing = User.query.filter_by(username=new_username).first()
-        if existing and existing.id != uid:
-            return jsonify({'error': 'Username already taken'}), 409
-        user.username = new_username
-
+        nu = _sanitize_field(data['username'], 80)
+        if len(nu) < 3: return jsonify({'error': 'Username too short'}), 400
+        if not re.match(r'^[A-Za-z0-9_\-]+$', nu): return jsonify({'error': 'Invalid characters'}), 400
+        ex = User.query.filter_by(username=nu).first()
+        if ex and ex.id != uid: return jsonify({'error': 'Username taken'}), 409
+        user.username = nu
     if 'email' in data:
-        new_email = _sanitize_email(data['email'])
-        if not new_email:
-            return jsonify({'error': 'Invalid email'}), 400
-        existing = User.query.filter_by(email=new_email).first()
-        if existing and existing.id != uid:
-            return jsonify({'error': 'Email already registered'}), 409
-        user.email = new_email
-
+        ne = _sanitize_email(data['email'])
+        if not ne: return jsonify({'error': 'Invalid email'}), 400
+        ex = User.query.filter_by(email=ne).first()
+        if ex and ex.id != uid: return jsonify({'error': 'Email registered'}), 409
+        user.email = ne
+    if 'course' in data:
+        user.course = _sanitize_field(data['course'], 50) or None
     if 'password' in data:
         pw = data['password']
-        if len(pw) < 8:
-            return jsonify({'error': 'Password must be at least 8 characters'}), 400
+        if len(pw) < 8: return jsonify({'error': 'Password too short'}), 400
         user.set_password(pw)
-        # Invalidate all existing sessions for this user
         user.session_version = (user.session_version or 0) + 1
-
     db.session.commit()
     return jsonify({'message': 'User updated'})
 
 
 @app.route('/admin/api/users/<int:uid>/force_logout', methods=['POST'])
 @login_required
-def admin_force_logout(uid: int):
-    if not current_user.is_admin:
-        abort(403)
-    if uid == current_user.id:
-        return jsonify({'error': 'Cannot force-logout yourself'}), 400
+def admin_force_logout(uid):
+    if not current_user.is_admin: abort(403)
+    if uid == current_user.id: return jsonify({'error': 'Cannot logout yourself'}), 400
     user = User.query.get_or_404(uid)
     user.session_version = (user.session_version or 0) + 1
     db.session.commit()
-    return jsonify({'message': f'{user.username} will be logged out on next request'})
+    return jsonify({'message': f'{user.username} logged out on next request'})
 
 
 @app.route('/admin/api/users/<int:uid>', methods=['DELETE'])
 @login_required
-def admin_delete_user(uid: int):
-    if not current_user.is_admin:
-        abort(403)
-    if uid == current_user.id:
-        return jsonify({'error': 'Cannot delete your own account'}), 400
+def admin_delete_user(uid):
+    if not current_user.is_admin: abort(403)
+    if uid == current_user.id: return jsonify({'error': 'Cannot delete yourself'}), 400
     user = User.query.get_or_404(uid)
-    # Clean up related data
+    # Clean up all related data including chats
+    for chat in Chat.query.filter_by(userid=uid).all():
+        Message.query.filter_by(chat_id=chat.id).delete()
+    Chat.query.filter_by(userid=uid).delete()
     StudyData.query.filter_by(userid=uid).delete()
     ActivityLog.query.filter_by(userid=uid).delete()
     RequestLog.query.filter_by(userid=uid).delete()
@@ -917,102 +1036,88 @@ def admin_delete_user(uid: int):
 
 
 # ─────────────────────────────────────────────
-# ADMIN: SETTINGS API
+# ADMIN SETTINGS API
 # ─────────────────────────────────────────────
 
-@app.route('/admin/set_date', methods=['POST'])
-@login_required
-def admin_set_date():
-    if not current_user.is_admin: abort(403)
-    date_val = _sanitize_field((request.json or {}).get('date', ''), 20)
-    try: parse_dmy(date_val)
-    except Exception: return jsonify({'error': 'Invalid date. Use DD-MM-YYYY'}), 400
-    _set_setting('test_today', date_val)
-    return jsonify({'message': f'Test date set to {date_val}'})
-
-
-@app.route('/admin/reset_date', methods=['POST'])
-@login_required
-def admin_reset_date():
-    if not current_user.is_admin: abort(403)
-    row = AppSettings.query.get('test_today')
-    if row: db.session.delete(row); db.session.commit()
-    return jsonify({'message': 'Reset to real today'})
-
-
-@app.route('/admin/set_rate_limits', methods=['POST'])
-@login_required
-def admin_set_rate_limits():
-    if not current_user.is_admin: abort(403)
-    data, updated = request.json or {}, {}
-    for key in RATE_LIMIT_DEFAULTS:
-        val = _sanitize_field(data.get(key, ''), 50)
-        if val: _set_setting(key, val); updated[key] = val
-    if not updated: return jsonify({'error': 'No valid keys'}), 400
-    return jsonify({'message': 'Updated', 'updated': updated})
-
-
+@app.route('/admin/set_date',          methods=['POST'])
+@app.route('/admin/reset_date',        methods=['POST'])
+@app.route('/admin/set_rate_limits',   methods=['POST'])
 @app.route('/admin/reset_rate_limits', methods=['POST'])
-@login_required
-def admin_reset_rate_limits():
-    if not current_user.is_admin: abort(403)
-    for k, v in RATE_LIMIT_DEFAULTS.items(): _set_setting(k, v)
-    return jsonify({'message': 'Reset to defaults'})
+@app.route('/admin/set_max_tokens',    methods=['POST'])
+@app.route('/admin/set_word_limit',    methods=['POST'])
+@app.route('/admin/set_model_list',    methods=['POST'])
+@app.route('/admin/reset_model_list',  methods=['POST'])
+@app.route('/admin/set_chinese',       methods=['POST'])
+def admin_settings():
+    if not current_user.is_authenticated or not current_user.is_admin: abort(403)
+    ep   = request.path.split('/')[-1]
+    data = request.get_json() or {}
 
+    if ep == 'set_date':
+        dv = _sanitize_field(data.get('date',''), 20)
+        try: parse_dmy(dv)
+        except: return jsonify({'error':'Invalid date'}), 400
+        _set_setting('test_today', dv)
+        return jsonify({'message': f'Test date set to {dv}'})
 
-@app.route('/admin/set_max_tokens', methods=['POST'])
-@login_required
-def admin_set_max_tokens():
-    if not current_user.is_admin: abort(403)
-    try:
-        tokens = int((request.json or {}).get('max_tokens', 0))
-        if not (500 <= tokens <= 32000): raise ValueError
-    except (TypeError, ValueError):
-        return jsonify({'error': 'Must be integer 500–32000'}), 400
-    _set_setting('max_tokens', str(tokens))
-    return jsonify({'message': f'max_tokens set to {tokens}'})
+    if ep == 'reset_date':
+        row = AppSettings.query.get('test_today')
+        if row: db.session.delete(row); db.session.commit()
+        return jsonify({'message': 'Reset to real today'})
 
+    if ep == 'set_rate_limits':
+        updated = {}
+        for key in RATE_LIMIT_DEFAULTS:
+            val = _sanitize_field(data.get(key,''), 50)
+            if val: _set_setting(key, val); updated[key] = val
+        return jsonify({'message':'Updated','updated':updated}) if updated \
+               else (jsonify({'error':'No valid keys'}), 400)
 
-@app.route('/admin/set_word_limit', methods=['POST'])
-@login_required
-def admin_set_word_limit():
-    if not current_user.is_admin: abort(403)
-    try:
-        limit = int((request.json or {}).get('word_limit', 0))
-        if not (100 <= limit <= 10000): raise ValueError
-    except (TypeError, ValueError):
-        return jsonify({'error': 'Must be integer 100–10000'}), 400
-    _set_setting('text_word_limit', str(limit))
-    return jsonify({'message': f'Word limit set to {limit}'})
+    if ep == 'reset_rate_limits':
+        for k, v in RATE_LIMIT_DEFAULTS.items(): _set_setting(k, v)
+        return jsonify({'message':'Reset to defaults'})
 
+    if ep == 'set_max_tokens':
+        try:
+            t = int(data.get('max_tokens',0))
+            if not (500 <= t <= 32000): raise ValueError
+        except: return jsonify({'error':'Must be 500-32000'}), 400
+        _set_setting('max_tokens', str(t))
+        return jsonify({'message': f'max_tokens = {t}'})
 
-@app.route('/admin/set_model_list', methods=['POST'])
-@login_required
-def admin_set_model_list():
-    if not current_user.is_admin: abort(403)
-    data     = request.json or {}
-    list_key = _sanitize_field(data.get('list_key', ''), 30)  # sched_model_list or extract_model_list
-    models   = data.get('models')
-    if list_key not in ('sched_model_list', 'extract_model_list'):
-        return jsonify({'error': 'Invalid list_key'}), 400
-    if not isinstance(models, list) or not models:
-        return jsonify({'error': 'models must be a non-empty list'}), 400
-    models = [_sanitize_field(m, 100) for m in models if m]
-    _set_setting(list_key, json.dumps(models))
-    return jsonify({'message': 'Model list updated', 'models': models})
+    if ep == 'set_word_limit':
+        try:
+            wl = int(data.get('word_limit',0))
+            if not (100 <= wl <= 10000): raise ValueError
+        except: return jsonify({'error':'Must be 100-10000'}), 400
+        _set_setting('text_word_limit', str(wl))
+        return jsonify({'message': f'Word limit = {wl}'})
 
+    if ep == 'set_model_list':
+        lk = _sanitize_field(data.get('list_key',''), 30)
+        if lk not in ('sched_model_list','extract_model_list','teacher_model_list'):
+            return jsonify({'error':'Invalid list_key'}), 400
+        models = [_sanitize_field(m, 100) for m in (data.get('models') or []) if m]
+        if not models: return jsonify({'error':'Empty list'}), 400
+        _set_setting(lk, json.dumps(models))
+        return jsonify({'message':'Updated','models':models})
 
-@app.route('/admin/reset_model_list', methods=['POST'])
-@login_required
-def admin_reset_model_list():
-    if not current_user.is_admin: abort(403)
-    list_key = _sanitize_field((request.json or {}).get('list_key', ''), 30)
-    if list_key not in ('sched_model_list', 'extract_model_list'):
-        return jsonify({'error': 'Invalid list_key'}), 400
-    row = AppSettings.query.get(list_key)
-    if row: db.session.delete(row); db.session.commit()
-    defaults = SCHED_MODELS if list_key == 'sched_model_list' else VISION_MODELS
-    return jsonify({'message': 'Reset to defaults', 'models': defaults})
+    if ep == 'reset_model_list':
+        lk = _sanitize_field(data.get('list_key',''), 30)
+        defaults = {'sched_model_list': SCHED_MODELS,
+                    'extract_model_list': VISION_MODELS,
+                    'teacher_model_list': TEACHER_MODELS}
+        if lk not in defaults: return jsonify({'error':'Invalid list_key'}), 400
+        row = AppSettings.query.get(lk)
+        if row: db.session.delete(row); db.session.commit()
+        return jsonify({'message':'Reset','models':defaults[lk]})
+
+    if ep == 'set_chinese':
+        val = bool(data.get('enabled', False))
+        _set_setting('use_chinese_prompts', 'true' if val else 'false')
+        return jsonify({'message': f'Chinese prompts {"enabled" if val else "disabled"}'})
+
+    abort(404)
 
 
 # ─────────────────────────────────────────────
@@ -1020,32 +1125,21 @@ def admin_reset_model_list():
 # ─────────────────────────────────────────────
 
 @app.errorhandler(403)
-def forbidden(e):
-    return _render_error(403, 'Access Denied', "You don't have permission to view this page.")
-
+def forbidden(e): return _render_error(403,'Access Denied',"You don't have permission.")
 @app.errorhandler(404)
-def not_found(e):
-    return _render_error(404, 'Page Not Found', "The page you're looking for doesn't exist.")
-
+def not_found(e): return _render_error(404,'Page Not Found',"This page doesn't exist.")
 @app.errorhandler(413)
-def too_large(e):
-    return _render_error(413, 'File Too Large', 'Upload exceeds the 20 MB limit.')
-
+def too_large(e): return _render_error(413,'File Too Large','20 MB limit exceeded.')
 @app.errorhandler(429)
-def rate_limited(e):
-    return _render_error(429, 'Slow Down', "You've made too many requests. Please wait.")
-
+def rate_limited(e): return _render_error(429,'Slow Down','Too many requests.')
 @app.errorhandler(Exception)
 def handle_exception(e):
     from flask_limiter.errors import RateLimitExceeded
     if isinstance(e, RateLimitExceeded):
-        return _render_error(429, 'Slow Down', "Rate limit hit. Please wait a moment.")
+        return _render_error(429,'Slow Down','Rate limit hit. Wait a moment.')
     raise e
 
 
-# ─────────────────────────────────────────────
-
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    with app.app_context(): db.create_all()
     app.run(debug=True)

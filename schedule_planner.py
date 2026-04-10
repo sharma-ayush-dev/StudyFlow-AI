@@ -15,20 +15,29 @@ MODELS = [
 
 DEFAULT_MAX_TOKENS = 4000
 
-# Compact prompt — reduced from ~500 tokens to ~150
+
+# ── COMPACT PROMPT ───────────────────────────────────────────
+# Input Subjects schema:
+#   { "SubjectName": { "TopicName": { "status": "0-100", "subtopics": [...] } } }
+#
+# Output schedule schema:
+#   { "DD-MM-YYYY": { "SubjectName": { "TopicName": { "hours": N, "subtopics": [...] } } } }
+
 _PROMPT_TEMPLATE = """Generate a study schedule. Today: {today}.
 Goal: maximise exam scores.
 
-Priority order:
-1. Nearest exam date first
-2. Within subject: 0% topics > 1-49% > 50-99% > 100% (revision only if spare time)
-3. Never schedule after exam date or before {today}
-4. Respect daily hour limits (skip days with "0" hours)
-5. Positive integer hours only, 1-3h blocks preferred
+Priority: nearest exam first. Within subject:
+0% topics > 1-49% > 50-99% > 100% (revision only if spare time).
+
+Hard rules:
+- Never schedule after exam date or before {today}
+- Respect daily hour limits; skip "0" hour days
+- Positive integer hours only, 1-3h blocks preferred
+- For each topic slot, include only the subtopics that fit in the allotted hours
+  (pick the most important ones if not all fit)
 
 Return ONLY JSON:
-{{"DD-MM-YYYY":{{"SubjectName":{{"TopicName":<hours>}}}}}}
-Omit days with 0 hours, omit unassigned subjects/topics.
+{{"DD-MM-YYYY":{{"SubjectName":{{"TopicName":{{"hours":<int>,"subtopics":["Subtopic A","Subtopic B"]}}}}}}}}
 
 Input:
 {data}"""
@@ -40,11 +49,11 @@ def _call_model(model: str, messages: list, max_tokens: int) -> str:
     choice = resp.choices[0] if resp.choices else None
     if not choice or not choice.message.content:
         raise ValueError(
-            f'[{model}] Empty content. finish_reason={getattr(choice,"finish_reason","?")}. '
+            f'[{model}] Empty content. finish_reason='
+            f'{getattr(choice,"finish_reason","?")}. '
             f'max_tokens={max_tokens} may be too low.')
     if choice.finish_reason == 'length':
-        print(f'[WARN] [{model}] Truncated (finish_reason=length). '
-              f'Consider raising max_tokens above {max_tokens}.')
+        print(f'[WARN] [{model}] Truncated. Raise max_tokens above {max_tokens}.')
     return choice.message.content
 
 
@@ -52,25 +61,49 @@ def _parse(raw: str) -> dict:
     raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL)
     raw = re.sub(r'```(?:json)?', '', raw).strip()
     s, e = raw.find('{'), raw.rfind('}') + 1
-    if s == -1 or e == 0: raise ValueError('No JSON found in output')
+    if s == -1 or e == 0: raise ValueError('No JSON found')
     return json.loads(raw[s:e])
+
+
+def _serialize_input(topic_data: dict) -> str:
+    """
+    Prepare compact input for the prompt.
+    topic_data.Subjects has new schema:
+      { "SubjectName": { "TopicName": { "status": "N", "subtopics": [...] } } }
+    We send a compact version to save tokens.
+    """
+    compact = {
+        'Exam_dates': topic_data.get('Exam_dates', {}),
+        'study_days': topic_data.get('study_days', {}),
+        'Subjects':   {}
+    }
+    for subj, topics in (topic_data.get('Subjects') or {}).items():
+        compact['Subjects'][subj] = {}
+        for tname, tdata in topics.items():
+            if isinstance(tdata, dict):
+                compact['Subjects'][subj][tname] = {
+                    'status':    tdata.get('status', '0'),
+                    'subtopics': tdata.get('subtopics', [])
+                }
+            else:
+                # backward compat: flat string status
+                compact['Subjects'][subj][tname] = {
+                    'status': str(tdata), 'subtopics': []
+                }
+    return json.dumps(compact, ensure_ascii=False, indent=2)
 
 
 def generate_schedule(topic_data: dict,
                       today_str:  str  = None,
                       max_tokens: int  = None,
                       model_list: list = None) -> dict:
-    """
-    Returns the schedule dict with a '_meta' key that app.py strips before
-    saving to DB.  '_meta' carries fallback info for user notification.
-    """
     if today_str  is None: today_str  = datetime.date.today().strftime('%d-%m-%Y')
     if max_tokens is None: max_tokens = DEFAULT_MAX_TOKENS
     if model_list is None: model_list = MODELS
 
     prompt   = _PROMPT_TEMPLATE.format(
         today=today_str,
-        data=json.dumps(topic_data, ensure_ascii=False, indent=2)
+        data=_serialize_input(topic_data)
     )
     messages = [
         {'role': 'system', 'content': 'Output valid JSON only.'},
@@ -80,7 +113,7 @@ def generate_schedule(topic_data: dict,
     failures = []
     for i, model in enumerate(model_list):
         try:
-            print(f'[SCHED] Trying model {i+1}/{len(model_list)}: {model}')
+            print(f'[SCHED] Trying {i+1}/{len(model_list)}: {model}')
             raw      = _call_model(model, messages, max_tokens)
             schedule = _parse(raw)
             schedule['_meta'] = {
@@ -90,11 +123,10 @@ def generate_schedule(topic_data: dict,
             }
             return schedule
         except json.JSONDecodeError as exc:
-            reason = f'[{model}] JSON parse error: {exc}'
+            reason = f'[{model}] JSON error: {exc}'
         except Exception as exc:
             reason = f'[{model}] {type(exc).__name__}: {exc}'
         print(f'[ERROR] {reason}')
         failures.append(reason)
 
-    raise RuntimeError(
-        f'All {len(model_list)} models failed.\n' + '\n'.join(failures))
+    raise RuntimeError(f'All {len(model_list)} models failed.\n' + '\n'.join(failures))
