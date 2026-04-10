@@ -1,116 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StudyFlow AI</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyFlow AI</title>
+
+    <!-- Importing your shared StudyFlow authentication and navbar styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+
+    <!-- Landing page specific styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
-{% include '_ambient_bg.html' %}
+    {% include '_ambient_bg.html' %}
 
-{% include '_navbar.html' %}
+    {% include '_navbar.html' %}
 
-<section class="hero">
-    <span class="badge">Introducing AI</span>
-    <h1>Upload Your Syllabus &amp; Datesheet</h1>
-    <p>
-        StudyFlow AI analyses your syllabus and exam schedule to generate
-        a smart day-by-day study plan automatically.
-    </p>
+    <!-- Main Landing Section (Split Layout) -->
+    <main class="landing-container">
 
-    {% if current_user.is_authenticated %}
-    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
-        <a href="{{ url_for('upload_page') }}">
-            <button class="btn-primary" style="font-size:17px;padding:15px 36px;">
-                Upload New Syllabus
-            </button>
-        </a>
-        <a href="{{ url_for('schedule_page') }}">
-            <button class="nav-logout" style="font-size:17px;padding:15px 36px;border-radius:25px;">
-                View My Schedule
-            </button>
-        </a>
-        <a href="{{ url_for('progress_page') }}">
-            <button class="nav-logout" style="font-size:17px;padding:15px 36px;border-radius:25px;">
-                Check Progress
-            </button>
-        </a>
-    </div>
-    {% else %}
-    <button class="btn-primary" style="font-size:18px;padding:16px 40px;" id="heroGetStarted">
-        Get Started →
-    </button>
-    {% endif %}
-</section>
+        <!-- Left Side: Dynamic Text Area -->
+        <div class="content-left">
 
-<!-- AUTH MODAL — only for logged-out users -->
-{% if not current_user.is_authenticated %}
-<div id="authOverlay" class="auth-overlay hidden">
-<div class="auth-modal">
+            <!-- Hero Content (Initial View) -->
+            <div id="hero-content" class="fade-transition">
+                <div class="badge">Study Smarter, Not Harder</div>
 
-    <button class="auth-close" id="closeAuthBtn">✕</button>
+                <h1 class="landing-title">Your AI-Powered <br>Study Planner</h1>
 
-    <div id="loginPanel" class="auth-panel">
-        <h2 class="auth-title">Welcome back</h2>
-        <p class="auth-sub">Log in to your StudyFlow account</p>
-        <div id="loginError" class="auth-error hidden"></div>
+                <p class="landing-subtitle">
+                    Upload your syllabus and let StudyFlow instantly build a smart, day-by-day study schedule tailored
+                    to your deadlines. Clear the clutter and focus on what matters.
+                </p>
 
-        <label class="auth-label">Username or Email</label>
-        <input id="loginIdentifier" class="auth-input" type="text"
-               placeholder="you@example.com" autocomplete="username">
+                <div class="cta-group">
+                    {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('upload_page') }}" class="btn-primary">Start Planning</a>
+                    {% else %}
+                    <button class="btn-primary" id="heroGetStarted">Start Planning</button>
+                    {% endif %}
+                    <button class="btn-secondary" id="howItWorksBtn">How It Works</button>
+                </div>
+            </div>
 
-        <label class="auth-label">Password</label>
-        <input id="loginPassword" class="auth-input" type="password"
-               placeholder="••••••••" autocomplete="current-password">
+            <!-- How It Works Content (Hidden View) -->
+            <div id="how-it-works-content" class="fade-transition hidden">
+                <div class="badge">The Process</div>
+                <h2 class="landing-title small">How It Works</h2>
 
-        <label class="auth-remember">
-            <input type="checkbox" id="loginRemember"> Remember me for 7 days
-        </label>
+                <div class="steps-grid">
+                    <div class="step-item">
+                        <span class="step-num">01</span>
+                        <h3>Upload</h3>
+                        <p>Feed us your syllabus or paste your course topics and exam dates.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-num">02</span>
+                        <h3>Analyze</h3>
+                        <p>Our AI maps out the intensity and time needed for every single topic.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-num">03</span>
+                        <h3>Plan</h3>
+                        <p>Get a dynamic day-by-day schedule optimized for your life.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-num">04</span>
+                        <h3>Excel</h3>
+                        <p>Track your progress and stay on top of every deadline with ease.</p>
+                    </div>
+                </div>
 
-        <button class="auth-btn" id="loginSubmit">Log In</button>
+                <div class="cta-group">
+                    <button class="btn-text" id="backToHeroBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Back to Home
+                    </button>
+                </div>
+            </div>
 
-        <p class="auth-switch">
-            Don't have an account?
-            <span class="auth-link" id="goToRegister">Create one</span>
-        </p>
-    </div>
+        </div>
 
-    <div id="registerPanel" class="auth-panel hidden">
-        <h2 class="auth-title">Create account</h2>
-        <p class="auth-sub">Start planning smarter today</p>
-        <div id="registerError" class="auth-error hidden"></div>
+        <!-- Right Side: Spline 3D Object Area -->
+        <div class="content-right" id="splineContainer">
+            <iframe src='https://my.spline.design/rememberallrobot-XF3IAIWXimKEHnLaIt1WdsTJ/' frameborder='0'
+                width='100%' height='100%' allowtransparency="true" style="background: transparent;"></iframe>
 
-        <label class="auth-label">Username</label>
-        <input id="regUsername" class="auth-input" type="text"
-               placeholder="studymaster99" autocomplete="username">
+            <!-- Hide 'Built with Spline' Watermark -->
+            <div
+                style="position: absolute; bottom: 10px; right: 10px; width: 160px; height: 50px; background-color: #050505; z-index: 10; pointer-events: auto;">
+            </div>
+        </div>
 
-        <label class="auth-label">Email</label>
-        <input id="regEmail" class="auth-input" type="email"
-               placeholder="you@example.com" autocomplete="email">
+    </main>
 
-        <label class="auth-label">Password <span class="auth-hint">(min 8 chars)</span></label>
-        <input id="regPassword" class="auth-input" type="password"
-               placeholder="••••••••" autocomplete="new-password">
+    <!-- Simple Modern Footer -->
+    {% include '_footer.html' %}
 
-        <label class="auth-label">Confirm Password</label>
-        <input id="regConfirm" class="auth-input" type="password"
-               placeholder="••••••••" autocomplete="new-password">
+    <!-- AUTH MODAL — Shared fragment -->
+    {% include '_auth_modal.html' %}
 
-        <button class="auth-btn" id="registerSubmit">Create Account</button>
-
-        <p class="auth-switch">
-            Already have an account?
-            <span class="auth-link" id="goToLogin">Log in</span>
-        </p>
-    </div>
-
-</div>
-</div>
-<script src="{{ url_for('static', filename='auth.js') }}"></script>
-{% endif %}
-
+    <script src="{{ url_for('static', filename='New-landing.js') }}"></script>
 </body>
+
 </html>

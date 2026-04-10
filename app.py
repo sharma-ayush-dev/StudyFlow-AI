@@ -356,7 +356,7 @@ def log_request(response):
 
 @app.route('/')
 def landing():
-    return render_template('New-landing.html')
+    return render_template('Landing.html')
 
 
 @app.route('/register', methods=['POST'])
