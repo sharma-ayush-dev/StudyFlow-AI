@@ -5,42 +5,6 @@
     font-family: 'Inter', sans-serif;
 }
 
-body {
-    background: #050505;
-    color: white;
-    overflow-x: hidden;
-}
-
-/* Background handled by body reset */
-
-
-/* Nav and Footer use standard auth.css styles */
-
-
-
-
-
-
-
-/* BUTTONS */
-
-.btn-primary {
-    background: linear-gradient(135deg, #7b2ff7, #9f55ff);
-    border: none;
-    padding: 12px 26px;
-    border-radius: 25px;
-    color: white;
-    cursor: pointer;
-    font-size: 15px;
-    transition: 0.3s;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, #8c46ff, #b37fff);
-}
-
-
-
 /* HERO CENTER */
 
 .hero {
@@ -51,6 +15,8 @@ body {
     text-align: center;
     padding: 80px 20px;
     animation: fadeIn 0.8s ease-out both;
+    position: relative;
+    z-index: 1;
 }
 
 
@@ -86,7 +52,8 @@ body {
 /* UPLOAD BOX */
 
 .upload-box {
-    background: #0c0c12;
+    background: rgba(12, 12, 18, 0.8);
+    backdrop-filter: blur(20px);
     padding: 50px;
     border-radius: 20px;
     width: 600px;
@@ -95,7 +62,8 @@ body {
     flex-direction: column;
     gap: 25px;
 
-    border: 1px solid #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     transition: 0.4s;
 }
 
