@@ -258,6 +258,17 @@
             <button class="btn-reset" onclick="resetModels('extract')">Reset Defaults</button>
         </div>
 
+        <!-- Teacher models -->
+        <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
+            Teacher assistant models (tried top â†’ bottom)
+        </label>
+        <div id="teacherModelRows"></div>
+        <button class="btn-add-model" onclick="addModelRow('teacher')">+ Add model</button>
+        <div class="admin-row">
+            <button class="btn-save"  onclick="saveModels('teacher')">Save</button>
+            <button class="btn-reset" onclick="resetModels('teacher')">Reset Defaults</button>
+        </div>
+
         <div class="feedback" id="aiFb"></div>
     </div>
 </div>
@@ -378,8 +389,10 @@
 // ── DATA FROM SERVER ──────────────────────────────────────
 let schedModels   = {{ sched_models   | tojson }};
 let extractModels = {{ extract_models | tojson }};
+let teacherModels = {{ teacher_models | tojson }};
 const defSched    = {{ default_sched_models   | tojson }};
 const defExtract  = {{ default_extract_models | tojson }};
+const defTeacher  = {{ default_teacher_models | tojson }};
 
 // ── SECTION TOGGLE ────────────────────────────────────────
 function toggleSection(hdr) {
@@ -463,7 +476,11 @@ async function saveWordLimit() {
 
 // ── MODEL ROWS ────────────────────────────────────────────
 function renderModelRows(type) {
-    const arr = type === 'sched' ? schedModels : extractModels;
+    const arr = type === 'sched'
+        ? schedModels
+        : type === 'extract'
+            ? extractModels
+            : teacherModels;
     const ctr = document.getElementById(type+'ModelRows');
     ctr.innerHTML = '';
     arr.forEach((m,i) => {
@@ -478,29 +495,55 @@ function renderModelRows(type) {
     });
 }
 function addModelRow(type) {
-    if (type==='sched') schedModels.push(''); else extractModels.push('');
+    if (type==='sched') schedModels.push('');
+    else if (type==='extract') extractModels.push('');
+    else teacherModels.push('');
     renderModelRows(type);
     const inputs = document.querySelectorAll(`#${type}ModelRows .admin-input`);
     inputs[inputs.length-1].focus();
 }
 function removeModel(type, i) {
-    const arr = type==='sched' ? schedModels : extractModels;
+    const arr = type==='sched'
+        ? schedModels
+        : type === 'extract'
+            ? extractModels
+            : teacherModels;
     if (arr.length <= 1) { alert('Keep at least one model.'); return; }
     arr.splice(i,1);
     renderModelRows(type);
 }
 async function saveModels(type) {
-    const arr     = (type==='sched' ? schedModels : extractModels).filter(m=>m.trim());
-    const listKey = type==='sched' ? 'sched_model_list' : 'extract_model_list';
+    const arr = (
+        type === 'sched'
+            ? schedModels
+            : type === 'extract'
+                ? extractModels
+                : teacherModels
+    ).filter(m=>m.trim());
+    const listKey = type === 'sched'
+        ? 'sched_model_list'
+        : type === 'extract'
+            ? 'extract_model_list'
+            : 'teacher_model_list';
     const [ok,d]  = await api('/admin/set_model_list',{list_key:listKey, models:arr});
     fb('aiFb', ok ? '✓ Saved' : d.error, !ok);
-    if (ok) { if(type==='sched') schedModels=d.models; else extractModels=d.models; }
+    if (ok) {
+        if (type === 'sched') schedModels = d.models;
+        else if (type === 'extract') extractModels = d.models;
+        else teacherModels = d.models;
+    }
 }
 async function resetModels(type) {
-    const listKey = type==='sched' ? 'sched_model_list' : 'extract_model_list';
+    const listKey = type === 'sched'
+        ? 'sched_model_list'
+        : type === 'extract'
+            ? 'extract_model_list'
+            : 'teacher_model_list';
     const [ok,d]  = await api('/admin/reset_model_list',{list_key:listKey});
     if (ok) {
-        if (type==='sched') { schedModels=d.models; } else { extractModels=d.models; }
+        if (type === 'sched') schedModels = d.models;
+        else if (type === 'extract') extractModels = d.models;
+        else teacherModels = d.models;
         renderModelRows(type);
         fb('aiFb','✓ Reset to defaults');
     } else fb('aiFb', d.error, true);
@@ -616,6 +659,7 @@ async function deleteUser(uid, name) {
 // ── INIT ──────────────────────────────────────────────────
 renderModelRows('sched');
 renderModelRows('extract');
+renderModelRows('teacher');
 
 // Lazy-load users when their section is opened
 document.querySelectorAll('.section-header').forEach(hdr => {

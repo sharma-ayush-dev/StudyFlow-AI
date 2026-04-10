@@ -11,15 +11,11 @@ import apikey
 
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=apikey.key)
 
-# ── FALLBACK MODEL LIST ──────────────────────────────────────
-# Tried in order — same pattern as schedule_planner.py.
-# Export so app.py can display and let admin override them.
 VISION_MODELS = [
-    "qwen/qwen2-vl-72b-instruct",        # primary
-    "google/gemini-2.0-flash-001",        # fallback 1
-    "meta-llama/llama-4-maverick",        # fallback 2
+    "qwen/qwen2-vl-72b-instruct",
+    "google/gemini-2.0-flash-001",
+    "meta-llama/llama-4-maverick",
 ]
-
 
 # ── DATE UTILS ───────────────────────────────────────────────
 
@@ -51,6 +47,23 @@ def _find(d: dict, *keys):
 
 
 def _normalize(payload) -> dict:
+    """
+    Normalises LLM output into:
+    {
+      "Exam_dates": { "Subject": "DD-MM-YYYY" },
+      "Subjects": {
+        "Subject": {
+          "TopicName": {
+            "status": "none",
+            "subtopics": ["Subtopic 1", "Subtopic 2"]
+          }
+        }
+      },
+      "study_days": {}
+    }
+
+    Handles both the new subtopic format and the old flat format gracefully.
+    """
     if not isinstance(payload, dict):
         return {'Exam_dates': {}, 'Subjects': {}, 'study_days': {}}
 
@@ -58,16 +71,31 @@ def _normalize(payload) -> dict:
     raw_d = _find(payload, 'Exam_dates', 'exam_dates', 'ExamDates', 'examDates') or {}
     ns, nd = {}, {}
 
+    # Helper: normalise a single topic value into the canonical shape
+    def _norm_topic(val) -> dict:
+        if isinstance(val, dict):
+            subs = val.get('subtopics') or []
+            if not isinstance(subs, list):
+                subs = []
+            subs = [str(s).strip() for s in subs if str(s).strip()]
+            return {'status': 'none', 'subtopics': subs}
+        # Old flat format ("none" / percentage string) — no subtopics
+        return {'status': 'none', 'subtopics': []}
+
     if isinstance(raw_s, list):
+        # Very old array-of-objects format
         for s in raw_s:
             if not isinstance(s, dict): continue
             name = str(s.get('subject') or s.get('name') or '').strip()
             if not name: continue
-            topics = s.get('topics') or []
-            if isinstance(topics, list):
-                topics = {str(t).strip(): 'none' for t in topics if isinstance(t, str) and t.strip()}
-            elif isinstance(topics, dict):
-                topics = {str(k).strip(): 'none' for k in topics if str(k).strip()}
+            topics_raw = s.get('topics') or {}
+            if isinstance(topics_raw, list):
+                # list of topic names with no subtopics
+                topics = {str(t).strip(): {'status': 'none', 'subtopics': []}
+                          for t in topics_raw if isinstance(t, str) and t.strip()}
+            elif isinstance(topics_raw, dict):
+                topics = {str(k).strip(): _norm_topic(v)
+                          for k, v in topics_raw.items() if str(k).strip()}
             else:
                 topics = {}
             if topics: ns[name] = topics
@@ -78,18 +106,19 @@ def _normalize(payload) -> dict:
             for k, v in raw_d.items():
                 if v and str(v).strip() not in ('null', 'None', ''):
                     nd[str(k).strip()] = str(v).strip()
+
     elif isinstance(raw_s, dict):
-        for subj, topics in raw_s.items():
+        for subj, topics_raw in raw_s.items():
             subj = str(subj).strip()
             if not subj: continue
-            if isinstance(topics, list):
-                topics = {str(t).strip(): 'none' for t in topics if t}
-            elif isinstance(topics, str):
-                topics = {t.strip(): 'none' for t in topics.split('\n') if t.strip()}
-            elif not isinstance(topics, dict):
-                topics = {}
-            nt = {str(k).strip(): 'none' for k in topics if str(k).strip()}
-            if nt: ns[subj] = nt
+            if isinstance(topics_raw, dict):
+                norm_topics = {}
+                for tname, tval in topics_raw.items():
+                    tname = str(tname).strip()
+                    if not tname: continue
+                    norm_topics[tname] = _norm_topic(tval)
+                if norm_topics: ns[subj] = norm_topics
+            # else: unexpected shape, skip
         if isinstance(raw_d, dict):
             for subj, date in raw_d.items():
                 if date and str(date).strip() not in ('null', 'None', ''):
@@ -110,10 +139,9 @@ def _ensure_study_days(payload: dict, today_str: str) -> dict:
     for d in (payload.get('Exam_dates') or {}).values():
         try: valid.append(_parse_date(d))
         except: pass
-    if not valid:
-        payload['study_days'] = {}
-    else:
-        payload['study_days'] = _date_range(today_str, _format_date(max(valid)))
+    payload['study_days'] = (
+        _date_range(today_str, _format_date(max(valid))) if valid else {}
+    )
     return payload
 
 
@@ -139,7 +167,6 @@ def extract(path: str) -> str:
     if ext == '.docx': return extract_docx(path)
     raise Exception(f'extract() does not support {ext}')
 
-
 def _file_parts(path: str, label: str) -> list:
     ext   = os.path.splitext(path)[1].lower()
     parts = [{'type': 'text', 'text': f'\n---{label}---\n'}]
@@ -147,7 +174,8 @@ def _file_parts(path: str, label: str) -> list:
         with open(path, 'rb') as f:
             b64 = base64.b64encode(f.read()).decode()
         mime = 'image/png' if ext == '.png' else 'image/jpeg'
-        parts.append({'type': 'image_url', 'image_url': {'url': f'data:{mime};base64,{b64}'}})
+        parts.append({'type': 'image_url',
+                      'image_url': {'url': f'data:{mime};base64,{b64}'}})
     elif ext == '.pdf':
         parts.append({'type': 'text', 'text': extract_pdf(path) or '(empty)'})
     elif ext == '.docx':
@@ -157,28 +185,39 @@ def _file_parts(path: str, label: str) -> list:
     return parts
 
 
-# ── MAIN ─────────────────────────────────────────────────────
+# ── PROMPT ───────────────────────────────────────────────────
 
-# Compact prompt — reduces token usage significantly
-_PROMPT = """Extract structured study planner data from the provided SYLLABUS and DATESHEET sources.
+# Updated prompt requesting subtopic arrays
+_PROMPT = """Extract study planner data from the SYLLABUS and DATESHEET provided.
 
 Return ONLY this JSON (no markdown, no explanation):
-{"Exam_dates":{"SubjectName":"DD-MM-YYYY"},"Subjects":{"SubjectName":{"Topic 1":"none","Topic 2":"none"}}}
+{
+  "Exam_dates": {"SubjectName": "DD-MM-YYYY"},
+  "Subjects": {
+    "SubjectName": {
+      "TopicName": {
+        "subtopics": ["Subtopic 1", "Subtopic 2", "Subtopic 3"]
+      }
+    }
+  }
+}
 
 Rules:
-- Only include subjects present in SYLLABUS sources
-- 4-8 topics per subject, prefer chapter/unit titles
-- Dates in DD-MM-YYYY format; omit if not found for a subject"""
+- Only include subjects present in SYLLABUS
+- 3-7 topics per subject (unit/chapter titles preferred)
+- 2-5 subtopics per topic (key concepts within that unit)
+- If no subtopics can be identified, use an empty array []
+- Exam dates in DD-MM-YYYY format; omit subject from Exam_dates if not found"""
 
+
+# ── MAIN ─────────────────────────────────────────────────────
 
 def organize_with_llm(file_paths: list,
                       manual_text: str = None,
                       today_str:   str = None,
                       model_list:  list = None) -> dict:
-    if today_str is None:
-        today_str = datetime.date.today().strftime('%d-%m-%Y')
-    if model_list is None:
-        model_list = VISION_MODELS
+    if today_str  is None: today_str  = datetime.date.today().strftime('%d-%m-%Y')
+    if model_list is None: model_list = VISION_MODELS
     if not file_paths and not manual_text:
         raise ValueError('No input provided')
 
@@ -188,29 +227,29 @@ def organize_with_llm(file_paths: list,
             content.extend(_file_parts(p, f'SYLLABUS {i+1}'))
         content.extend(_file_parts(file_paths[-1], 'DATESHEET'))
     if manual_text:
-        content.append({'type': 'text', 'text': f'\n---MANUAL SYLLABUS---\n{manual_text}\n'})
+        content.append({'type': 'text',
+                        'text': f'\n---MANUAL SYLLABUS---\n{manual_text}\n'})
     content.append({'type': 'text', 'text': _PROMPT})
 
-    messages = [{'role': 'user', 'content': content}]
-    failure_reasons = []
+    messages   = [{'role': 'user', 'content': content}]
+    failures   = []
 
     for i, model in enumerate(model_list):
         try:
-            print(f'[EXTRACT] Trying model {i+1}/{len(model_list)}: {model}')
-            resp    = client.chat.completions.create(model=model, temperature=0, messages=messages)
-            choice  = resp.choices[0] if resp.choices else None
+            print(f'[EXTRACT] Trying {i+1}/{len(model_list)}: {model}')
+            resp   = client.chat.completions.create(
+                model=model, temperature=0, messages=messages)
+            choice = resp.choices[0] if resp.choices else None
             if not choice or not choice.message.content:
-                raise ValueError(f'[{model}] Empty response (finish_reason={getattr(choice, "finish_reason", "?")})')
-            raw     = choice.message.content
-            parsed  = _extract_json(raw)
-            normed  = _normalize(parsed)
-            normed  = _filter_dates(normed)
-            normed  = _ensure_study_days(normed, today_str)
+                raise ValueError(f'Empty response')
+            parsed = _extract_json(choice.message.content)
+            normed = _normalize(parsed)
+            normed = _filter_dates(normed)
+            normed = _ensure_study_days(normed, today_str)
             return normed
         except Exception as e:
             reason = f'[{model}] {type(e).__name__}: {e}'
             print(f'[ERROR] {reason}')
-            failure_reasons.append(reason)
+            failures.append(reason)
 
-    print('LLM FAILURES:\n' + '\n'.join(failure_reasons))
-    raise RuntimeError(f'All extraction models failed:\n' + '\n'.join(failure_reasons))
+    raise RuntimeError('All extraction models failed:\n' + '\n'.join(failures))
