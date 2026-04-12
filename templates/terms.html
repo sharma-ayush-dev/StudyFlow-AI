@@ -5,9 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms of Service | StudyFlow AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        .back-home-link {
+            display: inline-flex;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.4);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.3s ease;
+        }
+        .back-home-link:hover {
+            color: #9f55ff;
+        }
+        .back-home-link svg {
+            margin-right: 8px;
+            transition: 0.3s ease;
+        }
+        .back-home-link:hover svg {
+            color: #7b2ff7;
+        }
         .legal-container {
             max-width: 900px;
             margin: 0 auto;
@@ -23,6 +41,7 @@
         .legal-header {
             text-align: center;
             margin-bottom: 60px;
+            animation: fadeIn 0.8s ease-out both;
         }
         .legal-header h1 {
             font-size: 48px;
@@ -42,6 +61,7 @@
             padding: 40px;
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.05);
+            animation: fadeIn 0.8s ease-out 0.2s both;
         }
         .legal-section h2 {
             color: white;

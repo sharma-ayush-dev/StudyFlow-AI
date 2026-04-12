@@ -16,6 +16,48 @@ html {
 }
 
 
+/* ── NAVBAR SLIDE-DOWN (landing page only) ── */
+.main-nav {
+    animation: navSlideDown 0.8s ease-out 0.2s both;
+}
+
+@keyframes navSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── LANDING GRID OVERLAY ──
+   Sits above the Spline canvas (z-index 0) but below text (z-index 10).
+   Replicates the animated grid from other pages without touching auth.css. */
+.landing-grid-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    background-image:
+        linear-gradient(rgba(123, 47, 247, 0.17) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(123, 47, 247, 0.17) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(circle at 50% 50%, black, transparent 90%);
+    animation: gridMove 20s linear infinite;
+}
+
+/* Gradient colour tint — above grid, below text/nav */
+.landing-gradient-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(117deg, rgba(25, 9, 43, 1) 0%, rgba(255, 255, 255, 0) 20%, rgba(0, 0, 0, 1) 97%);
+}
+
 
 /* Landing Container for Split Layout */
 .landing-container {
@@ -27,7 +69,9 @@ html {
     padding: 0 8%;
     gap: 40px;
     position: relative;
-    z-index: 1;
+    z-index: 3;
+    /* Let mouse events fall through to the Spline canvas beneath */
+    pointer-events: none;
 }
 
 /* Optional Background Glow for Landing */
@@ -47,7 +91,7 @@ html {
 .content-left {
     flex: 1;
     max-width: 600px;
-    animation: slideInLeft 1s ease-out forwards;
+    animation: slideInLeft 0.8s ease-out 0.2s both;
     position: relative;
     z-index: 10;
     pointer-events: none;
@@ -58,7 +102,8 @@ html {
 .content-left .badge,
 .content-left .cta-group,
 .content-left .back-home-link,
-.content-left .btn-text {
+.content-left .btn-text,
+.content-left .step-item {
     pointer-events: auto;
 }
 
@@ -192,8 +237,11 @@ html {
 }
 
 .step-item:hover {
-    background: rgba(123, 47, 247, 0.05);
-    border-color: rgba(123, 47, 247, 0.3);
+    background: rgba(123, 47, 247, 0.08);
+    border-color: rgba(123, 47, 247, 0.4);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 
+                0 0 20px rgba(123, 47, 247, 0.15);
 }
 
 
@@ -229,48 +277,26 @@ html {
     height: 600px;
     position: relative;
     overflow: visible;
-    /* Allow iframe to expand for tracking */
     opacity: 0;
     background: transparent;
     border: none;
-    transition: opacity 1s ease;
-    z-index: 0;
+    /* Fade-in via JS transition after Spline loads */
+    transition: opacity 1.6s ease;
+    z-index: 4;
 }
 
-/* Panoramic Iframe: Expands tracking but keeps robot centered in container */
-.content-right iframe {
+/* Panoramic Canvas: Expands tracking but keeps robot centered in container */
+.content-right canvas {
     position: absolute;
-    width: 100vw;
-    height: 100vh;
+    width: 100vw !important;
+    height: 100vh !important;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     pointer-events: auto;
-    /* Catch mouse movements behind content */
+    outline: none;
+    display: block;
 }
-
-/* New class to trigger the smooth entry */
-.content-right.ready {
-    animation: splineFadeIn 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-
-
-
-
-@keyframes splineFadeIn {
-    0% {
-        opacity: 0;
-        transform: translateY(20px) scale(0.98);
-        filter: blur(5px);
-    }
-
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        filter: blur(0);
-    }
-}
-
 
 /* Legacy placeholder removed */
 

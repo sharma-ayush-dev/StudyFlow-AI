@@ -5,9 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us | StudyFlow AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        .back-home-link {
+            display: inline-flex;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.4);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.3s ease;
+        }
+        .back-home-link:hover {
+            color: #9f55ff;
+        }
+        .back-home-link svg {
+            margin-right: 8px;
+            transition: 0.3s ease;
+        }
+        .back-home-link:hover svg {
+            color: #7b2ff7;
+        }
         .contact-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -40,10 +58,16 @@
             margin-bottom: 40px;
             line-height: 1.6;
         }
+        .contact-info .badge, 
+        .contact-info h1, 
+        .contact-info p {
+            animation: fadeIn 0.8s ease-out both;
+        }
         .info-cards {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
+            animation: fadeIn 0.8s ease-out 0.2s both;
         }
         .info-card {
             background: rgba(12, 12, 18, 0.8);
@@ -73,6 +97,7 @@
             padding: 48px;
             border-radius: 24px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            animation: fadeIn 0.8s ease-out 0.3s both;
         }
         .form-group {
             margin-bottom: 24px;

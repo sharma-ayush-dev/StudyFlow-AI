@@ -18,9 +18,15 @@
 <body>
     {% include '_ambient_bg.html' %}
 
+    <!-- Landing-only grid overlay: sits above Spline, below text, no pointer events -->
+    <div class="landing-grid-overlay"></div>
+
+    <!-- Gradient colour tint: above grid, below text -->
+    <div class="landing-gradient-overlay"></div>
+
     {% include '_navbar.html' %}
 
-    <!-- Main Landing Section (Split Layout) -->
+    <!-- Main Landing Section (left-side text only) -->
     <main class="landing-container">
 
         <!-- Left Side: Dynamic Text Area -->
@@ -91,12 +97,11 @@
 
         <!-- Right Side: Spline 3D Object Area -->
         <div class="content-right" id="splineContainer">
-            <iframe src='https://my.spline.design/rememberallrobot-XF3IAIWXimKEHnLaIt1WdsTJ/' frameborder='0'
-                width='100%' height='100%' allowtransparency="true" style="background: transparent;"></iframe>
+            <canvas id="spline-canvas"></canvas>
 
             <!-- Hide 'Built with Spline' Watermark -->
             <div
-                style="position: absolute; bottom: 10px; right: 10px; width: 160px; height: 50px; background-color: #050505; z-index: 10; pointer-events: auto;">
+                style="position: absolute; bottom: 10px; right: 10px; width: 160px; height: 50px; background-color: #000000; z-index: 10; pointer-events: none;">
             </div>
         </div>
 
@@ -109,6 +114,62 @@
     {% include '_auth_modal.html' %}
 
     <script src="{{ url_for('static', filename='New-landing.js') }}"></script>
+
+    <script type="module">
+        import { loadSpline } from "{{ url_for('static', filename='spline-scene.js') }}";
+        const canvas = document.getElementById('spline-canvas');
+
+        // Prevent Spline from intercepting scroll events on Desktop
+        canvas.addEventListener('wheel', (e) => {
+            e.stopImmediatePropagation();
+        }, { capture: true, passive: true });
+
+        // Prevent Spline from intercepting scroll events on Mobile
+        canvas.addEventListener('touchmove', (e) => {
+            e.stopImmediatePropagation();
+        }, { capture: true, passive: true });
+
+        // Prevent Spline from swallowing right-click — restore native context menu
+        canvas.addEventListener('contextmenu', (e) => {
+            e.stopImmediatePropagation();
+        }, { capture: true });
+
+        // Global cursor tracking: forward pointer events to the canvas from any screen area.
+        // Spline's engine listens on 'pointermove', not 'mousemove', so we dispatch
+        // a PointerEvent so the robot responds to the cursor everywhere on the page.
+        document.addEventListener('pointermove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const insideCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom;
+            if (!insideCanvas) {
+                canvas.dispatchEvent(new PointerEvent('pointermove', {
+                    bubbles: false,
+                    cancelable: false,
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    pointerId: e.pointerId,
+                    pointerType: e.pointerType,
+                    isPrimary: e.isPrimary,
+                }));
+            }
+        }, { passive: true });
+
+        // Load the robot!
+        loadSpline(canvas).then(() => {
+            console.log('Spline loaded natively!');
+            // Double-rAF ensures the browser has painted opacity:0 before
+            // we trigger the transition — guarantees a visible fade every time.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        document.getElementById('splineContainer').style.opacity = '1';
+                    }, 200);
+                });
+            });
+        }).catch(err => {
+            console.error('Error loading Spline:', err);
+        });
+    </script>
 
 </body>
 

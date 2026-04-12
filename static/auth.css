@@ -122,9 +122,10 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 10px 30px;
-    border: 1px solid rgba(123, 47, 247, 0.2);
-    position: sticky;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
     top: 20px;
+    margin: 0 auto 40px;
     background: rgba(5, 5, 5, 0.3);
     backdrop-filter: blur(20px);
     z-index: 1000;
@@ -176,7 +177,7 @@ body {
 
 .nav-links a.nav-admin {
     color: #9f55ff;
-    border: 1px solid rgba(123, 47, 247, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .nav-links a.nav-admin:hover,
@@ -198,7 +199,7 @@ body {
 
 .nav-logout {
     background: transparent;
-    border: 1px solid #444;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 16px;
     padding: 6px 16px;
     color: #aaa;
