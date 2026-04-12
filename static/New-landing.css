@@ -15,12 +15,7 @@ html {
     overflow-x: hidden;
 }
 
-/* Navigation Bar Entry Animation */
-.main-nav {
-    animation: slideDownFade 0.8s ease-out forwards;
-    opacity: 0;
-    /* Let animation take over */
-}
+
 
 /* Landing Container for Split Layout */
 .landing-container {
