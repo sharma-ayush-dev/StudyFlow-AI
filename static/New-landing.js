@@ -4,6 +4,17 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    // ── NAVBAR: release animation fill-mode after slide-down completes ──
+    // The navSlideDown animation holds 'transform: translateY(0)' via fill-mode,
+    // which blocks the hover's transform in auth.css. Clearing the animation
+    // property once it finishes gives hover full control again.
+    const nav = document.querySelector('.main-nav');
+    if (nav) {
+        nav.addEventListener('animationend', () => {
+            nav.style.animation = 'none';
+        }, { once: true });
+    }
+
     // Example: Add an interactive click effect for the Start Planning button
     const startBtn = document.getElementById('startPlanningBtn');
 
