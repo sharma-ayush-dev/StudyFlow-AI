@@ -8,12 +8,12 @@ import apikey
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=apikey.key)
 
 MODELS = [
-    "qwen/qwen3-235b-a22b",
-    "qwen/qwen2.5-72b-instruct",
-    "google/gemini-2.0-flash-001",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "openai/gpt-oss-20b:free"
 ]
 
-DEFAULT_MAX_TOKENS = 4000
+DEFAULT_MAX_TOKENS = 8000
 
 
 # ── COMPACT PROMPT ───────────────────────────────────────────
@@ -36,7 +36,14 @@ Hard rules:
 - For each topic slot, include only the subtopics that fit in the allotted hours
   (pick the most important ones if not all fit)
 
-Return ONLY JSON:
+You MUST return valid JSON.
+- No explanations
+- No markdown
+- No trailing commas
+- No comments
+- Ensure it parses with json.loads()
+
+If you fail, the system will reject your output:
 {{"DD-MM-YYYY":{{"SubjectName":{{"TopicName":{{"hours":<int>,"subtopics":["Subtopic A","Subtopic B"]}}}}}}}}
 
 Input:

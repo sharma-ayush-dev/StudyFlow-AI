@@ -3,8 +3,9 @@ import re
 import json
 import datetime
 import urllib.parse
+import secrets as _secrets
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, abort, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, abort, session, Response, stream_with_context
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin,
@@ -18,7 +19,10 @@ from werkzeug.utils import secure_filename
 
 from text_extractor import organize_with_llm, VISION_MODELS
 from schedule_planner import generate_schedule, MODELS as SCHED_MODELS, DEFAULT_MAX_TOKENS
-from teacher import get_initial_message, get_reply, get_quiz, TEACHER_MODELS
+from teacher import (
+    get_initial_message, get_reply, get_quiz,
+    stream_reply, stream_quiz, TEACHER_MODELS
+)
 
 
 # ─────────────────────────────────────────────
@@ -72,6 +76,7 @@ class User(db.Model, UserMixin):
     password_hash   = db.Column(db.String(256), nullable=False)
     is_admin        = db.Column(db.Boolean,    default=False)
     created_at      = db.Column(db.DateTime,   default=datetime.datetime.utcnow)
+    username_changed_at = db.Column(db.DateTime, nullable=True)
     session_version = db.Column(db.Integer,    default=0, nullable=False)
     course          = db.Column(db.String(50),  nullable=True)   # e.g. "B.Tech Computer Science"
 
@@ -110,6 +115,29 @@ class Message(db.Model):
     role       = db.Column(db.String(10), nullable=False)
     content    = db.Column(db.Text,     nullable=False)
     timestamp  = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class PasswordResetOTP(db.Model):
+    """
+    OTP for password reset / email verification.
+    HARDCODED OTP: 1234 - replace send_otp_email() with real SMTP later.
+    """
+    id         = db.Column(db.Integer, primary_key=True)
+    email      = db.Column(db.String(120), nullable=False)
+    otp_code   = db.Column(db.String(10), nullable=False, default='1234')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used       = db.Column(db.Boolean, default=False)
+
+
+class ContactMessage(db.Model):
+    """Stores contact form submissions until a real email system is wired up."""
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(100))
+    email      = db.Column(db.String(120))
+    subject    = db.Column(db.String(200))
+    message    = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
 class AppSettings(db.Model):
@@ -299,6 +327,45 @@ def _get_today_slot(schedule: dict, subject: str, topic: str, today_str: str) ->
     """Return today's schedule slot for a given subject+topic, or empty dict."""
     day = schedule.get(today_str, {})
     return day.get(subject, {}).get(topic, {})
+
+
+HARDCODED_OTP = '1234'
+
+
+def _send_otp_email(email: str, otp: str):
+    """
+    Placeholder for real email delivery.
+    Replace this later with SMTP / provider integration.
+    """
+    print(f'[OTP] Would send OTP {otp} to {email} - email not configured yet')
+
+
+def _create_otp(email: str) -> PasswordResetOTP:
+    PasswordResetOTP.query.filter_by(email=email, used=False).update({'used': True})
+    db.session.commit()
+
+    otp = PasswordResetOTP(
+        email=email,
+        otp_code=HARDCODED_OTP,
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
+    )
+    db.session.add(otp)
+    db.session.commit()
+    _send_otp_email(email, HARDCODED_OTP)
+    return otp
+
+
+def _verify_otp(email: str, code: str) -> bool:
+    now = datetime.datetime.utcnow()
+    rec = (PasswordResetOTP.query
+           .filter_by(email=email, otp_code=code, used=False)
+           .filter(PasswordResetOTP.expires_at > now)
+           .first())
+    if not rec:
+        return False
+    rec.used = True
+    db.session.commit()
+    return True
 
 
 # ─────────────────────────────────────────────
@@ -493,6 +560,153 @@ def contact():
     return render_template('contact.html')
 
 
+@app.route('/settings')
+@login_required
+def settings_page():
+    can_change_username = True
+    days_until_change = 0
+
+    if current_user.username_changed_at:
+        delta = datetime.datetime.utcnow() - current_user.username_changed_at
+        if delta.days < 14:
+            can_change_username = False
+            days_until_change = 14 - delta.days
+
+    return render_template(
+        'Settings.html',
+        user=current_user,
+        can_change_username=can_change_username,
+        days_until_change=days_until_change
+    )
+
+
+@app.route('/settings/update', methods=['POST'])
+@login_required
+@limiter.limit('10 per hour')
+def settings_update():
+    data = request.get_json() or {}
+    action = _sanitize_field(data.get('action', ''), 30)
+
+    if action == 'update_course':
+        course = _sanitize_field(data.get('course', ''), 50)
+        current_user.course = course or None
+        db.session.commit()
+        return jsonify({'message': 'Course updated'})
+
+    if action == 'update_username':
+        new_username = _sanitize_field(data.get('username', ''), 80)
+        if len(new_username) < 3:
+            return jsonify({'error': 'Username must be at least 3 characters'}), 400
+        if not re.match(r'^[A-Za-z0-9_\-]+$', new_username):
+            return jsonify({'error': 'Username: letters, numbers, _ and - only'}), 400
+        existing_user = User.query.filter_by(username=new_username).first()
+        if existing_user and existing_user.id != current_user.id:
+            return jsonify({'error': 'Username already taken'}), 409
+
+        if current_user.username_changed_at:
+            delta = datetime.datetime.utcnow() - current_user.username_changed_at
+            if delta.days < 14:
+                return jsonify({
+                    'error': f'You can change your username again in {14 - delta.days} days'
+                }), 429
+
+        current_user.username = new_username
+        current_user.username_changed_at = datetime.datetime.utcnow()
+        db.session.commit()
+        return jsonify({'message': 'Username updated', 'new_username': new_username})
+
+    if action == 'change_password':
+        old_pw = data.get('old_password', '')
+        new_pw = data.get('new_password', '')
+        if not current_user.check_password(old_pw):
+            return jsonify({'error': 'Current password is incorrect'}), 401
+        if len(new_pw) < 8:
+            return jsonify({'error': 'New password must be at least 8 characters'}), 400
+        current_user.set_password(new_pw)
+        current_user.session_version = (current_user.session_version or 0) + 1
+        db.session.commit()
+        session['session_version'] = current_user.session_version
+        return jsonify({'message': 'Password changed successfully'})
+
+    return jsonify({'error': 'Unknown action'}), 400
+
+
+@app.route('/forgot_password', methods=['POST'])
+@limiter.limit('5 per hour')
+def forgot_password():
+    email = _sanitize_email((request.get_json() or {}).get('email', ''))
+    if not email:
+        return jsonify({'error': 'Invalid email'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user:
+        _create_otp(email)
+
+    return jsonify({'message': 'If that email is registered, an OTP has been sent.'})
+
+
+@app.route('/verify_reset_otp', methods=['POST'])
+@limiter.limit('10 per hour')
+def verify_reset_otp():
+    data = request.get_json() or {}
+    email = _sanitize_email(data.get('email', ''))
+    code = _sanitize_field(data.get('otp', ''), 10)
+
+    if not _verify_otp(email, code):
+        return jsonify({'error': 'Invalid or expired OTP'}), 401
+
+    token = _secrets.token_urlsafe(32)
+    session[f'reset_token_{email}'] = token
+    return jsonify({'token': token, 'email': email})
+
+
+@app.route('/reset_password', methods=['POST'])
+@limiter.limit('5 per hour')
+def reset_password():
+    data = request.get_json() or {}
+    email = _sanitize_email(data.get('email', ''))
+    token = data.get('token', '')
+    new_pw = data.get('password', '')
+
+    expected = session.get(f'reset_token_{email}')
+    if not expected or expected != token:
+        return jsonify({'error': 'Invalid reset token'}), 401
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    if len(new_pw) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+
+    user.set_password(new_pw)
+    user.session_version = (user.session_version or 0) + 1
+    db.session.commit()
+
+    session.pop(f'reset_token_{email}', None)
+    return jsonify({'message': 'Password reset successfully'})
+
+
+@app.route('/contact/submit', methods=['POST'])
+@limiter.limit('3 per hour')
+def contact_submit():
+    data = request.get_json() or {}
+    msg = ContactMessage(
+        name=_sanitize_field(data.get('name', ''), 100),
+        email=_sanitize_email(data.get('email', '')),
+        subject=_sanitize_field(data.get('subject', ''), 200),
+        message=_sanitize(data.get('message', ''), max_words=500)
+    )
+    if not msg.email:
+        return jsonify({'error': 'Invalid email'}), 400
+    if not msg.message:
+        return jsonify({'error': 'Message is required'}), 400
+
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({'message': "Thanks! We'll get back to you within 24 hours."})
+
+
 # ─────────────────────────────────────────────
 # STUDY / CHAT API
 # ─────────────────────────────────────────────
@@ -680,6 +894,177 @@ def chat_quiz(chat_id: int):
 # ─────────────────────────────────────────────
 # FILE UPLOAD
 # ─────────────────────────────────────────────
+
+@app.route('/api/chat/<int:chat_id>/message/<int:msg_id>', methods=['PATCH'])
+@login_required
+def edit_message(chat_id: int, msg_id: int):
+    """Edit a user message without regenerating the next AI response."""
+    _get_chat_or_403(chat_id)
+    msg = Message.query.get_or_404(msg_id)
+    if msg.chat_id != chat_id:
+        abort(403)
+    if msg.role != 'user':
+        return jsonify({'error': 'Only user messages can be edited'}), 400
+
+    new_content = _sanitize((request.json or {}).get('content', ''), max_words=500)
+    if not new_content:
+        return jsonify({'error': 'Empty message'}), 400
+
+    msg.content = new_content
+    db.session.commit()
+    return jsonify({'message': 'edited', 'content': new_content})
+
+
+@app.route('/api/chat/<int:chat_id>/message/<int:msg_id>', methods=['DELETE'])
+@login_required
+def delete_message(chat_id: int, msg_id: int):
+    """Delete a single message and the immediate AI reply if it follows."""
+    _get_chat_or_403(chat_id)
+    msg = Message.query.get_or_404(msg_id)
+    if msg.chat_id != chat_id:
+        abort(403)
+
+    if msg.role == 'user':
+        next_msg = (Message.query
+                    .filter_by(chat_id=chat_id)
+                    .filter(Message.id > msg_id)
+                    .order_by(Message.id)
+                    .first())
+        if next_msg and next_msg.role == 'assistant':
+            db.session.delete(next_msg)
+
+    db.session.delete(msg)
+    db.session.commit()
+    return jsonify({'message': 'deleted'})
+
+
+@app.route('/api/chat/<int:chat_id>/regenerate_last', methods=['POST'])
+@login_required
+@limiter.limit(_rl('rl_chat'))
+def regenerate_last(chat_id: int):
+    """Delete the last AI response and regenerate it."""
+    chat = _get_chat_or_403(chat_id)
+
+    last_assistant = (Message.query
+                      .filter_by(chat_id=chat_id, role='assistant')
+                      .order_by(Message.id.desc())
+                      .first())
+    if last_assistant:
+        db.session.delete(last_assistant)
+        db.session.commit()
+
+    history = _get_chat_history(chat_id)
+    subtopics, hours, course = _get_topic_context(chat)
+
+    try:
+        content, model_used, failures = get_reply(
+            history=history[:-1] if history and history[-1]['role'] == 'user' else history,
+            new_message=history[-1]['content'] if history and history[-1]['role'] == 'user' else 'Please continue.',
+            course=course or '',
+            subject=chat.subject,
+            topic=chat.topic,
+            subtopics=subtopics,
+            hours=hours,
+            model_list=get_teacher_model_list(),
+            use_chinese=get_use_chinese()
+        )
+        new_msg = _save_message(chat_id, 'assistant', content)
+
+        resp = {'content': content, 'role': 'assistant', 'id': new_msg.id}
+        if failures:
+            resp['notice'] = {'model': model_used, 'reasons': failures}
+        return jsonify(resp)
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/chat/<int:chat_id>/send/stream', methods=['POST'])
+@login_required
+@limiter.limit(_rl('rl_chat'))
+def chat_send_stream(chat_id: int):
+    chat = _get_chat_or_403(chat_id)
+
+    user_message = _sanitize((request.json or {}).get('message', ''), max_words=500)
+    if not user_message:
+        return jsonify({'error': 'Empty message'}), 400
+
+    _save_message(chat_id, 'user', user_message)
+
+    history = _get_chat_history(chat_id)[:-1]
+    subtopics, hours, course = _get_topic_context(chat)
+    model_list = get_teacher_model_list()
+    use_zh = get_use_chinese()
+
+    def generate():
+        full_text = ''
+        try:
+            for chunk in stream_reply(
+                history=history,
+                new_message=user_message,
+                course=course or '',
+                subject=chat.subject,
+                topic=chat.topic,
+                subtopics=subtopics,
+                hours=hours,
+                model_list=model_list,
+                use_chinese=use_zh
+            ):
+                full_text += chunk
+                yield f"data: {json.dumps(chunk)}\n\n"
+
+            _save_message(chat_id, 'assistant', full_text)
+            yield 'data: [DONE]\n\n'
+        except RuntimeError as e:
+            yield f'data: [ERROR] {str(e)}\n\n'
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+    )
+
+
+@app.route('/api/chat/<int:chat_id>/quiz/stream', methods=['POST'])
+@login_required
+@limiter.limit(_rl('rl_chat'))
+def chat_quiz_stream(chat_id: int):
+    chat = _get_chat_or_403(chat_id)
+    history = _get_chat_history(chat_id)
+
+    if len(history) < 2:
+        return jsonify({'error': 'Study a bit first before taking a quiz!'}), 400
+
+    subtopics, hours, course = _get_topic_context(chat)
+    model_list = get_teacher_model_list()
+    use_zh = get_use_chinese()
+
+    def generate():
+        full_text = ''
+        try:
+            for chunk in stream_quiz(
+                history=history,
+                course=course or '',
+                subject=chat.subject,
+                topic=chat.topic,
+                subtopics=subtopics,
+                hours=hours,
+                model_list=model_list,
+                use_chinese=use_zh
+            ):
+                full_text += chunk
+                yield f"data: {json.dumps(chunk)}\n\n"
+
+            _save_message(chat_id, 'assistant', full_text)
+            yield 'data: [DONE_QUIZ]\n\n'
+        except RuntimeError as e:
+            yield f'data: [ERROR] {str(e)}\n\n'
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+    )
+
 
 @app.route('/upload', methods=['POST'])
 @login_required

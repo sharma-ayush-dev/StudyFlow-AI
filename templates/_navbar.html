@@ -19,6 +19,10 @@
            class="{{ 'nav-active' if request.endpoint == 'progress_page' else '' }}">
             Progress
         </a>
+        <a href="{{ url_for('settings_page') }}"
+           class="{{ 'nav-active' if request.endpoint == 'settings_page' else '' }}">
+            Settings
+        </a>
         {% if current_user.is_admin %}
         <a href="{{ url_for('admin_dashboard') }}"
            class="{{ 'nav-active' if request.endpoint == 'admin_dashboard' else '' }} nav-admin">
@@ -33,11 +37,10 @@
         </a>
     </div>
     {% else %}
-    <div></div><!-- spacer so login btn right-aligns -->
+    <div></div>
     <button class="btn-primary nav-login-btn" id="openAuthBtn"
             style="padding:9px 24px;font-size:14px;">
         Login
     </button>
     {% endif %}
 </nav>
-
