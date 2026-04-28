@@ -12,9 +12,10 @@ import apikey
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=apikey.key)
 
 VISION_MODELS = [
-    "qwen/qwen2-vl-72b-instruct",
-    "google/gemini-2.0-flash-001",
-    "meta-llama/llama-4-maverick",
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-super-120b-a12b:free"
 ]
 
 # ── DATE UTILS ───────────────────────────────────────────────
@@ -148,9 +149,21 @@ def _ensure_study_days(payload: dict, today_str: str) -> dict:
 def _extract_json(text: str) -> dict:
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     text = re.sub(r'```(?:json)?', '', text).strip()
-    s, e = text.find('{'), text.rfind('}') + 1
-    if s == -1 or e == 0: raise ValueError('No JSON found')
-    return json.loads(text[s:e])
+
+    start = text.find('{')
+    end = text.rfind('}')
+
+    if start == -1 or end == -1:
+        raise ValueError("No JSON object found")
+
+    candidate = text[start:end+1]
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as e:
+        print("RAW LLM OUTPUT:\n", text)
+        print("BROKEN JSON:\n", candidate)
+        raise e
 
 
 # ── FILE READERS ─────────────────────────────────────────────
@@ -189,8 +202,14 @@ def _file_parts(path: str, label: str) -> list:
 
 # Updated prompt requesting subtopic arrays
 _PROMPT = """Extract study planner data from the SYLLABUS and DATESHEET provided.
+You MUST return valid JSON.
+- No explanations
+- No markdown
+- No trailing commas
+- No comments
+- Ensure it parses with json.loads()
 
-Return ONLY this JSON (no markdown, no explanation):
+If you fail, the system will reject your output:
 {
   "Exam_dates": {"SubjectName": "DD-MM-YYYY"},
   "Subjects": {

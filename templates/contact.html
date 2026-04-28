@@ -29,7 +29,7 @@
         .contact-container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 120px 5% 80px;
+            padding: 80px 5% 80px;
             display: flex;
             align-items: flex-start;
             gap: 80px;
@@ -39,19 +39,18 @@
         body {
             background-color: transparent !important;
         }
-        .contact-info {
-            flex: 1;
-        }
+        .contact-info { flex: 1; }
         .contact-info h1 {
-            font-size: 56px;
+            font-size: 52px;
             font-weight: 700;
             line-height: 1.1;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             background: linear-gradient(135deg, #ffffff 0%, #a0a0a5 100%);
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
         .contact-info p {
             font-size: 18px;
             color: #bbbbbc;
@@ -87,88 +86,94 @@
         .info-card span {
             color: white;
             font-size: 16px;
+
         }
+        .info-card:hover { border-color: rgba(123,47,247,0.3); }
+        .info-card h3 { color: #9f55ff; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        .info-card span { color: white; font-size: 15px; }
 
         .contact-form-area {
             flex: 1;
+
             background: rgba(12, 12, 18, 0.8);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.05);
             padding: 48px;
+
             border-radius: 24px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4);
             animation: fadeIn 0.8s ease-out 0.3s both;
         }
-        .form-group {
-            margin-bottom: 24px;
-        }
-        .form-label {
-            display: block;
-            color: #888;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; color: #888; font-size: 13px; margin-bottom: 8px; }
         .form-input, .form-textarea {
             width: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px;
-            padding: 14px;
+            padding: 13px 16px;
             color: white;
             font-size: 15px;
-            transition: 0.3s;
+            font-family: 'Inter', sans-serif;
+            transition: 0.2s;
+            box-sizing: border-box;
         }
         .form-input:focus, .form-textarea:focus {
             outline: none;
-            border-color: #7b2ff7;
-            background: rgba(123, 47, 247, 0.05);
+            border-color: rgba(123,47,247,0.5);
+            background: rgba(123,47,247,0.04);
         }
-        .form-textarea {
-            height: 150px;
-            resize: none;
+        .form-textarea { height: 140px; resize: none; }
+        .form-feedback {
+            margin-top: 14px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
         }
-
+        .form-feedback.success {
+            background: rgba(76,217,138,0.1);
+            border: 1px solid rgba(76,217,138,0.3);
+            color: #4cd98a;
+            display: block;
+        }
+        .form-feedback.error {
+            background: rgba(220,50,50,0.1);
+            border: 1px solid rgba(220,50,50,0.3);
+            color: #ff7c7c;
+            display: block;
+        }
         @media (max-width: 992px) {
-            .contact-container {
-                flex-direction: column;
-                padding-top: 100px;
-            }
-            .contact-info, .contact-form-area {
-                width: 100%;
-            }
-            .contact-info h1 {
-                font-size: 40px;
-            }
+            .contact-container { flex-direction: column; padding-top: 60px; }
+            .contact-info h1 { font-size: 38px; }
         }
     </style>
 </head>
 <body>
 {% include '_ambient_bg.html' %}
-
 {% include '_navbar.html' %}
 
 <main class="contact-container">
     <div class="contact-info">
         <div class="badge">Get in Touch</div>
         <h1>Have questions? We're here to help.</h1>
-        <p>Whether you're looking for technical support, have a feature suggestion, or just want to say hello, we'd love to hear from you.</p>
-        
+        <p>Whether you need support, have a feature suggestion, or just want to say hello — we'd love to hear from you.</p>
         <div class="info-cards">
             <div class="info-card">
-                <h3>Email Us</h3>
+                <h3>Email</h3>
                 <span>support@studyflow.ai</span>
             </div>
             <div class="info-card">
-                <h3>Office</h3>
-                <span>Silicon Valley, CA</span>
+                <h3>Response</h3>
+                <span>Within 24 hours</span>
             </div>
             <div class="info-card">
                 <h3>Follow</h3>
                 <span>@studyflow_ai</span>
             </div>
             <div class="info-card">
-                <h3>Response</h3>
-                <span>Within 24 hours</span>
+                <h3>Status</h3>
+                <span>All systems normal</span>
             </div>
         </div>
     </div>
@@ -176,33 +181,91 @@
     <div class="contact-form-area">
         <div class="form-group">
             <label class="form-label">Full Name</label>
-            <input type="text" class="form-input" placeholder="Your Name">
+            <input type="text" class="form-input" id="contactName" placeholder="Your Name">
         </div>
         <div class="form-group">
             <label class="form-label">Email Address</label>
-            <input type="email" class="form-input" placeholder="you@example.com">
+            <input type="email" class="form-input" id="contactEmail"
+                   placeholder="you@example.com"
+                   value="{{ current_user.email if current_user.is_authenticated else '' }}">
         </div>
         <div class="form-group">
             <label class="form-label">Subject</label>
-            <input type="text" class="form-input" placeholder="How can we help?">
+            <input type="text" class="form-input" id="contactSubject" placeholder="How can we help?">
         </div>
         <div class="form-group">
             <label class="form-label">Message</label>
-            <textarea class="form-textarea" placeholder="Your message here..."></textarea>
+            <textarea class="form-textarea" id="contactMessage" placeholder="Your message…"></textarea>
         </div>
-        <button class="btn-primary" style="width: 100%;">Send Message</button>
+
+        <button class="btn-primary" id="contactSubmitBtn" style="width:100%;font-size:16px;padding:14px;">
+            Send Message
+        </button>
+
+        <div class="form-feedback" id="contactFeedback"></div>
     </div>
 </main>
 
-<div style="display: flex; justify-content: center; margin-bottom: 80px;">
-    <a href="{{ url_for('landing') }}" class="back-home-link" style="margin-bottom: 0;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+<div style="display:flex;justify-content:center;margin-bottom:80px;">
+    <a href="{{ url_for('landing') }}" class="back-home-link" style="margin-bottom:0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
         Back to Home
     </a>
 </div>
 
-{% include '_footer.html' %}
+<script>
+document.getElementById('contactSubmitBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('contactSubmitBtn');
+    const fb  = document.getElementById('contactFeedback');
 
+    const name    = document.getElementById('contactName').value.trim();
+    const email   = document.getElementById('contactEmail').value.trim();
+    const subject = document.getElementById('contactSubject').value.trim();
+    const message = document.getElementById('contactMessage').value.trim();
+
+    if (!name || !email || !message) {
+        fb.textContent = 'Please fill in Name, Email, and Message.';
+        fb.className   = 'form-feedback error';
+        return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Sending…';
+
+    try {
+        const res  = await fetch('/contact/submit', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ name, email, subject, message })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            fb.textContent = '✓ ' + data.message;
+            fb.className   = 'form-feedback success';
+            // Clear form
+            ['contactName','contactSubject','contactMessage'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+        } else {
+            fb.textContent = data.error || 'Something went wrong. Please try again.';
+            fb.className   = 'form-feedback error';
+        }
+    } catch (err) {
+        fb.textContent = 'Network error. Please check your connection.';
+        fb.className   = 'form-feedback error';
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Send Message';
+    }
+});
+</script>
+
+{% include '_footer.html' %}
 {% include '_auth_modal.html' %}
 </body>
 </html>
