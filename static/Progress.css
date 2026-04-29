@@ -283,7 +283,7 @@
 .topic-name {
     font-size: 16px;
     color: #ccc;
-    flex: 1;
+    flex: none;
 }
 
 /* ── CUSTOM STATUS SELECT (Synced with Status.css) ── */
@@ -382,4 +382,47 @@
     background: rgba(123, 47, 247, 0.3);
     color: #fff;
     font-weight: 600;
+}
+
+/* ── SUBTOPICS DROPDOWN ANIMATIONS ── */
+.subtopics-toggle {
+    font-size: 11px;
+    color: #7b2ff7;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    transition: color 0.2s;
+    font-weight: 600;
+}
+
+.subtopics-toggle:hover {
+    color: #9f55ff;
+}
+
+.toggle-arrow {
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subtopics-toggle.open .toggle-arrow {
+    transform: rotate(90deg);
+}
+
+.subtopics-list {
+    margin: 0 0 0 10px;
+    padding-left: 20px;
+    list-style-type: disc;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subtopics-list.open {
+    max-height: 500px;
+    opacity: 1;
+    margin-top: 6px;
+    margin-bottom: 6px;
 }
