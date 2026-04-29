@@ -81,21 +81,23 @@ function renderSchedule(data) {
 
                 if (subtopics.length) {
                     const toggle = document.createElement('span');
-                    toggle.style.cssText = 'font-size:11px;color:#7b2ff7;cursor:pointer;';
-                    toggle.textContent   = `▸ ${subtopics.length}`;
+                    toggle.className = 'subtopics-toggle';
+                    toggle.innerHTML = `<span class="toggle-arrow">▸</span> ${subtopics.length}`;
+                    
                     const subList = document.createElement('ul');
-                    subList.style.cssText = 'display:none;margin:4px 0 0 10px;padding:0;';
+                    subList.className = 'subtopics-list';
                     subtopics.forEach(s => {
                         const li = document.createElement('li');
-                        li.style.cssText = 'font-size:12px;color:#777;margin:2px 0;';
+                        li.style.cssText = 'font-size:12px;color:#777;margin:3px 0;';
                         li.textContent   = s;
                         subList.appendChild(li);
                     });
+                    
                     toggle.addEventListener('click', () => {
-                        const open = subList.style.display === 'block';
-                        subList.style.display = open ? 'none' : 'block';
-                        toggle.textContent = open ? `▸ ${subtopics.length}` : `▾ ${subtopics.length}`;
+                        toggle.classList.toggle('open');
+                        subList.classList.toggle('open');
                     });
+                    
                     topLine.appendChild(toggle);
                     leftDiv.appendChild(topLine);
                     leftDiv.appendChild(subList);
@@ -113,7 +115,7 @@ function renderSchedule(data) {
 
                 const studyBtn = document.createElement('button');
                 studyBtn.className = 'study-btn';
-                studyBtn.innerText = '📖 Study';
+                studyBtn.innerText = 'Study Now';
                 studyBtn.addEventListener('click', () => {
                     const enc = (s) => encodeURIComponent(s);
                     window.location.href = `/study/${enc(subjectName)}/${enc(topicName)}`;
