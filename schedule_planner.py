@@ -197,8 +197,20 @@ def invalidate_schedule_cache(topic_data: dict, today_str: str):
 # ── MODEL CALL ───────────────────────────────────────────────────────────────
 
 def _call_model(model: str, messages: list, max_tokens: int) -> str:
-    resp   = client.chat.completions.create(
-        model=model, temperature=0.2, max_tokens=max_tokens, messages=messages)
+    kwargs = {
+        'model': model,
+        'temperature': 0,
+        'max_tokens': max_tokens,
+        'messages': messages,
+        'response_format': {'type': 'json_object'},
+    }
+    try:
+        resp = client.chat.completions.create(**kwargs)
+    except Exception as exc:
+        if not _should_retry_without_json_mode(exc):
+            raise
+        kwargs.pop('response_format', None)
+        resp = client.chat.completions.create(**kwargs)
     choice = resp.choices[0] if resp.choices else None
     if not choice or not choice.message.content:
         raise ValueError(

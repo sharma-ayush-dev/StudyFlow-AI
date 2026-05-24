@@ -74,6 +74,9 @@ function renderTopicList() {
             const left = document.createElement('div');
             left.style.flex = '1';
 
+            const topLine = document.createElement('div');
+            topLine.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
             const nameSpan = document.createElement('span');
             nameSpan.className   = 'topic-name';
             nameSpan.textContent = topicName;
@@ -85,14 +88,33 @@ function renderTopicList() {
                 badge.title       = 'This topic was scheduled to be studied by today';
                 nameSpan.appendChild(badge);
             }
-            left.appendChild(nameSpan);
+            topLine.appendChild(nameSpan);
 
             if (subtopics.length) {
-                const subEl = document.createElement('div');
-                subEl.style.cssText = 'font-size:12px;color:#666;margin-top:3px;';
-                subEl.textContent   = subtopics.slice(0, 3).join(' · ')
-                                      + (subtopics.length > 3 ? ' …' : '');
-                left.appendChild(subEl);
+                const toggle = document.createElement('span');
+                toggle.className = 'subtopics-toggle';
+                toggle.innerHTML = `<span class="toggle-arrow">▸</span> ${subtopics.length}`;
+                
+                const subList = document.createElement('ul');
+                subList.className = 'subtopics-list';
+                subtopics.forEach(s => {
+                    const li = document.createElement('li');
+                    li.style.cssText = 'font-size:12px;color:#777;margin:3px 0;';
+                    li.textContent   = s;
+                    subList.appendChild(li);
+                });
+                
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggle.classList.toggle('open');
+                    subList.classList.toggle('open');
+                });
+                
+                topLine.appendChild(toggle);
+                left.appendChild(topLine);
+                left.appendChild(subList);
+            } else {
+                left.appendChild(topLine);
             }
 
             // Custom glassmorphic dropdown
