@@ -1,6 +1,9 @@
 import os
 import re
 import json
+import time
+import hashlib
+import threading
 import datetime
 import urllib.parse
 import secrets as _secrets
@@ -18,7 +21,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 from text_extractor import organize_with_llm, VISION_MODELS
-from schedule_planner import generate_schedule, MODELS as SCHED_MODELS, DEFAULT_MAX_TOKENS
+from schedule_planner import (
+    generate_schedule, invalidate_schedule_cache,
+    MODELS as SCHED_MODELS, HARD_CAP as SCHED_HARD_CAP,
+    MAX_SUBJECTS, MAX_TOPICS_PER_SUBJECT, MAX_TOTAL_TOPICS
+)
 from teacher import (
     get_initial_message, get_reply, get_quiz,
     stream_reply, stream_quiz, TEACHER_MODELS
@@ -63,6 +70,29 @@ RATE_LIMIT_DEFAULTS = {
 }
 
 DEFAULT_WORD_LIMIT = 2000
+
+# ── UPLOAD / EXTRACTION VALIDATION LIMITS ────────────────────────────────────
+# These mirror limits in text_extractor.py but are enforced at the route level
+# so we can return a clean JSON error before touching any LLM.
+MAX_UPLOAD_FILES      = 5
+MAX_MANUAL_TEXT_WORDS = 3000
+
+
+# ── SETTINGS CACHE ───────────────────────────────────────────────────────────
+# Eliminates the N+1 AppSettings DB query pattern.
+# All _get_setting() calls become O(1) dict lookups after the first load.
+_settings_cache:      dict  = {}
+_settings_cache_ts:   float = 0.0
+_settings_cache_lock          = threading.Lock()
+SETTINGS_CACHE_TTL    = 30    # seconds — admin changes take at most 30 s to propagate
+
+
+# ── ASYNC JOB STORE ──────────────────────────────────────────────────────────
+# Tracks background schedule-generation jobs keyed by job_id.
+# Format: { job_id: { status, result, error, user_id, created_at } }
+_jobs:      dict  = {}
+_jobs_lock          = threading.Lock()
+JOB_TTL_S           = 1800   # 30 min — clean up completed jobs older than this
 
 
 # ─────────────────────────────────────────────
@@ -174,18 +204,34 @@ def load_user(user_id: str):
 # SETTINGS HELPERS
 # ─────────────────────────────────────────────
 
-def _get_setting(key: str, fallback=None):
+def _reload_settings_cache():
+    """Bulk-load all AppSettings rows into the in-memory cache."""
+    global _settings_cache, _settings_cache_ts
     try:
-        row = AppSettings.query.get(key)
-        return row.value if row else fallback
-    except Exception:
-        return fallback
+        rows = AppSettings.query.all()
+        with _settings_cache_lock:
+            _settings_cache    = {r.key: r.value for r in rows}
+            _settings_cache_ts = time.time()
+    except Exception as exc:
+        print(f'[SETTINGS] Cache reload failed: {exc}')
+
+
+def _get_setting(key: str, fallback=None):
+    """Return a setting value from cache (refreshed every SETTINGS_CACHE_TTL s)."""
+    if time.time() - _settings_cache_ts > SETTINGS_CACHE_TTL:
+        _reload_settings_cache()
+    with _settings_cache_lock:
+        return _settings_cache.get(key, fallback)
 
 def _set_setting(key: str, value: str):
+    """Write a setting to DB and immediately invalidate the local cache."""
+    global _settings_cache_ts
     row = AppSettings.query.get(key)
     if row: row.value = value
     else:   db.session.add(AppSettings(key=key, value=value))
     db.session.commit()
+    with _settings_cache_lock:
+        _settings_cache_ts = 0.0   # force refresh on next read
 
 def get_today() -> str:
     val = _get_setting('test_today')
@@ -195,9 +241,13 @@ def parse_dmy(s: str) -> datetime.date:
     d, m, y = s.strip().split('-')
     return datetime.date(int(y), int(m), int(d))
 
-def get_max_tokens() -> int:
-    try: return int(_get_setting('max_tokens') or DEFAULT_MAX_TOKENS)
-    except: return DEFAULT_MAX_TOKENS
+def get_max_tokens():
+    """Return admin-configured token override, or None for adaptive budgeting."""
+    try:
+        v = _get_setting('max_tokens')
+        return int(v) if v else None
+    except:
+        return None
 
 def get_word_limit() -> int:
     try: return int(_get_setting('text_word_limit') or DEFAULT_WORD_LIMIT)
@@ -374,14 +424,26 @@ def _verify_otp(email: str, code: str) -> bool:
 
 @app.after_request
 def log_request(response):
-    if request.path.startswith('/static') or request.path.startswith('/admin'): return response
-    try:
-        db.session.add(RequestLog(
-            userid=current_user.id if current_user.is_authenticated else None,
-            method=request.method, path=request.path, status_code=response.status_code
-        ))
-        db.session.commit()
-    except: db.session.rollback()
+    # Skip static, admin, and high-frequency polling endpoints
+    p = request.path
+    if (p.startswith('/static') or p.startswith('/admin') or
+            p.startswith('/job/')):
+        return response
+    # Capture values now (before response context is torn down)
+    uid    = current_user.id if current_user.is_authenticated else None
+    method = request.method
+    status = response.status_code
+
+    def _write():
+        try:
+            with app.app_context():
+                db.session.add(RequestLog(
+                    userid=uid, method=method, path=p, status_code=status))
+                db.session.commit()
+        except Exception:
+            pass
+
+    threading.Thread(target=_write, daemon=True).start()
     return response
 
 
@@ -725,12 +787,16 @@ def _get_chat_history(chat_id: int) -> list:
             .all())
     return [{'role': m.role, 'content': m.content} for m in msgs]
 
-def _save_message(chat_id: int, role: str, content: str) -> Message:
+def _save_message(chat_id: int, role: str, content: str,
+                  chat: Chat = None) -> Message:
+    """Save a message and touch chat.updated_at without an extra SELECT."""
     msg = Message(chat_id=chat_id, role=role, content=content)
     db.session.add(msg)
-    # Update chat.updated_at
-    chat = Chat.query.get(chat_id)
-    if chat: chat.updated_at = datetime.datetime.utcnow()
+    # Use the already-loaded Chat object if provided; otherwise fetch once
+    if chat is None:
+        chat = db.session.get(Chat, chat_id)
+    if chat:
+        chat.updated_at = datetime.datetime.utcnow()
     db.session.commit()
     return msg
 
@@ -801,7 +867,7 @@ def chat_start(chat_id: int):
             model_list = get_teacher_model_list(),
             use_chinese= get_use_chinese()
         )
-        _save_message(chat_id, 'assistant', content)
+        _save_message(chat_id, 'assistant', content, chat=chat)
         _log_activity('study_start', {'subject': chat.subject, 'topic': chat.topic})
 
         resp = {'content': content, 'role': 'assistant'}
@@ -825,7 +891,7 @@ def chat_send(chat_id: int):
         return jsonify({'error': 'Empty message'}), 400
 
     # Save user message
-    _save_message(chat_id, 'user', user_message)
+    _save_message(chat_id, 'user', user_message, chat=chat)
 
     # Get full history for sliding window
     history    = _get_chat_history(chat_id)
@@ -994,6 +1060,9 @@ def chat_send_stream(chat_id: int):
     subtopics, hours, course = _get_topic_context(chat)
     model_list = get_teacher_model_list()
     use_zh = get_use_chinese()
+    # Capture ORM-backed strings NOW before session may be detached
+    chat_subject = chat.subject
+    chat_topic   = chat.topic
 
     def generate():
         full_text = ''
@@ -1002,8 +1071,8 @@ def chat_send_stream(chat_id: int):
                 history=history,
                 new_message=user_message,
                 course=course or '',
-                subject=chat.subject,
-                topic=chat.topic,
+                subject=chat_subject,
+                topic=chat_topic,
                 subtopics=subtopics,
                 hours=hours,
                 model_list=model_list,
@@ -1037,6 +1106,9 @@ def chat_quiz_stream(chat_id: int):
     subtopics, hours, course = _get_topic_context(chat)
     model_list = get_teacher_model_list()
     use_zh = get_use_chinese()
+    # Capture ORM-backed strings NOW before session may be detached
+    chat_subject = chat.subject
+    chat_topic   = chat.topic
 
     def generate():
         full_text = ''
@@ -1044,8 +1116,8 @@ def chat_quiz_stream(chat_id: int):
             for chunk in stream_quiz(
                 history=history,
                 course=course or '',
-                subject=chat.subject,
-                topic=chat.topic,
+                subject=chat_subject,
+                topic=chat_topic,
                 subtopics=subtopics,
                 hours=hours,
                 model_list=model_list,
@@ -1147,7 +1219,60 @@ def submit_status(userid):
 
 
 # ─────────────────────────────────────────────
-# GENERATE SCHEDULE
+# ASYNC JOB HELPERS
+# ─────────────────────────────────────────────
+
+def _job_create(user_id: int) -> str:
+    """Create a new pending job and return its id."""
+    job_id = _secrets.token_urlsafe(16)
+    with _jobs_lock:
+        # Evict expired jobs lazily
+        now = time.time()
+        stale = [k for k, v in _jobs.items()
+                 if now - v['created_at'] > JOB_TTL_S]
+        for k in stale:
+            _jobs.pop(k, None)
+        _jobs[job_id] = {
+            'status':     'pending',
+            'result':     None,
+            'error':      None,
+            'user_id':    user_id,
+            'created_at': now,
+        }
+    return job_id
+
+
+def _job_set(job_id: str, status: str, result=None, error=None):
+    with _jobs_lock:
+        if job_id in _jobs:
+            _jobs[job_id].update(status=status, result=result, error=error)
+
+
+def _job_get(job_id: str, user_id: int) -> dict | None:
+    with _jobs_lock:
+        j = _jobs.get(job_id)
+        if j is None or j['user_id'] != user_id:
+            return None
+        return dict(j)
+
+
+@app.route('/job/<job_id>/status')
+@login_required
+def job_status(job_id: str):
+    """Poll endpoint for async schedule generation jobs."""
+    j = _job_get(job_id, current_user.id)
+    if j is None:
+        return jsonify({'error': 'Job not found'}), 404
+    resp = {'status': j['status']}
+    if j['status'] == 'done':
+        resp['result'] = j['result']
+    elif j['status'] == 'error':
+        resp['error'] = j['error']
+    return jsonify(resp)
+
+
+# ─────────────────────────────────────────────
+# GENERATE SCHEDULE  (async)
 # ─────────────────────────────────────────────
 
 @app.route('/generate_schedule/<int:userid>', methods=['POST'])
@@ -1159,20 +1284,41 @@ def generate(userid):
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
 
-    schedule = generate_schedule(json.loads(user.topic_status),
-                                 today_str=get_today(),
-                                 max_tokens=get_max_tokens(),
-                                 model_list=get_sched_model_list())
-    schedule, meta = _extract_meta(schedule)
-    user.schedule_json = json.dumps(schedule)
-    db.session.commit()
-    cache.delete(f'schedule_{current_user.id}')
-    _log_activity('generate')
+    topic_data  = json.loads(user.topic_status)
+    today_str   = get_today()
+    model_list  = get_sched_model_list()
+    max_tok_ovr = get_max_tokens()
+    uid         = current_user.id
+    job_id      = _job_create(uid)
 
-    resp = {'schedule': schedule}
-    notice = _build_llm_notice(meta)
-    if notice: resp['notice'] = notice
-    return jsonify(resp)
+    def _run():
+        with app.app_context():
+            try:
+                schedule = generate_schedule(
+                    topic_data, today_str=today_str,
+                    max_tokens=max_tok_ovr, model_list=model_list)
+                schedule, meta = _extract_meta(schedule)
+
+                # Persist to DB
+                sd = StudyData.query.filter_by(userid=uid).first()
+                if sd:
+                    sd.schedule_json = json.dumps(schedule)
+                    db.session.commit()
+                cache.delete(f'schedule_{uid}')
+                _log_activity('generate')
+
+                _job_set(job_id, 'done', result={
+                    'schedule': schedule,
+                    'notice':   _build_llm_notice(meta)
+                })
+            except ValueError as e:
+                # Validation / abuse error — user-facing message
+                _job_set(job_id, 'error', error=str(e))
+            except Exception as e:
+                _job_set(job_id, 'error', error=f'Generation failed: {e}')
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({'job_id': job_id, 'status': 'pending'})
 
 
 @app.route('/schedule/<int:userid>')
@@ -1225,13 +1371,11 @@ def update_progress(userid):
             if topic not in status['Subjects'][subj]: continue
             existing_topic = status['Subjects'][subj][topic]
             if isinstance(existing_topic, dict):
-                # New schema — only update status, preserve subtopics
                 try:
                     pct = max(0, min(100, int(val if not isinstance(val, dict) else val.get('status', 0))))
                     existing_topic['status'] = str(pct)
                 except (ValueError, TypeError): pass
             else:
-                # Old flat schema fallback
                 try:
                     pct = max(0, min(100, int(val)))
                     status['Subjects'][subj][topic] = str(pct)
@@ -1239,6 +1383,8 @@ def update_progress(userid):
 
     user.topic_status = json.dumps(status)
     db.session.commit()
+    # Invalidate schedule cache so next regenerate doesn't return a stale hit
+    invalidate_schedule_cache(status, get_today())
     return jsonify({'message': 'progress saved'})
 
 
@@ -1250,23 +1396,41 @@ def regenerate_schedule(userid):
     user = _get_study_data()
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
-    try:
-        new_schedule = generate_schedule(json.loads(user.topic_status),
-                                         today_str=get_today(),
-                                         max_tokens=get_max_tokens(),
-                                         model_list=get_sched_model_list())
-    except RuntimeError as e:
-        return jsonify({'error': 'All AI models failed.', 'details': str(e)}), 500
 
-    new_schedule, meta = _extract_meta(new_schedule)
-    user.pending_schedule_json = json.dumps(new_schedule)
-    db.session.commit()
-    _log_activity('regenerate')
+    topic_data  = json.loads(user.topic_status)
+    old_sched   = json.loads(user.schedule_json) if user.schedule_json else {}
+    today_str   = get_today()
+    model_list  = get_sched_model_list()
+    max_tok_ovr = get_max_tokens()
+    uid         = current_user.id
+    job_id      = _job_create(uid)
 
-    resp = {'old_schedule': json.loads(user.schedule_json), 'new_schedule': new_schedule}
-    notice = _build_llm_notice(meta)
-    if notice: resp['notice'] = notice
-    return jsonify(resp)
+    def _run():
+        with app.app_context():
+            try:
+                new_schedule = generate_schedule(
+                    topic_data, today_str=today_str,
+                    max_tokens=max_tok_ovr, model_list=model_list)
+                new_schedule, meta = _extract_meta(new_schedule)
+
+                sd = StudyData.query.filter_by(userid=uid).first()
+                if sd:
+                    sd.pending_schedule_json = json.dumps(new_schedule)
+                    db.session.commit()
+                _log_activity('regenerate')
+
+                _job_set(job_id, 'done', result={
+                    'old_schedule': old_sched,
+                    'new_schedule': new_schedule,
+                    'notice':       _build_llm_notice(meta)
+                })
+            except ValueError as e:
+                _job_set(job_id, 'error', error=str(e))
+            except Exception as e:
+                _job_set(job_id, 'error', error=f'Regeneration failed: {e}')
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({'job_id': job_id, 'status': 'pending'})
 
 
 @app.route('/keep_schedule/<int:userid>', methods=['POST'])

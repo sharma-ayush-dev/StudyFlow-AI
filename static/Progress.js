@@ -260,11 +260,34 @@ document.getElementById('saveProgressBtn').addEventListener('click', async () =>
 });
 
 
-// ── REGENERATE ───────────────────────────────────────────────
+// ── REGENERATE  (async job polling) ──────────────────────────────────────
+
+async function pollJob(jobId, intervalMs = 2000, timeoutMs = 180000) {
+    const start = Date.now();
+    return new Promise((resolve, reject) => {
+        const tick = async () => {
+            if (Date.now() - start > timeoutMs) {
+                return reject(new Error('Timed out waiting for schedule generation.'));
+            }
+            try {
+                const res  = await fetch(`/job/${jobId}/status`);
+                const data = await res.json();
+                if (data.status === 'done')   return resolve(data.result);
+                if (data.status === 'error')  return reject(new Error(data.error || 'Generation failed'));
+                // still pending — keep polling
+                setTimeout(tick, intervalMs);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        tick();
+    });
+}
 
 document.getElementById('regenBtn').addEventListener('click', async () => {
     showLoader('regen');
     try {
+        // 1. Save progress first
         const saveRes = await fetch(`/update_progress/${userId}`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -272,24 +295,51 @@ document.getElementById('regenBtn').addEventListener('click', async () => {
         });
         if (!saveRes.ok) throw new Error('Failed to save progress before regenerating');
 
+        // 2. Kick off async job — returns immediately with job_id
         const regenRes = await fetch(`/regenerate_schedule/${userId}`, { method: 'POST' });
-        const data     = await regenRes.json();
-
+        const regenData = await regenRes.json();
         if (!regenRes.ok) {
-            let msg = data.error || 'Regeneration failed';
-            if (isAdmin && data.details) msg += '\n\nAdmin details:\n' + data.details;
+            let msg = regenData.error || 'Regeneration failed';
+            if (isAdmin && regenData.details) msg += '\n\nAdmin details:\n' + regenData.details;
             throw new Error(msg);
         }
 
+        // Persist job_id so a page refresh can resume polling
+        sessionStorage.setItem('pendingRegenJob', regenData.job_id);
+
+        // 3. Poll until done
+        const result = await pollJob(regenData.job_id);
+        sessionStorage.removeItem('pendingRegenJob');
+
         hideLoader();
-        if (data.notice) showNoticeBanner(data.notice);
-        renderComparison(data.old_schedule, data.new_schedule);
+        if (result.notice) showNoticeBanner(result.notice);
+        renderComparison(result.old_schedule, result.new_schedule);
 
     } catch (err) {
         hideLoader();
+        sessionStorage.removeItem('pendingRegenJob');
         alert('Regeneration failed:\n' + err.message);
     }
 });
+
+// Resume polling if the page was refreshed while a job was running
+(function resumeJobOnLoad() {
+    const jobId = sessionStorage.getItem('pendingRegenJob');
+    if (!jobId) return;
+    showLoader('regen');
+    pollJob(jobId)
+        .then(result => {
+            sessionStorage.removeItem('pendingRegenJob');
+            hideLoader();
+            if (result.notice) showNoticeBanner(result.notice);
+            renderComparison(result.old_schedule, result.new_schedule);
+        })
+        .catch(err => {
+            sessionStorage.removeItem('pendingRegenJob');
+            hideLoader();
+            // Silently fail on resume (job may have expired on server restart)
+        });
+})();
 
 
 // ── COMPARISON RENDER ────────────────────────────────────────
