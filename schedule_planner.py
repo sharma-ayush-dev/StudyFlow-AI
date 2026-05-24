@@ -50,9 +50,32 @@ Input:
 {data}"""
 
 
+def _should_retry_without_json_mode(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return (
+        'response_format' in msg
+        or 'json_object' in msg
+        or 'json schema' in msg
+        or 'unsupported' in msg
+        or 'not support' in msg
+    )
+
+
 def _call_model(model: str, messages: list, max_tokens: int) -> str:
-    resp   = client.chat.completions.create(
-        model=model, temperature=0.2, max_tokens=max_tokens, messages=messages)
+    kwargs = {
+        'model': model,
+        'temperature': 0,
+        'max_tokens': max_tokens,
+        'messages': messages,
+        'response_format': {'type': 'json_object'},
+    }
+    try:
+        resp = client.chat.completions.create(**kwargs)
+    except Exception as exc:
+        if not _should_retry_without_json_mode(exc):
+            raise
+        kwargs.pop('response_format', None)
+        resp = client.chat.completions.create(**kwargs)
     choice = resp.choices[0] if resp.choices else None
     if not choice or not choice.message.content:
         raise ValueError(
@@ -69,7 +92,13 @@ def _parse(raw: str) -> dict:
     raw = re.sub(r'```(?:json)?', '', raw).strip()
     s, e = raw.find('{'), raw.rfind('}') + 1
     if s == -1 or e == 0: raise ValueError('No JSON found')
-    return json.loads(raw[s:e])
+    candidate = raw[s:e]
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        print('RAW SCHEDULE OUTPUT:\n', raw)
+        print('BROKEN SCHEDULE JSON:\n', candidate)
+        raise exc
 
 
 def _serialize_input(topic_data: dict) -> str:

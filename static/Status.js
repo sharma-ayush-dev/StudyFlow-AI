@@ -590,6 +590,15 @@ function stopLoader() {
     document.getElementById('editToolbar').style.display = 'flex';
 }
 
+async function readErrorPayload(res) {
+    const raw = await res.text();
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return { error: raw || `Request failed with status ${res.status}` };
+    }
+}
+
 
 // ── GENERATE ─────────────────────────────────────────────────
 
@@ -608,7 +617,10 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         });
         if (!saveRes.ok) throw new Error('Failed to save status');
         const genRes = await fetch(`/generate_schedule/${userId}`, { method: 'POST' });
-        if (!genRes.ok) { const d = await genRes.json(); throw new Error(d.error || 'Failed'); }
+        if (!genRes.ok) {
+            const d = await readErrorPayload(genRes);
+            throw new Error(d.error || 'Failed');
+        }
         window.location.href = '/schedule_page';
     } catch (err) {
         alert('Failed to generate schedule: ' + err.message);

@@ -1159,10 +1159,13 @@ def generate(userid):
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
 
-    schedule = generate_schedule(json.loads(user.topic_status),
-                                 today_str=get_today(),
-                                 max_tokens=get_max_tokens(),
-                                 model_list=get_sched_model_list())
+    try:
+        schedule = generate_schedule(json.loads(user.topic_status),
+                                     today_str=get_today(),
+                                     max_tokens=get_max_tokens(),
+                                     model_list=get_sched_model_list())
+    except RuntimeError as e:
+        return jsonify({'error': 'All AI models failed.', 'details': str(e)}), 500
     schedule, meta = _extract_meta(schedule)
     user.schedule_json = json.dumps(schedule)
     db.session.commit()
