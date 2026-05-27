@@ -1,30 +1,47 @@
-/* ═══════════════════════════════════════════
-   UPLOAD-PAGE.JS
-═══════════════════════════════════════════ */
+/* Upload page: multi-stage progress + friendly error cards */
 
-const fileInput     = document.getElementById('fileInput');
-const fileNames     = document.getElementById('fileNames');
-const uploadBtn     = document.getElementById('uploadBtn');
-const uploadLoader  = document.getElementById('uploadLoader');
-const loaderMsg     = document.getElementById('loaderMsg');
-const manualText    = document.getElementById('manualText');
+const fileInput = document.getElementById('fileInput');
+const fileNames = document.getElementById('fileNames');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadLoaderEl = document.getElementById('uploadLoader');
+const uploadErrorEl = document.getElementById('uploadError');
+const manualText = document.getElementById('manualText');
 const wordCountText = document.getElementById('wordCountText');
-const WORD_LIMIT    = window.WORD_LIMIT || 2000;
+const WORD_LIMIT = window.WORD_LIMIT || 2000;
 
-// ── MANUAL TEXT TOGGLE ──────────────────────────────────────
+const loader = new StudyFlowLoader(uploadLoaderEl, [
+    { label: 'Uploading content', detail: 'Receiving your files and text securely.' },
+    { label: 'Reading content', detail: 'Extracting useful text from the uploaded material.' },
+    { label: 'Understanding the content', detail: 'Finding subjects, topics, subtopics, and exam dates.' },
+    { label: 'Generating schema', detail: 'Organizing everything into a clean study structure.' },
+    { label: 'Schema ready', detail: 'Your content is ready for planning.' }
+], {
+    checkpoints: [
+        'Content received',
+        'Content understood',
+        'Schema generated',
+        'Ready to continue'
+    ],
+    idleMessages: [
+        'Large files can take a little longer, but the upload is still moving.',
+        'We are checking the content carefully so the plan has better context.',
+        'StudyFlow is turning messy files into structured study data.',
+        'Almost there. The schema is being polished now.'
+    ]
+});
+
+let isUploading = false;
+let uploadStageTimers = [];
 
 document.getElementById('manualToggle').addEventListener('click', () => {
     const box = document.getElementById('manualTextBox');
     box.style.display = box.style.display === 'none' ? 'flex' : 'none';
 });
 
-// ── WORD COUNT + CLIENT-SIDE SANITIZATION ───────────────────
-
 function countWords(text) {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
-// Strip HTML tags client-side before sending (defence in depth — server also sanitizes)
 function sanitizeText(text) {
     return text
         .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -39,8 +56,6 @@ manualText?.addEventListener('input', () => {
     wordCountText.style.color = words > WORD_LIMIT ? '#ff7c7c' : '#666';
 });
 
-// ── FILE SELECT + DRAG & DROP ───────────────────────────────
-
 fileInput.addEventListener('change', () => {
     updateFileLabel(fileInput.files);
 });
@@ -50,100 +65,131 @@ function updateFileLabel(files) {
         fileNames.textContent = 'No files chosen';
         return;
     }
-    fileNames.textContent = Array.from(files).map(f => f.name).join(', ');
+    fileNames.textContent = Array.from(files).map(file => file.name).join(', ');
 }
 
 const dropArea = document.getElementById('fileDropArea');
 
-dropArea.addEventListener('dragover', e => {
-    e.preventDefault();
+dropArea.addEventListener('dragover', event => {
+    event.preventDefault();
     dropArea.classList.add('drag-over');
 });
+
 dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
-dropArea.addEventListener('drop', e => {
-    e.preventDefault();
+
+dropArea.addEventListener('drop', event => {
+    event.preventDefault();
     dropArea.classList.remove('drag-over');
-    const dt  = e.dataTransfer;
-    // Assign dropped files to the input
+    const droppedFiles = event.dataTransfer.files;
     try {
-        fileInput.files = dt.files;
+        fileInput.files = droppedFiles;
     } catch (_) {
-        // DataTransfer assignment may fail in some browsers — show names anyway
+        // Some browsers do not allow assigning DataTransfer files to inputs.
     }
-    updateFileLabel(dt.files);
+    updateFileLabel(droppedFiles);
 });
 
-// ── LOADER ──────────────────────────────────────────────────
-
-const loaderMessages = [
-    'Extracting content…',
-    'Reading your files…',
-    'Identifying topics…',
-    'Matching exam dates…',
-    'Almost there…'
-];
-let loaderInterval = null;
-
-function startLoader() {
-    uploadBtn.style.display  = 'none';
-    uploadLoader.style.display = 'block';
-    let i = 0;
-    loaderMsg.textContent = loaderMessages[0];
-    loaderInterval = setInterval(() => {
-        i = (i + 1) % loaderMessages.length;
-        loaderMsg.textContent = loaderMessages[i];
-    }, 4000);
+function startUploadLoader() {
+    uploadBtn.style.display = 'none';
+    uploadErrorEl.innerHTML = '';
+    loader.start();
+    clearUploadTimers();
+    uploadStageTimers = [
+        setTimeout(() => loader.advance(1), 1800),
+        setTimeout(() => loader.advance(2), 4800),
+        setTimeout(() => loader.advance(3), 8500)
+    ];
 }
 
-function stopLoader() {
-    clearInterval(loaderInterval);
-    uploadLoader.style.display = 'none';
-    uploadBtn.style.display    = 'block';
+function stopUploadLoader() {
+    clearUploadTimers();
+    loader.reset();
+    uploadBtn.style.display = 'block';
 }
 
-// ── UPLOAD ──────────────────────────────────────────────────
+function showUploadSuccess() {
+    clearUploadTimers();
+    loader.advance(4);
+    loader.complete('Schema ready');
+    setTimeout(() => {
+        loader.showSuccess('Content processed!', 'Redirecting to your study plan...');
+    }, 600);
+}
 
-uploadBtn.addEventListener('click', async () => {
-    const hasFiles  = fileInput.files && fileInput.files.length > 0;
-    const rawText   = manualText?.value || '';
+function showUploadError(errorMsg, retryFn) {
+    stopUploadLoader();
+    const config = StudyFlowError.forUpload(errorMsg);
+    StudyFlowError.show(uploadErrorEl, {
+        ...config,
+        retryFn,
+        dismissFn: () => { }
+    });
+}
+
+function clearUploadTimers() {
+    uploadStageTimers.forEach(timer => clearTimeout(timer));
+    uploadStageTimers = [];
+}
+
+async function doUpload() {
+    if (isUploading) return;
+
+    const hasFiles = fileInput.files && fileInput.files.length > 0;
+    const rawText = manualText?.value || '';
     const cleanText = sanitizeText(rawText);
-    const words     = countWords(cleanText);
+    const words = countWords(cleanText);
 
     if (!hasFiles && !cleanText) {
-        alert('Please upload files or paste your syllabus text.');
-        return;
-    }
-    if (words > WORD_LIMIT) {
-        alert(`Text exceeds the ${WORD_LIMIT}-word limit (you have ${words} words). Please shorten it.`);
+        StudyFlowError.show(uploadErrorEl, {
+            title: 'No Content Provided',
+            what: 'There is no syllabus or datesheet content to work with yet.',
+            why: 'StudyFlow needs uploaded files or pasted text before it can build a plan.',
+            action: 'Choose files using the upload area, or paste your syllabus and datesheet text below.',
+            dismissFn: () => { }
+        });
         return;
     }
 
-    startLoader();
+    if (words > WORD_LIMIT) {
+        StudyFlowError.show(uploadErrorEl, {
+            title: 'Text Is Too Long',
+            what: `Your pasted text has ${words} words, which is above the ${WORD_LIMIT}-word limit.`,
+            why: 'Shorter inputs help StudyFlow read the content accurately and quickly.',
+            action: 'Trim repeated sections, upload a file instead, or split the content into a smaller version.',
+            dismissFn: () => { }
+        });
+        return;
+    }
+
+    isUploading = true;
+    startUploadLoader();
 
     try {
         const formData = new FormData();
-
         if (hasFiles) {
-            Array.from(fileInput.files).forEach(f => formData.append('files', f));
+            Array.from(fileInput.files).forEach(file => formData.append('files', file));
         }
         if (cleanText) {
             formData.append('manual_text', cleanText);
         }
 
-        const res  = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await res.json();
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-            alert('Upload failed: ' + (data.error || 'Unknown error'));
-            stopLoader();
+            showUploadError(data.error || 'upload_failed', doUpload);
+            isUploading = false;
             return;
         }
 
-        window.location.href = '/status';
-
+        showUploadSuccess();
+        setTimeout(() => {
+            window.location.href = '/status';
+        }, 1500);
     } catch (err) {
-        console.error(err);
-        alert('Upload failed. Check your connection and try again.');
-        stopLoader();
+        showUploadError(err, doUpload);
+        isUploading = false;
     }
-});
+}
+
+uploadBtn.addEventListener('click', doUpload);

@@ -2,15 +2,15 @@
    STUDY.JS — complete rewrite with streaming + rich rendering
 ═══════════════════════════════════════════════════════════ */
 
-const chatId     = window.CHAT_ID;
+const chatId = window.CHAT_ID;
 const messagesEl = document.getElementById('chatMessages');
-const inputEl    = document.getElementById('chatInput');
-const sendBtn    = document.getElementById('sendBtn');
-const quizBtn    = document.getElementById('quizBtn');
-const typingEl   = document.getElementById('typingIndicator');
-const noticeEl   = document.getElementById('llmNotice');
+const inputEl = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const quizBtn = document.getElementById('quizBtn');
+const typingEl = document.getElementById('typingIndicator');
+const noticeEl = document.getElementById('llmNotice');
 
-let isSending    = false;
+let isSending = false;
 let chatFontSize = 16;
 
 
@@ -40,8 +40,8 @@ function renderRichMarkdown(text) {
 
     // Fenced code blocks with language — wrap with header + highlight.js
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-        const language   = lang || 'plaintext';
-        const escaped    = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const language = lang || 'plaintext';
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const highlighted = (typeof hljs !== 'undefined' && hljs.getLanguage(language))
             ? hljs.highlight(code, { language }).value
             : escaped;
@@ -54,15 +54,16 @@ function renderRichMarkdown(text) {
     // Remaining inline backtick code
     html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
 
-    // Headers
+    // Headers (h4 must come before h3 to avoid partial matching)
+    html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
     html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
-    html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
     // Bold / italic
     html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.+?)\*\*/g,      '<strong>$1</strong>');
-    html = html.replace(/\*(.+?)\*/g,           '<em>$1</em>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
     // Horizontal rule
     html = html.replace(/^---+$/gm, '<hr>');
@@ -71,7 +72,7 @@ function renderRichMarkdown(text) {
     html = html.replace(/^(\d+)\.\s+(.+)$/gm, (_, n, content) =>
         `<li class="ol-item" data-n="${n}">${content}</li>`);
     html = html.replace(/(<li class="ol-item"[^>]*>[\s\S]*?<\/li>)+/g,
-        match => `<ol>${match.replace(/ class="ol-item" data-n="\d+"/g,'')}</ol>`);
+        match => `<ol>${match.replace(/ class="ol-item" data-n="\d+"/g, '')}</ol>`);
 
     // Unordered list
     html = html.replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>');
@@ -88,8 +89,8 @@ function renderRichMarkdown(text) {
     html = `<p>${html}</p>`;
 
     // Clean up empty paragraphs and fix tags around block elements
-    html = html.replace(/<p>\s*(<(?:pre|ul|ol|h[1-6]|hr|div)[^>]*>)/g, '$1');
-    html = html.replace(/(<\/(?:pre|ul|ol|h[1-6]|hr|div)>)\s*<\/p>/g, '$1');
+    html = html.replace(/<p>\s*(<(?:pre|ul|ol|h[1-6]|hr|div|h4)[^>]*>)/g, '$1');
+    html = html.replace(/(<\/(?:pre|ul|ol|h[1-6]|hr|div|h4)>)\s*<\/p>/g, '$1');
     html = html.replace(/<p>\s*<\/p>/g, '');
 
     // Single newlines → <br> inside paragraphs only
@@ -98,7 +99,7 @@ function renderRichMarkdown(text) {
     return html;
 }
 
-window.copyCode = function(btn) {
+window.copyCode = function (btn) {
     const code = btn.closest('pre').querySelector('code').textContent;
     navigator.clipboard.writeText(code).then(() => {
         btn.textContent = 'Copied!';
@@ -113,8 +114,8 @@ window.copyCode = function(btn) {
 
 function parseAnswerTags(text) {
     const segments = [];
-    const regex    = /\[ANS\]([\s\S]*?)\[\/ANS\]/g;
-    let lastIndex  = 0, match;
+    const regex = /\[ANS\]([\s\S]*?)\[\/ANS\]/g;
+    let lastIndex = 0, match;
     while ((match = regex.exec(text)) !== null) {
         if (match.index > lastIndex)
             segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
@@ -135,12 +136,12 @@ function buildAnswerBlock(answerText) {
     header.innerHTML = '<span>Answer</span>';
 
     const btn = document.createElement('button');
-    btn.className   = 'answer-toggle-btn';
+    btn.className = 'answer-toggle-btn';
     btn.textContent = 'Show Answer';
 
     const body = document.createElement('div');
     body.className = 'answer-body';
-    body.innerHTML  = renderRichMarkdown(answerText);
+    body.innerHTML = renderRichMarkdown(answerText);
 
     let revealed = false;
     btn.addEventListener('click', () => {
@@ -198,7 +199,7 @@ function triggerMathRender(el) {
         renderMathInElement(el, {
             delimiters: [
                 { left: '$$', right: '$$', display: true },
-                { left: '$',  right: '$',  display: false },
+                { left: '$', right: '$', display: false },
                 { left: '\\(', right: '\\)', display: false },
                 { left: '\\[', right: '\\]', display: true }
             ],
@@ -221,10 +222,10 @@ function appendMessage(role, content, isQuiz = false, timestamp = null, msgId = 
     if (msgId) wrapper.dataset.msgId = msgId;
 
     const avatar = document.createElement('div');
-    avatar.className   = 'msg-avatar';
+    avatar.className = 'msg-avatar';
     avatar.textContent = role === 'user' ? '👤' : '🤖';
 
-    const inner  = document.createElement('div');
+    const inner = document.createElement('div');
     inner.className = 'msg-inner';
 
     const bubble = document.createElement('div');
@@ -237,7 +238,7 @@ function appendMessage(role, content, isQuiz = false, timestamp = null, msgId = 
     }
 
     const ts = document.createElement('div');
-    ts.className   = 'msg-timestamp';
+    ts.className = 'msg-timestamp';
     ts.textContent = timestamp
         ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -268,7 +269,7 @@ function buildMessageActions(role, content, msgId, wrapper, bubble, inner) {
     if (role === 'user' && msgId) {
         // Edit button
         const editBtn = document.createElement('button');
-        editBtn.className   = 'msg-action-btn';
+        editBtn.className = 'msg-action-btn';
         editBtn.textContent = '✏ Edit';
         editBtn.addEventListener('click', () => startEdit(wrapper, bubble, inner, msgId, content));
         actions.appendChild(editBtn);
@@ -277,7 +278,7 @@ function buildMessageActions(role, content, msgId, wrapper, bubble, inner) {
     if (role === 'assistant') {
         // Regenerate button
         const regenBtn = document.createElement('button');
-        regenBtn.className   = 'msg-action-btn regen';
+        regenBtn.className = 'msg-action-btn regen';
         regenBtn.textContent = '↺ Regenerate';
         regenBtn.addEventListener('click', () => regenerateLast(wrapper));
         actions.appendChild(regenBtn);
@@ -286,7 +287,7 @@ function buildMessageActions(role, content, msgId, wrapper, bubble, inner) {
     if (msgId) {
         // Delete button
         const delBtn = document.createElement('button');
-        delBtn.className   = 'msg-action-btn danger';
+        delBtn.className = 'msg-action-btn danger';
         delBtn.textContent = '🗑 Delete';
         delBtn.addEventListener('click', () => deleteMsg(msgId, wrapper));
         actions.appendChild(delBtn);
@@ -298,17 +299,17 @@ function buildMessageActions(role, content, msgId, wrapper, bubble, inner) {
 function startEdit(wrapper, bubble, inner, msgId, originalContent) {
     const textarea = document.createElement('textarea');
     textarea.className = 'msg-edit-area';
-    textarea.value     = originalContent;
+    textarea.value = originalContent;
 
     const btnRow = document.createElement('div');
     btnRow.className = 'msg-edit-btns';
 
-    const saveBtn   = document.createElement('button');
-    saveBtn.className   = 'msg-edit-save';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'msg-edit-save';
     saveBtn.textContent = 'Save';
 
     const cancelBtn = document.createElement('button');
-    cancelBtn.className   = 'msg-edit-cancel';
+    cancelBtn.className = 'msg-edit-cancel';
     cancelBtn.textContent = 'Cancel';
 
     cancelBtn.addEventListener('click', () => {
@@ -322,16 +323,16 @@ function startEdit(wrapper, bubble, inner, msgId, originalContent) {
 
         try {
             const res = await fetch(`/api/chat/${chatId}/message/${msgId}`, {
-                method:  'PATCH',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ content: newContent })
+                body: JSON.stringify({ content: newContent })
             });
             if (!res.ok) throw new Error('Edit failed');
             bubble.textContent = newContent;
             inner.replaceChild(bubble, textarea);
             btnRow.remove();
         } catch (err) {
-            alert('Failed to save edit: ' + err.message);
+            StudyFlowToast.error('Failed to save edit: ' + err.message);
         }
     });
 
@@ -353,7 +354,7 @@ async function deleteMsg(msgId, wrapper) {
         if (next && next.classList.contains('assistant-msg')) next.remove();
         wrapper.remove();
     } catch (err) {
-        alert('Failed to delete: ' + err.message);
+        StudyFlowToast.error('Failed to delete: ' + err.message);
     }
 }
 
@@ -364,18 +365,28 @@ async function regenerateLast(assistantWrapper) {
     showTyping();
 
     try {
-        const res  = await fetch(`/api/chat/${chatId}/regenerate_last`, { method: 'POST' });
+        const res = await fetch(`/api/chat/${chatId}/regenerate_last`, { method: 'POST' });
         const data = await res.json();
         hideTyping();
         if (!res.ok) {
-            appendMessage('assistant', `⚠ ${data.error || 'Regeneration failed.'}`);
+            const errEl = StudyFlowChatError.create(
+                'Regeneration failed',
+                data.error || 'An unexpected error occurred.',
+                () => { errEl.remove(); regenerateLast(assistantWrapper); }
+            );
+            messagesEl.appendChild(errEl);
         } else {
             if (data.notice) showNotice(data.notice);
             appendMessage('assistant', data.content, false, null, data.id);
         }
     } catch (err) {
         hideTyping();
-        appendMessage('assistant', '⚠ Network error during regeneration.');
+        const errEl = StudyFlowChatError.create(
+            'Connection Lost',
+            'We couldn\'t reach the server during regeneration.',
+            () => { errEl.remove(); regenerateLast(assistantWrapper); }
+        );
+        messagesEl.appendChild(errEl);
     } finally {
         isSending = false;
     }
@@ -394,17 +405,19 @@ async function streamResponse(url, isQuiz = false) {
     wrapper.className = 'msg-wrapper assistant-msg' + (isQuiz ? ' quiz-msg' : '');
 
     const avatar = document.createElement('div');
-    avatar.className   = 'msg-avatar';
+    avatar.className = 'msg-avatar';
     avatar.textContent = '🤖';
 
-    const inner  = document.createElement('div');
+    const inner = document.createElement('div');
     inner.className = 'msg-inner';
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble streaming-cursor';
 
     const rawContainer = document.createElement('div');
+    rawContainer.className = 'streaming-text';
     rawContainer.style.whiteSpace = 'pre-wrap';
+    rawContainer.textContent = isQuiz ? 'Preparing a quick quiz...' : 'Thinking through your lesson...';
     bubble.appendChild(rawContainer);
 
     inner.appendChild(bubble);
@@ -425,16 +438,20 @@ async function streamResponse(url, isQuiz = false) {
         if (!res.ok) {
             const err = await res.json();
             bubble.classList.remove('streaming-cursor');
-            rawContainer.textContent = `⚠ ${err.error || 'Request failed'}`;
+            bubble.innerHTML = '';
+            bubble.appendChild(StudyFlowChatError.create(
+                'Request failed',
+                err.error || 'Something went wrong. Please try again.'
+            ));
             hideTyping();
             return;
         }
 
         hideTyping();
 
-        const reader  = res.body.getReader();
+        const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let buffer    = '';
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
@@ -442,7 +459,7 @@ async function streamResponse(url, isQuiz = false) {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer      = lines.pop();  // keep incomplete line
+            buffer = lines.pop();  // keep incomplete line
 
             for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
@@ -457,7 +474,7 @@ async function streamResponse(url, isQuiz = false) {
 
                     // Add action buttons
                     const ts = document.createElement('div');
-                    ts.className   = 'msg-timestamp';
+                    ts.className = 'msg-timestamp';
                     ts.textContent = new Date().toLocaleTimeString([],
                         { hour: '2-digit', minute: '2-digit' });
 
@@ -470,15 +487,19 @@ async function streamResponse(url, isQuiz = false) {
 
                 if (payload.startsWith('[ERROR]')) {
                     bubble.classList.remove('streaming-cursor');
-                    rawContainer.textContent = `⚠ ${payload.slice(7).trim()}`;
+                    bubble.innerHTML = '';
+                    bubble.appendChild(StudyFlowChatError.create(
+                        'Response paused',
+                        payload.slice(7).trim()
+                    ));
                     return;
                 }
 
                 // Normal text chunk
                 try {
                     const chunk = JSON.parse(payload);
-                    fullText   += chunk;
-                    rawContainer.textContent = fullText;
+                    fullText += chunk;
+                    rawContainer.textContent = fullText || 'The teacher is thinking through this...';
                     messagesEl.scrollTop = messagesEl.scrollHeight;
                 } catch { /* skip malformed chunk */ }
             }
@@ -486,7 +507,11 @@ async function streamResponse(url, isQuiz = false) {
 
     } catch (err) {
         bubble.classList.remove('streaming-cursor');
-        rawContainer.textContent = '⚠ Network error during streaming.';
+        bubble.innerHTML = '';
+        bubble.appendChild(StudyFlowChatError.create(
+            'Connection Lost',
+            'A network error occurred during streaming. Check your connection and try again.'
+        ));
         hideTyping();
     }
 }
@@ -496,8 +521,26 @@ async function streamResponse(url, isQuiz = false) {
 // LOAD HISTORY
 // ══════════════════════════════════════════════
 
+// Rotate loading messages while chat loads
+const _chatLoadingMsgs = [
+    'Preparing your lesson…',
+    'Loading conversation…',
+    'Getting things ready…'
+];
+let _chatLoadIdx = 0;
+const _chatLoadInterval = setInterval(() => {
+    const el = document.getElementById('chatLoadingText');
+    if (!el) { clearInterval(_chatLoadInterval); return; }
+    _chatLoadIdx = (_chatLoadIdx + 1) % _chatLoadingMsgs.length;
+    el.style.opacity = '0';
+    setTimeout(() => {
+        el.textContent = _chatLoadingMsgs[_chatLoadIdx];
+        el.style.opacity = '1';
+    }, 300);
+}, 3000);
+
 async function loadHistory() {
-    const res  = await fetch(`/api/chat/${chatId}/history`);
+    const res = await fetch(`/api/chat/${chatId}/history`);
     const msgs = await res.json();
 
     if (!Array.isArray(msgs) || msgs.length === 0) {
@@ -507,6 +550,7 @@ async function loadHistory() {
 
     const loading = document.getElementById('chatLoading');
     if (loading) loading.remove();
+    clearInterval(_chatLoadInterval);
 
     msgs.forEach(m => {
         const isQuiz = m.role === 'assistant' && m.content.includes('[ANS]');
@@ -517,19 +561,33 @@ async function loadHistory() {
 async function startChat() {
     showTyping();
     try {
-        const res  = await fetch(`/api/chat/${chatId}/start`, { method: 'POST' });
+        const res = await fetch(`/api/chat/${chatId}/start`, { method: 'POST' });
         const data = await res.json();
         hideTyping();
         if (data.already_started) { await loadHistory(); return; }
         if (!res.ok) {
-            appendMessage('assistant', `⚠ Couldn't start the tutor: ${data.error || 'Unknown error.'}`);
+            const loading = document.getElementById('chatLoading');
+            if (loading) loading.remove();
+            const errEl = StudyFlowChatError.create(
+                'Couldn\'t start the tutor',
+                data.error || 'An unexpected error occurred. Please refresh the page.',
+                () => { errEl.remove(); startChat(); }
+            );
+            messagesEl.appendChild(errEl);
             return;
         }
         if (data.notice) showNotice(data.notice);
         appendMessage('assistant', data.content, false, null, null);
     } catch (err) {
         hideTyping();
-        appendMessage('assistant', '⚠ Network error. Please refresh.');
+        const loading = document.getElementById('chatLoading');
+        if (loading) loading.remove();
+        const errEl = StudyFlowChatError.create(
+            'Connection Lost',
+            'We couldn\'t reach the server. Check your connection and try again.',
+            () => { errEl.remove(); startChat(); }
+        );
+        messagesEl.appendChild(errEl);
     }
 }
 
@@ -540,18 +598,18 @@ async function startChat() {
 
 async function sendMessage(text) {
     if (!text.trim() || isSending) return;
-    isSending        = true;
+    isSending = true;
     sendBtn.disabled = true;
 
     appendMessage('user', text);
-    inputEl.value        = '';
+    inputEl.value = '';
     inputEl.style.height = 'auto';
 
     // Save user message then stream AI reply
     // (user message is saved server-side inside the stream endpoint)
     await streamResponse(`/api/chat/${chatId}/send/stream`);
 
-    isSending        = false;
+    isSending = false;
     sendBtn.disabled = false;
     inputEl.focus();
 }
@@ -561,13 +619,13 @@ async function sendMessage(text) {
 let _pendingMessage = '';
 
 const _origSend = sendMessage;
-sendMessage = async function(text) {
+sendMessage = async function (text) {
     if (!text.trim() || isSending) return;
-    isSending        = true;
+    isSending = true;
     sendBtn.disabled = true;
 
     appendMessage('user', text);
-    inputEl.value        = '';
+    inputEl.value = '';
     inputEl.style.height = 'auto';
 
     showTyping();
@@ -576,9 +634,9 @@ sendMessage = async function(text) {
 
     // Build the placeholder bubble before the stream starts
     await streamResponseWithBody(`/api/chat/${chatId}/send/stream`,
-                                  { message: text }, false);
+        { message: text }, false);
 
-    isSending        = false;
+    isSending = false;
     sendBtn.disabled = false;
     inputEl.focus();
 };
@@ -590,17 +648,19 @@ async function streamResponseWithBody(url, body, isQuiz) {
     wrapper.className = 'msg-wrapper assistant-msg' + (isQuiz ? ' quiz-msg' : '');
 
     const avatar = document.createElement('div');
-    avatar.className   = 'msg-avatar';
+    avatar.className = 'msg-avatar';
     avatar.textContent = '🤖';
 
-    const inner  = document.createElement('div');
+    const inner = document.createElement('div');
     inner.className = 'msg-inner';
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble streaming-cursor';
 
     const rawContainer = document.createElement('div');
+    rawContainer.className = 'streaming-text';
     rawContainer.style.whiteSpace = 'pre-wrap';
+    rawContainer.textContent = isQuiz ? 'Preparing a quick quiz...' : 'Thinking through your lesson...';
     bubble.appendChild(rawContainer);
 
     inner.appendChild(bubble);
@@ -613,21 +673,25 @@ async function streamResponseWithBody(url, body, isQuiz) {
 
     try {
         const res = await fetch(url, {
-            method:  'POST',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify(body)
+            body: JSON.stringify(body)
         });
 
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: 'Request failed' }));
             bubble.classList.remove('streaming-cursor');
-            rawContainer.textContent = `⚠ ${err.error}`;
+            bubble.innerHTML = '';
+            bubble.appendChild(StudyFlowChatError.create(
+                'Request failed',
+                err.error || 'Something went wrong. Please try again.'
+            ));
             return;
         }
 
-        const reader  = res.body.getReader();
+        const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let buffer    = '';
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
@@ -657,21 +721,29 @@ async function streamResponseWithBody(url, body, isQuiz) {
 
                 if (payload.startsWith('[ERROR]')) {
                     bubble.classList.remove('streaming-cursor');
-                    rawContainer.textContent = `⚠ ${payload.slice(7).trim()}`;
+                    bubble.innerHTML = '';
+                    bubble.appendChild(StudyFlowChatError.create(
+                        'Response paused',
+                        payload.slice(7).trim()
+                    ));
                     return;
                 }
 
                 try {
                     const chunk = JSON.parse(payload);
-                    fullText   += chunk;
-                    rawContainer.textContent = fullText;
+                    fullText += chunk;
+                    rawContainer.textContent = fullText || 'The teacher is thinking through this...';
                     messagesEl.scrollTop = messagesEl.scrollHeight;
                 } catch { /* skip */ }
             }
         }
     } catch (err) {
         bubble.classList.remove('streaming-cursor');
-        rawContainer.textContent = '⚠ Network error.';
+        bubble.innerHTML = '';
+        bubble.appendChild(StudyFlowChatError.create(
+            'Connection Lost',
+            'A network error occurred. Check your connection and try again.'
+        ));
     }
 }
 
@@ -682,8 +754,8 @@ async function streamResponseWithBody(url, body, isQuiz) {
 
 quizBtn.addEventListener('click', async () => {
     if (isSending) return;
-    isSending           = true;
-    quizBtn.disabled    = true;
+    isSending = true;
+    quizBtn.disabled = true;
     quizBtn.textContent = '…Generating Quiz';
 
     appendMessage('user', 'Quiz me on what we have covered so far.');
@@ -691,8 +763,8 @@ quizBtn.addEventListener('click', async () => {
 
     await streamResponseWithBody(`/api/chat/${chatId}/quiz/stream`, {}, true);
 
-    isSending           = false;
-    quizBtn.disabled    = false;
+    isSending = false;
+    quizBtn.disabled = false;
     quizBtn.textContent = '🎯 Quiz Me';
 });
 

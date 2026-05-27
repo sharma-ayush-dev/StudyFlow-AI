@@ -16,6 +16,7 @@ from flask_login import (
 )
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+# pyrefly: ignore [missing-import]
 from flask_caching import Cache
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -70,6 +71,7 @@ RATE_LIMIT_DEFAULTS = {
 }
 
 DEFAULT_WORD_LIMIT = 2000
+DEFAULT_SCHED_PREF_LIMIT = 200
 
 # ── UPLOAD / EXTRACTION VALIDATION LIMITS ────────────────────────────────────
 # These mirror limits in text_extractor.py but are enforced at the route level
@@ -123,6 +125,8 @@ class StudyData(db.Model):
     topic_status          = db.Column(db.Text)
     schedule_json         = db.Column(db.Text)
     pending_schedule_json = db.Column(db.Text)
+    generation_inputs_json = db.Column(db.Text)
+    pending_generation_inputs_json = db.Column(db.Text)
 
 
 class Chat(db.Model):
@@ -131,11 +135,12 @@ class Chat(db.Model):
     userid     = db.Column(db.Integer,   db.ForeignKey('user.id'), nullable=False)
     subject    = db.Column(db.String(200), nullable=False)
     topic      = db.Column(db.String(200), nullable=False)
+    schedule_date = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime,  default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime,  default=datetime.datetime.utcnow,
                             onupdate=datetime.datetime.utcnow)
-    __table_args__ = (db.UniqueConstraint('userid', 'subject', 'topic',
-                                          name='uq_user_subject_topic'),)
+    __table_args__ = (db.UniqueConstraint('userid', 'subject', 'topic', 'schedule_date',
+                                          name='uq_user_subject_topic_date'),)
 
 
 class Message(db.Model):
@@ -253,6 +258,10 @@ def get_word_limit() -> int:
     try: return int(_get_setting('text_word_limit') or DEFAULT_WORD_LIMIT)
     except: return DEFAULT_WORD_LIMIT
 
+def get_sched_pref_limit() -> int:
+    try: return int(_get_setting('sched_pref_limit') or DEFAULT_SCHED_PREF_LIMIT)
+    except: return DEFAULT_SCHED_PREF_LIMIT
+
 def get_sched_model_list() -> list:
     return _parse_model_list('sched_model_list', SCHED_MODELS)
 
@@ -320,6 +329,37 @@ def _sanitize_topics_payload(payload: dict) -> dict:
             clean[ck] = _sanitize_field(str(v))
     return clean
 
+def _sanitize_study_days_payload(payload: dict) -> dict:
+    if not isinstance(payload, dict): return {}
+    clean = {}
+    for date, hours in payload.items():
+        date_key = _sanitize_field(str(date), 20)
+        try:
+            value = max(0, min(24, int(hours)))
+        except (TypeError, ValueError):
+            value = 0
+        clean[date_key] = str(value)
+    return clean
+
+def _sanitize_schedule_preferences(payload: dict) -> dict:
+    if not isinstance(payload, dict): return {}
+    allowed_intensity = {'gentle', 'balanced', 'focused', 'intense'}
+    allowed_blocks = {'1-2', '2-3', '3-4'}
+    intensity = _sanitize_field(payload.get('intensity', 'balanced'), 24)
+    block_length = _sanitize_field(payload.get('block_length', '1-2'), 16)
+    return {
+        'intensity': intensity if intensity in allowed_intensity else 'balanced',
+        'block_length': block_length if block_length in allowed_blocks else '1-2',
+        'preference_note': _sanitize_field(payload.get('preference_note', ''), get_sched_pref_limit()),
+    }
+
+def _generation_inputs_snapshot(topic_data: dict, source: str) -> dict:
+    return {
+        'source': source,
+        'saved_at': datetime.datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+        'user_inputs': topic_data
+    }
+
 
 # ─────────────────────────────────────────────
 # DYNAMIC RATE LIMITS
@@ -341,6 +381,28 @@ def _rl(key: str):
 
 def _get_study_data() -> StudyData | None:
     return StudyData.query.filter_by(userid=current_user.id).first()
+
+def _ensure_runtime_schema():
+    """Add lightweight SQLite columns introduced after the initial schema."""
+    try:
+        with db.engine.connect() as conn:
+            rows = conn.exec_driver_sql("PRAGMA table_info(study_data)").fetchall()
+            existing = {row[1] for row in rows}
+            if 'generation_inputs_json' not in existing:
+                conn.exec_driver_sql(
+                    "ALTER TABLE study_data ADD COLUMN generation_inputs_json TEXT")
+            if 'pending_generation_inputs_json' not in existing:
+                conn.exec_driver_sql(
+                    "ALTER TABLE study_data ADD COLUMN pending_generation_inputs_json TEXT")
+            
+            rows_chat = conn.exec_driver_sql("PRAGMA table_info(chat)").fetchall()
+            existing_chat = {row[1] for row in rows_chat}
+            if 'schedule_date' not in existing_chat:
+                conn.exec_driver_sql(
+                    "ALTER TABLE chat ADD COLUMN schedule_date VARCHAR(20)")
+            conn.commit()
+    except Exception as exc:
+        print(f'[SCHEMA] Runtime migration skipped: {exc}')
 
 def _require_owner(userid: int):
     if userid != current_user.id and not current_user.is_admin: abort(403)
@@ -533,7 +595,21 @@ def status_page():
     user = _get_study_data()
     if not user: return redirect(url_for('upload_page'))
     data = json.loads(user.extracted_json)
-    return render_template('Status.html', data=data)
+    # Merge topic_status if it exists so user-entered values persist
+    if user.topic_status:
+        saved = json.loads(user.topic_status)
+        if 'study_days' in saved:
+            data['study_days'] = saved['study_days']
+        if 'Subjects' in saved:
+            for subj, topics in saved['Subjects'].items():
+                if subj in data.get('Subjects', {}):
+                    for t, tdata in topics.items():
+                        if t in data['Subjects'][subj]:
+                            data['Subjects'][subj][t] = tdata
+        if 'schedule_preferences' in saved:
+            data['schedule_preferences'] = saved['schedule_preferences']
+    pref_limit = get_sched_pref_limit()
+    return render_template('Status.html', data=data, pref_limit=pref_limit)
 
 
 @app.route('/schedule_page')
@@ -569,17 +645,20 @@ def _safe_parse_dmy(s):
 def study_page(subject: str, topic: str):
     subject = _sanitize_field(urllib.parse.unquote(subject), 200)
     topic   = _sanitize_field(urllib.parse.unquote(topic),   200)
+    schedule_date = _sanitize_field(request.args.get('date', ''), 20) or None
 
     user_data = _get_study_data()
     if not user_data: return redirect(url_for('upload_page'))
 
     schedule  = json.loads(user_data.schedule_json) if user_data.schedule_json else {}
     today_str = get_today()
-    slot      = _get_today_slot(schedule, subject, topic, today_str)
+    # Use the schedule_date from query if provided, else today
+    slot_date = schedule_date or today_str
+    slot      = _get_today_slot(schedule, subject, topic, slot_date)
     hours     = slot.get('hours')
     subtopics = slot.get('subtopics', [])
 
-    # If not in today's schedule, fall back to the topic's stored subtopics
+    # If not in the slot's schedule, fall back to the topic's stored subtopics
     if not subtopics and user_data.extracted_json:
         extracted = json.loads(user_data.extracted_json)
         topic_data = (extracted.get('Subjects', {})
@@ -588,11 +667,13 @@ def study_page(subject: str, topic: str):
         if isinstance(topic_data, dict):
             subtopics = topic_data.get('subtopics', [])
 
-    # Get or create the chat for this user+subject+topic
+    # Get or create the chat for this user+subject+topic+schedule_date
     chat = Chat.query.filter_by(
-        userid=current_user.id, subject=subject, topic=topic).first()
+        userid=current_user.id, subject=subject, topic=topic,
+        schedule_date=schedule_date).first()
     if not chat:
-        chat = Chat(userid=current_user.id, subject=subject, topic=topic)
+        chat = Chat(userid=current_user.id, subject=subject, topic=topic,
+                    schedule_date=schedule_date)
         db.session.add(chat)
         db.session.commit()
 
@@ -603,7 +684,8 @@ def study_page(subject: str, topic: str):
         hours      = hours,
         chat_id    = chat.id,
         userid     = current_user.id,
-        today_str  = today_str
+        today_str  = today_str,
+        schedule_date = schedule_date or ''
     )
 
 
@@ -1054,7 +1136,7 @@ def chat_send_stream(chat_id: int):
     if not user_message:
         return jsonify({'error': 'Empty message'}), 400
 
-    _save_message(chat_id, 'user', user_message)
+    user_msg = _save_message(chat_id, 'user', user_message)
 
     history = _get_chat_history(chat_id)[:-1]
     subtopics, hours, course = _get_topic_context(chat)
@@ -1081,8 +1163,8 @@ def chat_send_stream(chat_id: int):
                 full_text += chunk
                 yield f"data: {json.dumps(chunk)}\n\n"
 
-            _save_message(chat_id, 'assistant', full_text)
-            yield 'data: [DONE]\n\n'
+            asst_msg = _save_message(chat_id, 'assistant', full_text)
+            yield f"data: [DONE]{json.dumps({'user_msg_id': user_msg.id, 'assistant_msg_id': asst_msg.id})}\n\n"
         except RuntimeError as e:
             yield f'data: [ERROR] {str(e)}\n\n'
 
@@ -1102,6 +1184,10 @@ def chat_quiz_stream(chat_id: int):
 
     if len(history) < 2:
         return jsonify({'error': 'Study a bit first before taking a quiz!'}), 400
+
+    # Save the quiz request as a user message
+    quiz_user_msg = _save_message(chat_id, 'user',
+        'Quiz me on what we have covered so far.', chat=chat)
 
     subtopics, hours, course = _get_topic_context(chat)
     model_list = get_teacher_model_list()
@@ -1126,8 +1212,8 @@ def chat_quiz_stream(chat_id: int):
                 full_text += chunk
                 yield f"data: {json.dumps(chunk)}\n\n"
 
-            _save_message(chat_id, 'assistant', full_text)
-            yield 'data: [DONE_QUIZ]\n\n'
+            asst_msg = _save_message(chat_id, 'assistant', full_text)
+            yield f"data: [DONE_QUIZ]{json.dumps({'user_msg_id': quiz_user_msg.id, 'assistant_msg_id': asst_msg.id})}\n\n"
         except RuntimeError as e:
             yield f'data: [ERROR] {str(e)}\n\n'
 
@@ -1161,6 +1247,10 @@ def upload_files():
             file.save(path)
             file_paths.append(path)
 
+        # If files were uploaded, ignore pasted text
+        if file_paths:
+            manual_text = ''
+
         if not file_paths and not manual_text:
             return jsonify({'error': 'No valid files received'}), 400
 
@@ -1174,6 +1264,8 @@ def upload_files():
             existing.topic_status          = None
             existing.schedule_json         = None
             existing.pending_schedule_json = None
+            existing.generation_inputs_json = None
+            existing.pending_generation_inputs_json = None
         else:
             db.session.add(StudyData(userid=current_user.id,
                                      extracted_json=json.dumps(final_json)))
@@ -1213,6 +1305,9 @@ def submit_status(userid):
     user = _get_study_data()
     if not user: return jsonify({'error': 'No data found'}), 404
     payload = _sanitize_topics_payload(request.json or {})
+    if 'schedule_preferences' in (request.json or {}):
+        payload['schedule_preferences'] = _sanitize_schedule_preferences(
+            (request.json or {}).get('schedule_preferences', {}))
     user.topic_status = json.dumps(payload)
     db.session.commit()
     return jsonify({'message': 'saved'})
@@ -1285,6 +1380,7 @@ def generate(userid):
         return jsonify({'error': 'No topic status found'}), 400
 
     topic_data  = json.loads(user.topic_status)
+    generation_inputs = _generation_inputs_snapshot(topic_data, 'status_page')
     today_str   = get_today()
     model_list  = get_sched_model_list()
     max_tok_ovr = get_max_tokens()
@@ -1303,7 +1399,14 @@ def generate(userid):
                 sd = StudyData.query.filter_by(userid=uid).first()
                 if sd:
                     sd.schedule_json = json.dumps(schedule)
+                    sd.generation_inputs_json = json.dumps(generation_inputs)
                     db.session.commit()
+                # Delete old chats for this user (new schedule = fresh start)
+                old_chats = Chat.query.filter_by(userid=uid).all()
+                for oc in old_chats:
+                    Message.query.filter_by(chat_id=oc.id).delete()
+                Chat.query.filter_by(userid=uid).delete()
+                db.session.commit()
                 cache.delete(f'schedule_{uid}')
                 _log_activity('generate')
 
@@ -1346,9 +1449,10 @@ def update_progress(userid):
     _require_owner(userid)
     user = _get_study_data()
     if not user: return jsonify({'error': 'No data found'}), 404
+    req_json = request.json or {}
 
     updated_subjects = _sanitize_topics_payload(
-        (request.json or {}).get('Subjects', {}))
+        req_json.get('Subjects', {}))
 
     if user.topic_status:
         status = json.loads(user.topic_status)
@@ -1381,6 +1485,14 @@ def update_progress(userid):
                     status['Subjects'][subj][topic] = str(pct)
                 except (ValueError, TypeError): pass
 
+    updated_days = _sanitize_study_days_payload(req_json.get('study_days', {}))
+    if updated_days:
+        status['study_days'] = updated_days
+
+    if 'schedule_preferences' in req_json:
+        status['schedule_preferences'] = _sanitize_schedule_preferences(
+            req_json.get('schedule_preferences', {}))
+
     user.topic_status = json.dumps(status)
     db.session.commit()
     # Invalidate schedule cache so next regenerate doesn't return a stale hit
@@ -1398,6 +1510,7 @@ def regenerate_schedule(userid):
         return jsonify({'error': 'No topic status found'}), 400
 
     topic_data  = json.loads(user.topic_status)
+    generation_inputs = _generation_inputs_snapshot(topic_data, 'progress_page')
     old_sched   = json.loads(user.schedule_json) if user.schedule_json else {}
     today_str   = get_today()
     model_list  = get_sched_model_list()
@@ -1416,6 +1529,7 @@ def regenerate_schedule(userid):
                 sd = StudyData.query.filter_by(userid=uid).first()
                 if sd:
                     sd.pending_schedule_json = json.dumps(new_schedule)
+                    sd.pending_generation_inputs_json = json.dumps(generation_inputs)
                     db.session.commit()
                 _log_activity('regenerate')
 
@@ -1442,7 +1556,9 @@ def keep_schedule(userid):
     choice = _sanitize_field((request.json or {}).get('choice', 'old'), 10)
     if choice == 'new' and user.pending_schedule_json:
         user.schedule_json = user.pending_schedule_json
+        user.generation_inputs_json = user.pending_generation_inputs_json
     user.pending_schedule_json = None
+    user.pending_generation_inputs_json = None
     db.session.commit()
     cache.delete(f'schedule_{current_user.id}')
     return jsonify({'message': 'saved', 'choice': choice})
@@ -1594,6 +1710,7 @@ def admin_delete_user(uid):
 @app.route('/admin/reset_rate_limits', methods=['POST'])
 @app.route('/admin/set_max_tokens',    methods=['POST'])
 @app.route('/admin/set_word_limit',    methods=['POST'])
+@app.route('/admin/set_sched_pref_limit', methods=['POST'])
 @app.route('/admin/set_model_list',    methods=['POST'])
 @app.route('/admin/reset_model_list',  methods=['POST'])
 @app.route('/admin/set_chinese',       methods=['POST'])
@@ -1641,6 +1758,14 @@ def admin_settings():
         except: return jsonify({'error':'Must be 100-10000'}), 400
         _set_setting('text_word_limit', str(wl))
         return jsonify({'message': f'Word limit = {wl}'})
+
+    if ep == 'set_sched_pref_limit':
+        try:
+            lim = int(data.get('limit', 0))
+            if not (10 <= lim <= 2000): raise ValueError
+        except: return jsonify({'error':'Must be 10-2000'}), 400
+        _set_setting('sched_pref_limit', str(lim))
+        return jsonify({'message': f'Schedule preference limit = {lim}'})
 
     if ep == 'set_model_list':
         lk = _sanitize_field(data.get('list_key',''), 30)
@@ -1690,5 +1815,7 @@ def handle_exception(e):
 
 
 if __name__ == '__main__':
-    with app.app_context(): db.create_all()
+    with app.app_context():
+        db.create_all()
+        _ensure_runtime_schema()
     app.run(debug=True)

@@ -58,6 +58,12 @@ Hard rules:
 - Positive integer hours only, 1-3h blocks preferred
 - For each topic slot, include only the subtopics that fit in the allotted hours
   (pick the most important ones if not all fit)
+- Respect schedule_preferences when they are present:
+  - gentle means lighter days and more revision breathing room
+  - balanced means steady workload
+  - focused means prioritize unfinished topics more aggressively
+  - intense means use more available hours while still respecting daily limits
+  - preferred block length and preference_note should guide topic grouping
 
 You MUST return valid JSON.
 - No explanations, no markdown, no trailing commas, no comments
@@ -267,6 +273,7 @@ def _serialize_input(topic_data: dict) -> str:
     compact = {
         'Exam_dates': topic_data.get('Exam_dates', {}),
         'study_days': topic_data.get('study_days', {}),
+        'schedule_preferences': topic_data.get('schedule_preferences', {}),
         'Subjects':   {}
     }
     for subj, topics in (topic_data.get('Subjects') or {}).items():

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyFlow — Upload</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
@@ -65,19 +66,18 @@
                 Generate Study Plan
             </button>
 
-            <!-- LOADING STATE -->
-            <div id="uploadLoader" style="display:none;text-align:center;padding:10px 0;">
-                <div class="loader-ring"></div>
-                <p id="loaderMsg" style="color:#aaa;font-size:14px;margin-top:10px;">
-                    Extracting content…
-                </p>
-            </div>
+            <!-- MULTI-STAGE LOADING STATE -->
+            <div id="uploadLoader" class="sf-hidden"></div>
+
+            <!-- ERROR CARD CONTAINER -->
+            <div id="uploadError"></div>
         </div>
     </section>
 
     <script>
         window.WORD_LIMIT = {{ word_limit }};
     </script>
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
     <script src="{{ url_for('static', filename='Upload-page.js') }}"></script>
 
     {% include '_footer.html' %}

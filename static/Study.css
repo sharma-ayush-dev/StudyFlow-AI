@@ -263,6 +263,14 @@
 .assistant-msg .msg-bubble h1 { font-size: 1.4em; }
 .assistant-msg .msg-bubble h2 { font-size: 1.2em; color: #c8a0ff; }
 .assistant-msg .msg-bubble h3 { font-size: 1.05em; color: #bf7fff; }
+.assistant-msg .msg-bubble h4 {
+    font-size: 0.95em;
+    color: #a87eff;
+    margin: 14px 0 6px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+}
 
 .assistant-msg .msg-bubble p {
     margin: 8px 0;
@@ -498,6 +506,14 @@
     padding: 10px 48px;
 }
 
+.typing-indicator::after {
+    content: 'Teacher is thinking';
+    margin-left: 8px;
+    color: #77778c;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
 .typing-indicator.hidden { display: none; }
 
 .typing-indicator span {
@@ -602,4 +618,13 @@
 
 @keyframes blink {
     50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+    content: '|';
+}
+
+.streaming-text {
+    min-height: 24px;
+    transition: color 0.18s ease;
 }

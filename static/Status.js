@@ -6,11 +6,11 @@
    Edit view:  rename topic, add/delete/rename subtopics inline
 ═══════════════════════════════════════════════════════════ */
 
-let state           = JSON.parse(JSON.stringify(window.INITIAL_DATA));
-let snapshot        = null;
-let editMode        = false;
-let userId          = null;
-let isGenerating    = false;
+let state = JSON.parse(JSON.stringify(window.INITIAL_DATA));
+let snapshot = null;
+let editMode = false;
+let userId = null;
+let isGenerating = false;
 let hasUnsavedEdits = false;
 
 
@@ -23,7 +23,7 @@ function _topicData(subj, topic) {
 }
 
 function _topicStatus(subj, topic) { return _topicData(subj, topic).status || '0'; }
-function _topicSubs(subj, topic)   { return _topicData(subj, topic).subtopics || []; }
+function _topicSubs(subj, topic) { return _topicData(subj, topic).subtopics || []; }
 
 
 // ── DATE HELPERS ─────────────────────────────────────────────
@@ -33,9 +33,9 @@ function parseDMY(str) {
     return new Date(y, m - 1, d);
 }
 function formatDMY(date) {
-    return [String(date.getDate()).padStart(2,'0'),
-            String(date.getMonth()+1).padStart(2,'0'),
-            date.getFullYear()].join('-');
+    return [String(date.getDate()).padStart(2, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    date.getFullYear()].join('-');
 }
 function dmyToInputVal(dmy) {
     if (!dmy) return '';
@@ -51,7 +51,7 @@ function inputValToDmy(val) {
 function recalcStudyDays() {
     const examDates = Object.values(state.Exam_dates).filter(Boolean).map(d => parseDMY(d));
     if (!examDates.length) { state.study_days = {}; return; }
-    const today    = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const lastExam = new Date(Math.max(...examDates.map(d => d.getTime())));
     const days = {}; const cur = new Date(today);
     while (cur <= lastExam) {
@@ -75,7 +75,7 @@ function renderHoursPanel() {
     }
     dates.forEach(date => {
         const row = document.createElement('div');
-        row.className    = 'date-row';
+        row.className = 'date-row';
         row.dataset.date = date;
 
         const label = document.createElement('span');
@@ -86,19 +86,19 @@ function renderHoursPanel() {
         stepper.className = 'hours-stepper';
 
         const minusBtn = document.createElement('button');
-        minusBtn.className   = 'step-btn';
+        minusBtn.className = 'step-btn';
         minusBtn.textContent = '−';
 
         const input = document.createElement('input');
-        input.type        = 'number';
+        input.type = 'number';
         input.placeholder = '0';
-        input.min         = '0';
-        input.max         = '24';
+        input.min = '0';
+        input.max = '24';
         const stored = state.study_days[date];
         if (stored && stored !== 'none') input.value = stored;
 
         const plusBtn = document.createElement('button');
-        plusBtn.className   = 'step-btn';
+        plusBtn.className = 'step-btn';
         plusBtn.textContent = '+';
 
         minusBtn.addEventListener('click', () => {
@@ -155,7 +155,7 @@ function buildSubjectHeader(subjectName) {
         const nameEl = document.createElement('h2');
         nameEl.textContent = subjectName;
         const dateEl = document.createElement('span');
-        dateEl.className   = 'exam-date';
+        dateEl.className = 'exam-date';
         dateEl.textContent = state.Exam_dates[subjectName] || 'No exam date';
         header.appendChild(nameEl);
         header.appendChild(dateEl);
@@ -165,19 +165,19 @@ function buildSubjectHeader(subjectName) {
         leftCol.style.cssText = 'display:flex;flex-direction:column;flex:1;gap:6px;margin-right:12px;';
 
         const nameInput = document.createElement('input');
-        nameInput.className   = 'edit-inline-input edit-name-input';
-        nameInput.value       = subjectName;
+        nameInput.className = 'edit-inline-input edit-name-input';
+        nameInput.value = subjectName;
         nameInput.addEventListener('change', () => renameSubject(subjectName, nameInput.value.trim()));
 
-        const dateRow   = document.createElement('div');
+        const dateRow = document.createElement('div');
         dateRow.className = 'edit-date-row';
         const dateLabel = document.createElement('label');
-        dateLabel.className   = 'edit-date-label';
+        dateLabel.className = 'edit-date-label';
         dateLabel.textContent = 'Exam date:';
         const dateInput = document.createElement('input');
-        dateInput.type      = 'date';
+        dateInput.type = 'date';
         dateInput.className = 'edit-date-input';
-        dateInput.value     = dmyToInputVal(state.Exam_dates[subjectName] || '');
+        dateInput.value = dmyToInputVal(state.Exam_dates[subjectName] || '');
         dateInput.addEventListener('change', () => {
             const dmy = inputValToDmy(dateInput.value);
             if (dmy) state.Exam_dates[subjectName] = dmy;
@@ -190,7 +190,7 @@ function buildSubjectHeader(subjectName) {
         leftCol.appendChild(dateRow);
 
         const delBtn = document.createElement('button');
-        delBtn.className   = 'edit-delete-btn';
+        delBtn.className = 'edit-delete-btn';
         delBtn.textContent = '🗑 Delete';
         delBtn.addEventListener('click', () => deleteSubject(subjectName));
 
@@ -213,7 +213,7 @@ function buildTopicRow(subjectName, topicName) {
     row.className = 'topic-row';
 
     // Always read using helper to handle both old (string) and new (object) schema
-    const subtopics    = _topicSubs(subjectName, topicName);
+    const subtopics = _topicSubs(subjectName, topicName);
     const currentValue = _topicStatus(subjectName, topicName);
 
     if (!editMode) {
@@ -222,7 +222,7 @@ function buildTopicRow(subjectName, topicName) {
         leftDiv.style.flex = '1';
 
         const nameEl = document.createElement('span');
-        nameEl.className   = 'topic-name';
+        nameEl.className = 'topic-name';
         nameEl.textContent = topicName;
         leftDiv.appendChild(nameEl);
 
@@ -233,11 +233,11 @@ function buildTopicRow(subjectName, topicName) {
 
             const toggle = document.createElement('span');
             toggle.style.cssText = 'font-size:11px;color:#7b2ff7;cursor:pointer;user-select:none;';
-            toggle.textContent   = `▸ ${subtopics.length} subtopic${subtopics.length > 1 ? 's' : ''}`;
+            toggle.textContent = `▸ ${subtopics.length} subtopic${subtopics.length > 1 ? 's' : ''}`;
 
             const subList = document.createElement('div');
             subList.style.cssText = 'display:none;font-size:12px;color:#666;padding:4px 0 0 2px;line-height:1.6;';
-            subList.textContent   = subtopics.join(' · ');
+            subList.textContent = subtopics.join(' · ');
 
             toggle.addEventListener('click', e => {
                 e.stopPropagation();
@@ -257,18 +257,18 @@ function buildTopicRow(subjectName, topicName) {
 
         // Custom dropdown
         const customSelect = document.createElement('div');
-        customSelect.className       = 'custom-select';
+        customSelect.className = 'custom-select';
         customSelect.dataset.subject = subjectName;
-        customSelect.dataset.topic   = topicName;
+        customSelect.dataset.topic = topicName;
 
         const trigger = document.createElement('div');
         trigger.className = 'select-trigger';
 
         const optionsData = [
-            ['0',   '0% — Not Started'],
-            ['25',  '25% — Just Begun'],
-            ['50',  '50% — Halfway'],
-            ['75',  '75% — Almost Done'],
+            ['0', '0% — Not Started'],
+            ['25', '25% — Just Begun'],
+            ['50', '50% — Halfway'],
+            ['75', '75% — Almost Done'],
             ['100', '100% — Completed']
         ];
 
@@ -281,7 +281,7 @@ function buildTopicRow(subjectName, topicName) {
 
         optionsData.forEach(([val, label]) => {
             const opt = document.createElement('div');
-            opt.className   = 'option' + (val === currentValue ? ' selected' : '');
+            opt.className = 'option' + (val === currentValue ? ' selected' : '');
             opt.textContent = label;
             opt.dataset.value = val;
             opt.addEventListener('click', e => {
@@ -317,21 +317,21 @@ function buildTopicRow(subjectName, topicName) {
     } else {
         // ── EDIT VIEW ──
         row.style.flexDirection = 'column';
-        row.style.alignItems    = 'stretch';
-        row.style.gap           = '8px';
+        row.style.alignItems = 'stretch';
+        row.style.gap = '8px';
 
         // Topic name + delete button row
         const topRow = document.createElement('div');
         topRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
 
         const nameInput = document.createElement('input');
-        nameInput.className   = 'edit-inline-input';
-        nameInput.value       = topicName;
+        nameInput.className = 'edit-inline-input';
+        nameInput.value = topicName;
         nameInput.addEventListener('change', () =>
             renameTopic(subjectName, topicName, nameInput.value.trim()));
 
         const delBtn = document.createElement('button');
-        delBtn.className   = 'edit-delete-topic-btn';
+        delBtn.className = 'edit-delete-topic-btn';
         delBtn.textContent = '✕';
         delBtn.addEventListener('click', () => deleteTopic(subjectName, topicName));
 
@@ -348,14 +348,14 @@ function buildTopicRow(subjectName, topicName) {
             subRow.style.cssText = 'display:flex;gap:6px;align-items:center;';
 
             const subInput = document.createElement('input');
-            subInput.className   = 'edit-inline-input';
-            subInput.value       = sub;
+            subInput.className = 'edit-inline-input';
+            subInput.value = sub;
             subInput.style.fontSize = '13px';
             subInput.addEventListener('change', () =>
                 renameSubtopic(subjectName, topicName, idx, subInput.value.trim()));
 
             const subDel = document.createElement('button');
-            subDel.className   = 'edit-delete-topic-btn';
+            subDel.className = 'edit-delete-topic-btn';
             subDel.textContent = '✕';
             subDel.style.cssText += 'width:22px;height:22px;font-size:11px;';
             subDel.addEventListener('click', () =>
@@ -371,12 +371,12 @@ function buildTopicRow(subjectName, topicName) {
         addSubRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:2px;';
 
         const addSubInput = document.createElement('input');
-        addSubInput.className   = 'edit-inline-input';
+        addSubInput.className = 'edit-inline-input';
         addSubInput.placeholder = '+ Add subtopic…';
         addSubInput.style.fontSize = '12px';
 
         const addSubBtn = document.createElement('button');
-        addSubBtn.className   = 'edit-add-btn';
+        addSubBtn.className = 'edit-add-btn';
         addSubBtn.textContent = 'Add';
         addSubBtn.style.cssText += 'font-size:12px;padding:5px 12px;';
         addSubBtn.addEventListener('click', () => {
@@ -397,11 +397,11 @@ function buildTopicRow(subjectName, topicName) {
 function buildAddTopicRow(subjectName) {
     const row = document.createElement('div');
     row.className = 'edit-add-row';
-    const input   = document.createElement('input');
-    input.className   = 'edit-inline-input';
+    const input = document.createElement('input');
+    input.className = 'edit-inline-input';
     input.placeholder = 'New topic name…';
     const btn = document.createElement('button');
-    btn.className   = 'edit-add-btn';
+    btn.className = 'edit-add-btn';
     btn.textContent = '+ Add Topic';
     btn.addEventListener('click', () => { const n = input.value.trim(); if (n) { addTopic(subjectName, n); input.value = ''; } });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
@@ -412,11 +412,11 @@ function buildAddTopicRow(subjectName) {
 function buildAddSubjectRow() {
     const row = document.createElement('div');
     row.className = 'edit-add-subject-row';
-    const input   = document.createElement('input');
-    input.className   = 'edit-inline-input';
+    const input = document.createElement('input');
+    input.className = 'edit-inline-input';
     input.placeholder = 'New subject name…';
     const btn = document.createElement('button');
-    btn.className   = 'edit-add-btn';
+    btn.className = 'edit-add-btn';
     btn.textContent = '+ Add Subject';
     btn.addEventListener('click', () => { const n = input.value.trim(); if (n) { addSubject(n); input.value = ''; } });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
@@ -429,7 +429,7 @@ function buildAddSubjectRow() {
 
 function renameSubject(old, name) {
     if (!name || name === old) return;
-    if (state.Subjects[name]) { alert(`"${name}" already exists.`); return; }
+    if (state.Subjects[name]) { StudyFlowToast.error(`"${name}" already exists.`); return; }
     state.Subjects[name] = state.Subjects[old]; delete state.Subjects[old];
     if (state.Exam_dates[old]) { state.Exam_dates[name] = state.Exam_dates[old]; delete state.Exam_dates[old]; }
     hasUnsavedEdits = true; renderTopicsPanel();
@@ -440,12 +440,12 @@ function deleteSubject(name) {
     hasUnsavedEdits = true; recalcStudyDays(); renderTopicsPanel(); renderHoursPanel();
 }
 function addSubject(name) {
-    if (state.Subjects[name]) { alert(`"${name}" already exists.`); return; }
+    if (state.Subjects[name]) { StudyFlowToast.error(`"${name}" already exists.`); return; }
     state.Subjects[name] = {}; hasUnsavedEdits = true; renderTopicsPanel();
 }
 function renameTopic(subj, old, name) {
     if (!name || name === old) return;
-    if (state.Subjects[subj][name] !== undefined) { alert(`"${name}" already exists.`); return; }
+    if (state.Subjects[subj][name] !== undefined) { StudyFlowToast.error(`"${name}" already exists.`); return; }
     const rebuilt = {};
     Object.keys(state.Subjects[subj]).forEach(k => { rebuilt[k === old ? name : k] = state.Subjects[subj][k]; });
     state.Subjects[subj] = rebuilt;
@@ -455,7 +455,7 @@ function deleteTopic(subj, topic) {
     delete state.Subjects[subj][topic]; hasUnsavedEdits = true; renderTopicsPanel();
 }
 function addTopic(subj, name) {
-    if (state.Subjects[subj][name] !== undefined) { alert(`"${name}" exists.`); return; }
+    if (state.Subjects[subj][name] !== undefined) { StudyFlowToast.error(`"${name}" exists.`); return; }
     state.Subjects[subj][name] = { status: 'none', subtopics: [] };
     hasUnsavedEdits = true; renderTopicsPanel();
 }
@@ -513,7 +513,7 @@ async function saveEdits() {
         cleanSubjects[subj] = {};
         Object.entries(topics).forEach(([t, tdata]) => {
             cleanSubjects[subj][t] = {
-                status:    'none',
+                status: 'none',
                 subtopics: typeof tdata === 'object' ? (tdata.subtopics || []) : []
             };
         });
@@ -531,8 +531,22 @@ async function saveEdits() {
 document.getElementById('saveEditsBtn').addEventListener('click', async () => {
     const btn = document.getElementById('saveEditsBtn');
     btn.disabled = true; btn.textContent = '…Saving';
-    try { await saveEdits(); renderHoursPanel(); exitEditMode(); }
-    catch (err) { alert('Save failed: ' + err.message); }
+    try {
+        await saveEdits();
+        renderHoursPanel();
+        exitEditMode();
+        StudyFlowToast.success('Changes saved successfully');
+    }
+    catch (err) {
+        StudyFlowError.show(statusErrorEl, {
+            title: 'Save Failed',
+            what: 'Your edits couldn\'t be saved.',
+            why: err.message || 'A connection or server issue occurred.',
+            action: 'Check your connection and try again.',
+            retryFn: () => document.getElementById('saveEditsBtn').click(),
+            dismissFn: () => { }
+        });
+    }
     finally { btn.disabled = false; btn.textContent = '✓ Save Changes'; }
 });
 
@@ -543,13 +557,13 @@ function collectPayload() {
     const examDates = {}; const subjects = {};
 
     document.querySelectorAll('.custom-select').forEach(sel => {
-        const subj  = sel.dataset.subject;
+        const subj = sel.dataset.subject;
         const topic = sel.dataset.topic;
         if (!subjects[subj]) subjects[subj] = {};
         // Preserve subtopics from state when building payload
         const existing = (state.Subjects[subj] || {})[topic];
         subjects[subj][topic] = {
-            status:    sel.dataset.value || '0',
+            status: sel.dataset.value || '0',
             subtopics: typeof existing === 'object' ? (existing.subtopics || []) : []
         };
     });
@@ -558,7 +572,7 @@ function collectPayload() {
 
     const studyDays = {};
     document.querySelectorAll('#hoursList .date-row').forEach(row => {
-        const date  = row.dataset.date;
+        const date = row.dataset.date;
         const input = row.querySelector('input');
         studyDays[date] = input ? (input.value.trim() || '0') : '0';
     });
@@ -567,27 +581,72 @@ function collectPayload() {
 }
 
 
-// ── LOADING ───────────────────────────────────────────────────
+// ── LOADING (Multi-stage) ─────────────────────────────────────
 
-const loaderMessages = ['Building your schedule…','Prioritising topics…','Optimising…','Almost ready…'];
-let loaderInterval = null;
+const statusLoaderEl = document.getElementById('statusLoader');
+const statusErrorEl = document.getElementById('statusError');
+
+const statusLoader = new StudyFlowLoader(statusLoaderEl, [
+    { label: 'Sending request', detail: 'Saving your latest progress and study hours.' },
+    { label: 'Reading your data', detail: 'Reviewing subjects, topics, and exam dates.' },
+    { label: 'Understanding preferences', detail: 'Balancing what is done, pending, and urgent.' },
+    { label: 'Personalizing the schedule', detail: 'Fitting the plan around your available time.' },
+    { label: 'Finalizing output', detail: 'Checking the schedule before opening it.' }
+], {
+    checkpoints: [
+        'Inputs saved',
+        'Preferences understood',
+        'Schedule personalized',
+        'Ready to study'
+    ],
+    idleMessages: [
+        'Complex plans can take a little longer, but generation is still running.',
+        'StudyFlow is balancing topics against exam dates and available hours.',
+        'We are shaping a schedule that is practical, not just mathematically packed.',
+        'Almost there. The final plan is being checked now.'
+    ]
+});
+let statusStageTimers = [];
 
 function startLoader() {
     document.getElementById('generateBtn').style.display = 'none';
-    document.getElementById('statusLoader').style.display = 'block';
     document.getElementById('editToolbar').style.display = 'none';
-    let i = 0;
-    document.getElementById('statusLoaderMsg').textContent = loaderMessages[0];
-    loaderInterval = setInterval(() => {
-        i = (i+1) % loaderMessages.length;
-        document.getElementById('statusLoaderMsg').textContent = loaderMessages[i];
-    }, 4000);
+    statusErrorEl.innerHTML = '';
+    statusLoader.start();
+
+    clearStatusTimers();
+    statusStageTimers = [
+        setTimeout(() => statusLoader.advance(1), 1800),
+        setTimeout(() => statusLoader.advance(2), 4600),
+        setTimeout(() => statusLoader.advance(3), 8200),
+        setTimeout(() => statusLoader.advance(4), 13000)
+    ];
 }
+
 function stopLoader() {
-    clearInterval(loaderInterval);
-    document.getElementById('statusLoader').style.display = 'none';
+    clearStatusTimers();
+    statusLoader.reset();
     document.getElementById('generateBtn').style.display = 'block';
     document.getElementById('editToolbar').style.display = 'flex';
+}
+
+function showGenerateSuccess() {
+    clearStatusTimers();
+    statusLoader.complete('Schedule ready');
+    statusLoader.setProgress(100);
+    setTimeout(() => {
+        statusLoader.showSuccess('Schedule generated!', 'Redirecting to your plan…');
+    }, 600);
+}
+
+function showGenerateError(errorMsg) {
+    stopLoader();
+    const config = StudyFlowError.forGeneration(errorMsg);
+    StudyFlowError.show(statusErrorEl, {
+        ...config,
+        retryFn: () => document.getElementById('generateBtn').click(),
+        dismissFn: () => { }
+    });
 }
 
 async function readErrorPayload(res) {
@@ -599,6 +658,24 @@ async function readErrorPayload(res) {
     }
 }
 
+function clearStatusTimers() {
+    statusStageTimers.forEach(timer => clearTimeout(timer));
+    statusStageTimers = [];
+}
+
+async function pollScheduleJob(jobId, intervalMs = 2000, timeoutMs = 180000) {
+    const start = Date.now();
+    while (Date.now() - start <= timeoutMs) {
+        const res = await fetch(`/job/${jobId}/status`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Generation status could not be checked.');
+        if (data.status === 'done') return data.result;
+        if (data.status === 'error') throw new Error(data.error || 'Generation failed');
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+    throw new Error('Timed out waiting for schedule generation.');
+}
+
 
 // ── GENERATE ─────────────────────────────────────────────────
 
@@ -606,9 +683,16 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     if (isGenerating) return;
     if (editMode || hasUnsavedEdits) {
         try { await saveEdits(); if (editMode) exitEditMode(); }
-        catch (err) { alert('Could not save edits: ' + err.message); return; }
+        catch (err) {
+            showGenerateError('Could not save edits: ' + err.message);
+            return;
+        }
     }
-    isGenerating = true; startLoader();
+    isGenerating = true;
+    const btn = document.getElementById('generateBtn');
+    btn.classList.add('sf-btn-disabled');
+    startLoader();
+
     try {
         const payload = collectPayload();
         const saveRes = await fetch(`/submit_status/${userId}`, {
@@ -621,10 +705,18 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             const d = await readErrorPayload(genRes);
             throw new Error(d.error || 'Failed');
         }
-        window.location.href = '/schedule_page';
+        const genData = await genRes.json().catch(() => ({}));
+        if (!genData.job_id) throw new Error('invalid_schema_response');
+        await pollScheduleJob(genData.job_id);
+        // Success — show completion then redirect
+        showGenerateSuccess();
+        setTimeout(() => {
+            window.location.href = '/schedule_page';
+        }, 1500);
     } catch (err) {
-        alert('Failed to generate schedule: ' + err.message);
-        stopLoader(); isGenerating = false;
+        showGenerateError(err.message);
+        isGenerating = false;
+        btn.classList.remove('sf-btn-disabled');
     }
 });
 
@@ -632,7 +724,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 // ── INIT ─────────────────────────────────────────────────────
 
 async function init() {
-    const res  = await fetch('/me');
+    const res = await fetch('/me');
     const data = await res.json();
     userId = data.id;
     document.addEventListener('click', () => {

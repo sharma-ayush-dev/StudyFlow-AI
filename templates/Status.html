@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>Topics Status</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- Flatpickr for premium date picker -->
@@ -13,7 +14,7 @@
 </head>
 
 <body>
-{% include '_ambient_bg.html' %}
+    {% include '_ambient_bg.html' %}
 
     {% include '_navbar.html' %}
 
@@ -43,16 +44,16 @@
 
     <button id="generateBtn" class="generate-btn">Generate Schedule</button>
 
-    <div id="statusLoader" style="display:none;text-align:center;padding:20px 0 50px;">
-        <div class="loader-ring"></div>
-        <p id="statusLoaderMsg" style="color:#aaa;font-size:15px;margin-top:12px;">
-            Building your schedule…
-        </p>
-    </div>
+    <!-- MULTI-STAGE LOADING STATE -->
+    <div id="statusLoader" class="sf-hidden"></div>
+
+    <!-- ERROR CARD CONTAINER -->
+    <div id="statusError" style="max-width:600px;margin:0 auto;padding:0 20px;"></div>
 
     <script>
-            window.INITIAL_DATA = {{ data | tojson | safe }};
+        window.INITIAL_DATA = {{ data | tojson | safe }};
     </script>
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
     <script src="{{ url_for('static', filename='Status.js') }}?v={{ range(1, 1000) | random }}"></script>
 
 
