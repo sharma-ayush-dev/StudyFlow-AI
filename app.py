@@ -43,19 +43,11 @@ UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'}
+ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp', '.txt', '.xlsx', '.pptx', '.ppt'}
 
 init_app_extensions(app)
 
-# Model list helpers (wrappers use the schedule/vision/teacher defaults imported above)
-def get_sched_model_list() -> list:
-    return _parse_model_list('sched_model_list', SCHED_MODELS)
-
-def get_extract_model_list() -> list:
-    return _parse_model_list('extract_model_list', VISION_MODELS)
-
-def get_teacher_model_list() -> list:
-    return _parse_model_list('teacher_model_list', TEACHER_MODELS)
+# Model list helpers are imported from helpers.py
 
 # ── UPLOAD / EXTRACTION VALIDATION LIMITS ────────────────────────────────────
 # These mirror limits in text_extractor.py but are enforced at the route level

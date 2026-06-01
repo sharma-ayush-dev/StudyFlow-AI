@@ -36,32 +36,19 @@
         </div>
         <div class="regen-pref-body hidden" id="regenPrefBody">
             <div class="regen-pref-grid">
-                <label class="regen-field">
-                    <span>Study intensity</span>
-                    <select id="regenIntensity">
-                        <option value="balanced">Balanced</option>
-                        <option value="gentle">Gentle</option>
-                        <option value="focused">Focused</option>
-                        <option value="intense">Intense</option>
-                    </select>
-                </label>
-                <label class="regen-field">
-                    <span>Preferred block length</span>
-                    <select id="regenBlockLength">
-                        <option value="1-2">1-2 hour blocks</option>
-                        <option value="2-3">2-3 hour blocks</option>
-                        <option value="3-4">3-4 hour blocks</option>
-                    </select>
-                </label>
                 <label class="regen-field wide">
                     <span>Schedule preference</span>
-                    <input id="regenPreferenceNote" maxlength="180"
+                    <input id="regenPreferenceNote" maxlength="{{ pref_limit }}"
                         placeholder="Example: keep evenings lighter, revise hard topics first">
                 </label>
             </div>
             <div class="regen-hours-header">
                 <span>Available study time</span>
-                <button type="button" id="applyHoursPreset">Set all weekdays to 3h</button>
+                <div class="preset-controls" style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 13px; color: #b9b9c8;">Set weekdays to:</span>
+                    <input type="number" id="weekdayHoursInput" min="0" max="24" value="3" style="width: 54px; padding: 8px 10px; text-align: center; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(12, 12, 22, 0.88); color: #f5f5ff; outline: none; font: 500 13px 'Inter', sans-serif;">
+                    <button type="button" id="applyHoursPreset">Apply</button>
+                </div>
             </div>
             <div class="regen-hours-list" id="regenHoursList"></div>
         </div>
@@ -104,6 +91,7 @@
         window.TODAY_STR = {{ today_str | tojson | safe }};
         window.USER_ID = {{ userid | tojson | safe }};
         window.IS_ADMIN = {{ is_admin | tojson | safe }};
+        window.PREF_LIMIT = {{ pref_limit | tojson | safe }};
     </script>
     <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
     <script src="{{ url_for('static', filename='Progress.js') }}"></script>

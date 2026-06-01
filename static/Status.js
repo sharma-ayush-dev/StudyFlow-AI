@@ -1,10 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   STATUS.JS  — subtopics fixed + editable
-
-   Schema:  state.Subjects[subj][topic] = { status: "0-100", subtopics: [...] }
-   Read view:  topic name + collapsible subtopic list + custom dropdown
-   Edit view:  rename topic, add/delete/rename subtopics inline
-═══════════════════════════════════════════════════════════ */
+   STATUS.JS  — Redesigned UX for separate subject cards & accordions
+   ═══════════════════════════════════════════════════════════ */
 
 let state = JSON.parse(JSON.stringify(window.INITIAL_DATA));
 let snapshot = null;
@@ -12,6 +8,10 @@ let editMode = false;
 let userId = null;
 let isGenerating = false;
 let hasUnsavedEdits = false;
+
+// Accordion states
+let subjectCollapsedState = {};
+let activeTopicState = {};
 
 
 // ── HELPERS ──────────────────────────────────────────────────
@@ -60,6 +60,21 @@ function recalcStudyDays() {
         cur.setDate(cur.getDate() + 1);
     }
     state.study_days = days;
+}
+
+
+// ── PROGRESS HELPER ──────────────────────────────────────────
+
+function calculateSubjectProgress(subjectName) {
+    const topics = state.Subjects[subjectName] || {};
+    const topicKeys = Object.keys(topics);
+    if (topicKeys.length === 0) return 0;
+    let total = 0;
+    topicKeys.forEach(t => {
+        const val = _topicStatus(subjectName, t);
+        total += parseInt(val) || 0;
+    });
+    return Math.round(total / topicKeys.length);
 }
 
 
@@ -138,60 +153,172 @@ function renderTopicsPanel() {
     if (editMode) card.appendChild(buildAddSubjectRow());
 }
 
+function renderSubjectBlock(subjectName) {
+    const oldBlock = document.getElementById(`subject-card-${subjectName}`);
+    if (oldBlock) {
+        const newBlock = buildSubjectBlock(subjectName);
+        oldBlock.replaceWith(newBlock);
+    }
+}
+
 function buildSubjectBlock(subjectName) {
     const block = document.createElement('div');
-    block.className = 'subject-block';
-    block.appendChild(buildSubjectHeader(subjectName));
-    block.appendChild(buildTopicsList(subjectName));
-    if (editMode) block.appendChild(buildAddTopicRow(subjectName));
+    block.id = `subject-card-${subjectName}`;
+    block.className = 'subject-card' + (editMode ? ' edit-mode-card' : '');
+
+    const isCollapsed = subjectCollapsedState[subjectName] ?? false;
+
+    // Header
+    const header = buildSubjectHeader(subjectName, isCollapsed);
+    block.appendChild(header);
+
+    // Content container (rendered only if not collapsed)
+    if (!isCollapsed) {
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'subject-card-content';
+
+        // Topics list
+        const topicsList = buildTopicsList(subjectName);
+        contentDiv.appendChild(topicsList);
+
+        if (editMode) {
+            contentDiv.appendChild(buildAddTopicRow(subjectName));
+        }
+
+        block.appendChild(contentDiv);
+    }
+
     return block;
 }
 
-function buildSubjectHeader(subjectName) {
+function buildSubjectHeader(subjectName, isCollapsed) {
     const header = document.createElement('div');
-    header.className = 'subject-header';
+    header.className = 'subject-card-header';
+
+    // Collapsible click trigger
+    header.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('.custom-select')) {
+            return;
+        }
+        subjectCollapsedState[subjectName] = !isCollapsed;
+        renderSubjectBlock(subjectName);
+    });
+
+    // Arrow indicator
+    const toggleIcon = document.createElement('span');
+    toggleIcon.className = 'subject-collapse-toggle' + (isCollapsed ? ' collapsed' : '');
+    toggleIcon.innerHTML = isCollapsed ? '▶' : '▼';
+    header.appendChild(toggleIcon);
 
     if (!editMode) {
-        const nameEl = document.createElement('h2');
+        // Subject titles
+        const infoCol = document.createElement('div');
+        infoCol.className = 'subject-info-col';
+
+        const nameEl = document.createElement('h3');
+        nameEl.className = 'subject-title-text';
         nameEl.textContent = subjectName;
+        infoCol.appendChild(nameEl);
+
+        const metaRow = document.createElement('div');
+        metaRow.className = 'subject-meta-row';
+
+        // Exam Date badge
         const dateEl = document.createElement('span');
-        dateEl.className = 'exam-date';
-        dateEl.textContent = state.Exam_dates[subjectName] || 'No exam date';
-        header.appendChild(nameEl);
-        header.appendChild(dateEl);
+        dateEl.className = 'exam-date-badge';
+        dateEl.innerHTML = `📅 ${state.Exam_dates[subjectName] || 'No exam date'}`;
+        metaRow.appendChild(dateEl);
+
+        // Stats badge
+        const topics = Object.keys(state.Subjects[subjectName] || {});
+        let subCount = 0;
+        topics.forEach(t => {
+            subCount += _topicSubs(subjectName, t).length;
+        });
+        const statsEl = document.createElement('span');
+        statsEl.className = 'subject-stats-badge';
+        statsEl.textContent = `${topics.length} Topic${topics.length !== 1 ? 's' : ''} • ${subCount} Subtopic${subCount !== 1 ? 's' : ''}`;
+        metaRow.appendChild(statsEl);
+
+        infoCol.appendChild(metaRow);
+        header.appendChild(infoCol);
+
+        // Progress bar on the right
+        const progress = calculateSubjectProgress(subjectName);
+        const progressWrapper = document.createElement('div');
+        progressWrapper.className = 'subject-progress-wrapper';
+
+        const progressText = document.createElement('span');
+        progressText.className = 'subject-progress-text';
+        progressText.textContent = `${progress}% Complete`;
+
+        const progressTrack = document.createElement('div');
+        progressTrack.className = 'subject-progress-track';
+
+        const progressFill = document.createElement('div');
+        progressFill.className = 'subject-progress-fill';
+        progressFill.style.width = `${progress}%`;
+
+        progressTrack.appendChild(progressFill);
+        progressWrapper.appendChild(progressText);
+        progressWrapper.appendChild(progressTrack);
+        header.appendChild(progressWrapper);
+
     } else {
+        // Edit Mode Subject Header
         const leftCol = document.createElement('div');
         leftCol.className = 'edit-col';
-        leftCol.style.cssText = 'display:flex;flex-direction:column;flex:1;gap:6px;margin-right:12px;';
+        leftCol.style.cssText = 'display:flex;flex-direction:column;flex:1;gap:12px;margin-right:12px;';
 
+        // Subject Name Field Group
+        const subjectGroup = document.createElement('div');
+        subjectGroup.className = 'edit-field-group';
+        const subjectLabel = document.createElement('label');
+        subjectLabel.className = 'edit-field-label subject-label';
+        subjectLabel.innerHTML = '📚 Subject Title';
         const nameInput = document.createElement('input');
         nameInput.className = 'edit-inline-input edit-name-input';
+        nameInput.placeholder = 'Subject name...';
         nameInput.value = subjectName;
         nameInput.addEventListener('change', () => renameSubject(subjectName, nameInput.value.trim()));
+        subjectGroup.appendChild(subjectLabel);
+        subjectGroup.appendChild(nameInput);
 
-        const dateRow = document.createElement('div');
-        dateRow.className = 'edit-date-row';
+        // Exam Date Field Group
+        const dateGroup = document.createElement('div');
+        dateGroup.className = 'edit-field-group';
         const dateLabel = document.createElement('label');
-        dateLabel.className = 'edit-date-label';
-        dateLabel.textContent = 'Exam date:';
+        dateLabel.className = 'edit-field-label date-label';
+        dateLabel.innerHTML = '📅 Exam Date';
         const dateInput = document.createElement('input');
-        dateInput.type = 'date';
+        dateInput.type = 'text';
         dateInput.className = 'edit-date-input';
-        dateInput.value = dmyToInputVal(state.Exam_dates[subjectName] || '');
-        dateInput.addEventListener('change', () => {
-            const dmy = inputValToDmy(dateInput.value);
-            if (dmy) state.Exam_dates[subjectName] = dmy;
-            else delete state.Exam_dates[subjectName];
-            hasUnsavedEdits = true;
+        dateInput.placeholder = 'Select date...';
+        const initVal = dmyToInputVal(state.Exam_dates[subjectName] || '');
+        dateInput.value = initVal;
+        
+        flatpickr(dateInput, {
+            dateFormat: 'Y-m-d',
+            defaultDate: initVal || null,
+            disableMobile: "true",
+            onChange: (selectedDates, dateStr) => {
+                const dmy = inputValToDmy(dateStr);
+                if (dmy) state.Exam_dates[subjectName] = dmy;
+                else delete state.Exam_dates[subjectName];
+                hasUnsavedEdits = true;
+            }
         });
-        dateRow.appendChild(dateLabel);
-        dateRow.appendChild(dateInput);
-        leftCol.appendChild(nameInput);
-        leftCol.appendChild(dateRow);
+
+        dateGroup.appendChild(dateLabel);
+        dateGroup.appendChild(dateInput);
+
+        leftCol.appendChild(subjectGroup);
+        leftCol.appendChild(dateGroup);
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'edit-delete-btn';
-        delBtn.textContent = '🗑 Delete';
+        delBtn.className = 'edit-delete-icon-btn';
+        delBtn.innerHTML = '🗑️';
+        delBtn.title = 'Delete Subject';
         delBtn.addEventListener('click', () => deleteSubject(subjectName));
 
         header.appendChild(leftCol);
@@ -202,7 +329,7 @@ function buildSubjectHeader(subjectName) {
 
 function buildTopicsList(subjectName) {
     const wrapper = document.createElement('div');
-    wrapper.className = 'topics';
+    wrapper.className = 'topics' + (editMode ? ' edit-topics-container' : ' normal-topics-container');
     Object.keys(state.Subjects[subjectName] || {}).forEach(t =>
         wrapper.appendChild(buildTopicRow(subjectName, t)));
     return wrapper;
@@ -210,59 +337,60 @@ function buildTopicsList(subjectName) {
 
 function buildTopicRow(subjectName, topicName) {
     const row = document.createElement('div');
-    row.className = 'topic-row';
-
-    // Always read using helper to handle both old (string) and new (object) schema
+    
     const subtopics = _topicSubs(subjectName, topicName);
     const currentValue = _topicStatus(subjectName, topicName);
 
-    if (!editMode) {
-        // ── READ VIEW ──
-        const leftDiv = document.createElement('div');
-        leftDiv.style.flex = '1';
+    // Active accordion check
+    const isExpanded = activeTopicState[subjectName] === topicName;
+    row.className = 'topic-accordion' + (isExpanded ? ' expanded' : ' collapsed');
 
-        const nameEl = document.createElement('span');
-        nameEl.className = 'topic-name';
-        nameEl.textContent = topicName;
-        leftDiv.appendChild(nameEl);
+    // Accordion Header
+    const accordionHeader = document.createElement('div');
+    accordionHeader.className = 'topic-accordion-header';
 
-        // Subtopics collapsible toggle
-        if (subtopics.length) {
-            const toggleRow = document.createElement('div');
-            toggleRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:3px;';
-
-            const toggle = document.createElement('span');
-            toggle.style.cssText = 'font-size:11px;color:#7b2ff7;cursor:pointer;user-select:none;';
-            toggle.textContent = `▸ ${subtopics.length} subtopic${subtopics.length > 1 ? 's' : ''}`;
-
-            const subList = document.createElement('div');
-            subList.style.cssText = 'display:none;font-size:12px;color:#666;padding:4px 0 0 2px;line-height:1.6;';
-            subList.textContent = subtopics.join(' · ');
-
-            toggle.addEventListener('click', e => {
-                e.stopPropagation();
-                const open = subList.style.display === 'block';
-                subList.style.display = open ? 'none' : 'block';
-                toggle.textContent = open
-                    ? `▸ ${subtopics.length} subtopic${subtopics.length > 1 ? 's' : ''}`
-                    : `▾ ${subtopics.length} subtopic${subtopics.length > 1 ? 's' : ''}`;
-            });
-
-            toggleRow.appendChild(toggle);
-            leftDiv.appendChild(toggleRow);
-            leftDiv.appendChild(subList);
+    accordionHeader.addEventListener('click', (e) => {
+        if (e.target.closest('.custom-select') || e.target.closest('input') || e.target.closest('button')) {
+            return;
         }
+        if (activeTopicState[subjectName] === topicName) {
+            activeTopicState[subjectName] = null;
+        } else {
+            activeTopicState[subjectName] = topicName;
+        }
+        renderSubjectBlock(subjectName);
+    });
 
-        row.appendChild(leftDiv);
+    // Accordion header structure
+    const leftSide = document.createElement('div');
+    leftSide.className = 'topic-header-left';
 
-        // Custom dropdown
+    const arrow = document.createElement('span');
+    arrow.className = 'topic-accordion-arrow';
+    arrow.innerHTML = isExpanded ? '▼' : '▶';
+    leftSide.appendChild(arrow);
+
+    if (!editMode) {
+        const nameEl = document.createElement('span');
+        nameEl.className = 'topic-title-text';
+        nameEl.textContent = topicName;
+        leftSide.appendChild(nameEl);
+
+        const badge = document.createElement('span');
+        badge.className = 'topic-subtopic-count-badge';
+        badge.textContent = `${subtopics.length} Subtopic${subtopics.length !== 1 ? 's' : ''}`;
+        leftSide.appendChild(badge);
+
+        accordionHeader.appendChild(leftSide);
+
+        // Progress Dropdown Selector
         const customSelect = document.createElement('div');
         customSelect.className = 'custom-select';
         customSelect.dataset.subject = subjectName;
         customSelect.dataset.topic = topicName;
 
         const trigger = document.createElement('div');
-        trigger.className = 'select-trigger';
+        trigger.className = `select-trigger progress-${currentValue}`;
 
         const optionsData = [
             ['0', '0% — Not Started'],
@@ -281,12 +409,11 @@ function buildTopicRow(subjectName, topicName) {
 
         optionsData.forEach(([val, label]) => {
             const opt = document.createElement('div');
-            opt.className = 'option' + (val === currentValue ? ' selected' : '');
+            opt.className = 'option' + (val === currentValue ? ' selected' : '') + ` option-progress-${val}`;
             opt.textContent = label;
             opt.dataset.value = val;
             opt.addEventListener('click', e => {
                 e.stopPropagation();
-                // Update state — preserve subtopics
                 const existing = state.Subjects[subjectName][topicName];
                 if (typeof existing === 'object' && existing !== null) {
                     existing.status = val;
@@ -294,10 +421,14 @@ function buildTopicRow(subjectName, topicName) {
                     state.Subjects[subjectName][topicName] = { status: val, subtopics: [] };
                 }
                 trigger.querySelector('.value').textContent = label;
+                trigger.className = `select-trigger progress-${val}`;
                 customSelect.dataset.value = val;
                 customSelect.classList.remove('active');
                 optionsContainer.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
                 opt.classList.add('selected');
+                
+                // Real-time update overall stats
+                renderSubjectBlock(subjectName);
             });
             optionsContainer.appendChild(opt);
         });
@@ -312,83 +443,102 @@ function buildTopicRow(subjectName, topicName) {
 
         customSelect.appendChild(trigger);
         customSelect.appendChild(optionsContainer);
-        row.appendChild(customSelect);
+        accordionHeader.appendChild(customSelect);
 
     } else {
-        // ── EDIT VIEW ──
-        row.style.flexDirection = 'column';
-        row.style.alignItems = 'stretch';
-        row.style.gap = '8px';
-
-        // Topic name + delete button row
-        const topRow = document.createElement('div');
-        topRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
-
+        // Edit Mode Topic Header
         const nameInput = document.createElement('input');
-        nameInput.className = 'edit-inline-input';
+        nameInput.className = 'edit-inline-input edit-topic-input';
         nameInput.value = topicName;
-        nameInput.addEventListener('change', () =>
-            renameTopic(subjectName, topicName, nameInput.value.trim()));
+        nameInput.placeholder = 'Topic name...';
+        nameInput.addEventListener('change', () => {
+            const trimmed = nameInput.value.trim();
+            if (trimmed && trimmed !== topicName) {
+                renameTopic(subjectName, topicName, trimmed);
+            }
+        });
+        leftSide.appendChild(nameInput);
+        accordionHeader.appendChild(leftSide);
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'edit-delete-topic-btn';
-        delBtn.textContent = '✕';
+        delBtn.className = 'edit-delete-icon-btn';
+        delBtn.innerHTML = '🗑️';
+        delBtn.title = 'Delete Topic';
         delBtn.addEventListener('click', () => deleteTopic(subjectName, topicName));
+        accordionHeader.appendChild(delBtn);
+    }
 
-        topRow.appendChild(nameInput);
-        topRow.appendChild(delBtn);
-        row.appendChild(topRow);
+    row.appendChild(accordionHeader);
 
-        // Subtopics edit section
-        const subSection = document.createElement('div');
-        subSection.style.cssText = 'padding-left:12px;display:flex;flex-direction:column;gap:4px;';
+    // Accordion Content (expanded only)
+    if (isExpanded) {
+        const accordionContent = document.createElement('div');
+        accordionContent.className = 'topic-accordion-content';
+
+        // Subtopics
+        const subList = document.createElement('div');
+        subList.className = 'subtopics-list-wrapper';
 
         subtopics.forEach((sub, idx) => {
             const subRow = document.createElement('div');
-            subRow.style.cssText = 'display:flex;gap:6px;align-items:center;';
+            subRow.className = 'subtopic-row';
 
-            const subInput = document.createElement('input');
-            subInput.className = 'edit-inline-input';
-            subInput.value = sub;
-            subInput.style.fontSize = '13px';
-            subInput.addEventListener('change', () =>
-                renameSubtopic(subjectName, topicName, idx, subInput.value.trim()));
+            const bullet = document.createElement('span');
+            bullet.className = 'subtopic-bullet';
+            bullet.innerHTML = '•';
+            subRow.appendChild(bullet);
 
-            const subDel = document.createElement('button');
-            subDel.className = 'edit-delete-topic-btn';
-            subDel.textContent = '✕';
-            subDel.style.cssText += 'width:22px;height:22px;font-size:11px;';
-            subDel.addEventListener('click', () =>
-                deleteSubtopic(subjectName, topicName, idx));
+            if (!editMode) {
+                const subText = document.createElement('span');
+                subText.className = 'subtopic-text';
+                subText.textContent = sub;
+                subRow.appendChild(subText);
+            } else {
+                const subInput = document.createElement('input');
+                subInput.className = 'edit-inline-input edit-subtopic-input';
+                subInput.value = sub;
+                subInput.placeholder = 'Subtopic name...';
+                subInput.addEventListener('change', () =>
+                    renameSubtopic(subjectName, topicName, idx, subInput.value.trim()));
+                subRow.appendChild(subInput);
 
-            subRow.appendChild(subInput);
-            subRow.appendChild(subDel);
-            subSection.appendChild(subRow);
+                const subDel = document.createElement('button');
+                subDel.className = 'edit-delete-icon-btn';
+                subDel.innerHTML = '🗑️';
+                subDel.title = 'Delete Subtopic';
+                subDel.addEventListener('click', () =>
+                    deleteSubtopic(subjectName, topicName, idx));
+                subRow.appendChild(subDel);
+            }
+            subList.appendChild(subRow);
         });
 
-        // Add subtopic row
-        const addSubRow = document.createElement('div');
-        addSubRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:2px;';
+        accordionContent.appendChild(subList);
 
-        const addSubInput = document.createElement('input');
-        addSubInput.className = 'edit-inline-input';
-        addSubInput.placeholder = '+ Add subtopic…';
-        addSubInput.style.fontSize = '12px';
+        // Add subtopic input at bottom of list
+        if (editMode) {
+            const addSubRow = document.createElement('div');
+            addSubRow.className = 'edit-add-subtopic-row';
 
-        const addSubBtn = document.createElement('button');
-        addSubBtn.className = 'edit-add-btn';
-        addSubBtn.textContent = 'Add';
-        addSubBtn.style.cssText += 'font-size:12px;padding:5px 12px;';
-        addSubBtn.addEventListener('click', () => {
-            const name = addSubInput.value.trim();
-            if (name) { addSubtopic(subjectName, topicName, name); addSubInput.value = ''; }
-        });
-        addSubInput.addEventListener('keydown', e => { if (e.key === 'Enter') addSubBtn.click(); });
+            const addSubInput = document.createElement('input');
+            addSubInput.className = 'edit-inline-input edit-subtopic-input';
+            addSubInput.placeholder = '+ Add subtopic…';
 
-        addSubRow.appendChild(addSubInput);
-        addSubRow.appendChild(addSubBtn);
-        subSection.appendChild(addSubRow);
-        row.appendChild(subSection);
+            const addSubBtn = document.createElement('button');
+            addSubBtn.className = 'edit-add-btn edit-add-subtopic-btn';
+            addSubBtn.innerHTML = 'Add';
+            addSubBtn.addEventListener('click', () => {
+                const name = addSubInput.value.trim();
+                if (name) { addSubtopic(subjectName, topicName, name); addSubInput.value = ''; }
+            });
+            addSubInput.addEventListener('keydown', e => { if (e.key === 'Enter') addSubBtn.click(); });
+
+            addSubRow.appendChild(addSubInput);
+            addSubRow.appendChild(addSubBtn);
+            accordionContent.appendChild(addSubRow);
+        }
+
+        row.appendChild(accordionContent);
     }
 
     return row;
@@ -396,13 +546,13 @@ function buildTopicRow(subjectName, topicName) {
 
 function buildAddTopicRow(subjectName) {
     const row = document.createElement('div');
-    row.className = 'edit-add-row';
+    row.className = 'edit-add-row edit-add-topic-container';
     const input = document.createElement('input');
-    input.className = 'edit-inline-input';
+    input.className = 'edit-inline-input edit-topic-input';
     input.placeholder = 'New topic name…';
     const btn = document.createElement('button');
     btn.className = 'edit-add-btn';
-    btn.textContent = '+ Add Topic';
+    btn.innerHTML = '+ Add Topic';
     btn.addEventListener('click', () => { const n = input.value.trim(); if (n) { addTopic(subjectName, n); input.value = ''; } });
     input.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
     row.appendChild(input); row.appendChild(btn);
@@ -432,16 +582,27 @@ function renameSubject(old, name) {
     if (state.Subjects[name]) { StudyFlowToast.error(`"${name}" already exists.`); return; }
     state.Subjects[name] = state.Subjects[old]; delete state.Subjects[old];
     if (state.Exam_dates[old]) { state.Exam_dates[name] = state.Exam_dates[old]; delete state.Exam_dates[old]; }
+    
+    subjectCollapsedState[name] = subjectCollapsedState[old]; delete subjectCollapsedState[old];
+    activeTopicState[name] = activeTopicState[old]; delete activeTopicState[old];
+
     hasUnsavedEdits = true; renderTopicsPanel();
 }
 function deleteSubject(name) {
     if (!confirm(`Delete "${name}" and all its topics?`)) return;
     delete state.Subjects[name]; delete state.Exam_dates[name];
+    delete subjectCollapsedState[name];
+    delete activeTopicState[name];
+
     hasUnsavedEdits = true; recalcStudyDays(); renderTopicsPanel(); renderHoursPanel();
 }
 function addSubject(name) {
     if (state.Subjects[name]) { StudyFlowToast.error(`"${name}" already exists.`); return; }
-    state.Subjects[name] = {}; hasUnsavedEdits = true; renderTopicsPanel();
+    state.Subjects[name] = {};
+    subjectCollapsedState[name] = false;
+    activeTopicState[name] = null;
+
+    hasUnsavedEdits = true; renderTopicsPanel();
 }
 function renameTopic(subj, old, name) {
     if (!name || name === old) return;
@@ -449,14 +610,27 @@ function renameTopic(subj, old, name) {
     const rebuilt = {};
     Object.keys(state.Subjects[subj]).forEach(k => { rebuilt[k === old ? name : k] = state.Subjects[subj][k]; });
     state.Subjects[subj] = rebuilt;
+    
+    if (activeTopicState[subj] === old) {
+        activeTopicState[subj] = name;
+    }
+
     hasUnsavedEdits = true; renderTopicsPanel();
 }
 function deleteTopic(subj, topic) {
-    delete state.Subjects[subj][topic]; hasUnsavedEdits = true; renderTopicsPanel();
+    delete state.Subjects[subj][topic];
+    if (activeTopicState[subj] === topic) {
+        const remaining = Object.keys(state.Subjects[subj]);
+        activeTopicState[subj] = remaining.length > 0 ? remaining[0] : null;
+    }
+
+    hasUnsavedEdits = true; renderTopicsPanel();
 }
 function addTopic(subj, name) {
     if (state.Subjects[subj][name] !== undefined) { StudyFlowToast.error(`"${name}" exists.`); return; }
     state.Subjects[subj][name] = { status: 'none', subtopics: [] };
+    activeTopicState[subj] = name; // Auto expand new topic
+
     hasUnsavedEdits = true; renderTopicsPanel();
 }
 function renameSubtopic(subj, topic, idx, name) {
@@ -468,13 +642,13 @@ function renameSubtopic(subj, topic, idx, name) {
 function deleteSubtopic(subj, topic, idx) {
     const t = state.Subjects[subj][topic];
     if (typeof t === 'object') t.subtopics.splice(idx, 1);
-    hasUnsavedEdits = true; renderTopicsPanel();
+    hasUnsavedEdits = true; renderSubjectBlock(subj);
 }
 function addSubtopic(subj, topic, name) {
     const t = state.Subjects[subj][topic];
     if (typeof t === 'object') { t.subtopics.push(name); }
     else { state.Subjects[subj][topic] = { status: t || '0', subtopics: [name] }; }
-    hasUnsavedEdits = true; renderTopicsPanel();
+    hasUnsavedEdits = true; renderSubjectBlock(subj);
 }
 
 
@@ -507,7 +681,7 @@ document.getElementById('cancelEditsBtn').addEventListener('click', () => {
 async function saveEdits() {
     recalcStudyDays();
 
-    // Clean payload: preserve subtopics, reset status to 'none' for storage
+    // 1. Clean payload: preserve subtopics, reset status to 'none' for storage
     const cleanSubjects = {};
     Object.entries(state.Subjects).forEach(([subj, topics]) => {
         cleanSubjects[subj] = {};
@@ -519,13 +693,38 @@ async function saveEdits() {
         });
     });
 
-    const payload = { Exam_dates: state.Exam_dates, Subjects: cleanSubjects, study_days: state.study_days };
-    const res = await fetch(`/save_extracted/${userId}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+    // 2. Status payload: retains actual user progress statuses
+    const statusSubjects = {};
+    Object.entries(state.Subjects).forEach(([subj, topics]) => {
+        statusSubjects[subj] = {};
+        Object.entries(topics).forEach(([t, tdata]) => {
+            statusSubjects[subj][t] = {
+                status: typeof tdata === 'object' ? (tdata.status || '0') : (tdata || '0'),
+                subtopics: typeof tdata === 'object' ? (tdata.subtopics || []) : []
+            };
+        });
     });
-    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed to save'); }
-    state.Subjects = cleanSubjects; hasUnsavedEdits = false;
+
+    const extractedPayload = { Exam_dates: state.Exam_dates, Subjects: cleanSubjects, study_days: state.study_days };
+    const statusPayload = { Exam_dates: state.Exam_dates, Subjects: statusSubjects, study_days: state.study_days };
+
+    // Save extracted structure
+    const res1 = await fetch(`/save_extracted/${userId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(extractedPayload)
+    });
+    if (!res1.ok) { const d = await res1.json(); throw new Error(d.error || 'Failed to save extracted data'); }
+
+    // Save status progress structures in sync
+    const res2 = await fetch(`/submit_status/${userId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(statusPayload)
+    });
+    if (!res2.ok) { const d = await res2.json(); throw new Error(d.error || 'Failed to save status progress'); }
+
+    // Keep actual progress values on client side
+    state.Subjects = statusSubjects;
+    hasUnsavedEdits = false;
 }
 
 document.getElementById('saveEditsBtn').addEventListener('click', async () => {
@@ -708,7 +907,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         const genData = await genRes.json().catch(() => ({}));
         if (!genData.job_id) throw new Error('invalid_schema_response');
         await pollScheduleJob(genData.job_id);
-        // Success — show completion then redirect
         showGenerateSuccess();
         setTimeout(() => {
             window.location.href = '/schedule_page';
@@ -730,6 +928,19 @@ async function init() {
     document.addEventListener('click', () => {
         document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('active'));
     });
+
+    // Initialize subject states
+    const subjects = Object.keys(state.Subjects);
+    subjects.forEach(s => {
+        subjectCollapsedState[s] = false; // default expanded
+        const topics = Object.keys(state.Subjects[s]);
+        if (topics.length > 0) {
+            activeTopicState[s] = topics[0]; // first topic open by default
+        } else {
+            activeTopicState[s] = null;
+        }
+    });
+
     renderTopicsPanel();
     renderHoursPanel();
 }

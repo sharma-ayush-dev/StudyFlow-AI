@@ -2,6 +2,7 @@
 
 const fileInput = document.getElementById('fileInput');
 const fileNames = document.getElementById('fileNames');
+const fileListContainer = document.getElementById('fileListContainer');
 const uploadBtn = document.getElementById('uploadBtn');
 const uploadLoaderEl = document.getElementById('uploadLoader');
 const uploadErrorEl = document.getElementById('uploadError');
@@ -56,17 +57,127 @@ manualText?.addEventListener('input', () => {
     wordCountText.style.color = words > WORD_LIMIT ? '#ff7c7c' : '#666';
 });
 
-fileInput.addEventListener('change', () => {
-    updateFileLabel(fileInput.files);
-});
+let uploadedFiles = [];
+const ALLOWED_EXTS = ['.pdf', '.docx', '.jpg', '.png', '.jpeg', '.webp', '.txt', '.xlsx', '.pptx', '.ppt'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
 
-function updateFileLabel(files) {
-    if (!files || !files.length) {
-        fileNames.textContent = 'No files chosen';
-        return;
-    }
-    fileNames.textContent = Array.from(files).map(file => file.name).join(', ');
+function isValidExtension(filename) {
+    const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+    return ALLOWED_EXTS.includes(ext);
 }
+
+function addFiles(files) {
+    let addedCount = 0;
+    let invalidCount = 0;
+    let duplicateCount = 0;
+    let tooLargeCount = 0;
+    let combinedTooLargeCount = 0;
+
+    Array.from(files).forEach(file => {
+        if (!isValidExtension(file.name)) {
+            invalidCount++;
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            tooLargeCount++;
+            return;
+        }
+        const currentTotal = uploadedFiles.reduce((sum, f) => sum + f.size, 0);
+        if (currentTotal + file.size > 15 * 1024 * 1024) {
+            combinedTooLargeCount++;
+            return;
+        }
+        const isDuplicate = uploadedFiles.some(f => f.name === file.name && f.size === file.size);
+        if (isDuplicate) {
+            duplicateCount++;
+            return;
+        }
+        uploadedFiles.push(file);
+        addedCount++;
+    });
+
+    if (invalidCount > 0) {
+        StudyFlowToast.error(`Skipped ${invalidCount} file(s) with unsupported formats.`);
+    }
+    if (tooLargeCount > 0) {
+        StudyFlowToast.error(`Skipped ${tooLargeCount} file(s) exceeding the 5MB size limit.`);
+    }
+    if (combinedTooLargeCount > 0) {
+        StudyFlowToast.error(`Skipped ${combinedTooLargeCount} file(s) as the combined size would exceed the 15MB limit.`);
+    }
+    if (duplicateCount > 0) {
+        StudyFlowToast.info(`Skipped ${duplicateCount} duplicate file(s).`);
+    }
+    if (addedCount > 0) {
+        StudyFlowToast.success(`Added ${addedCount} file(s).`);
+    }
+
+    renderFilesList();
+}
+
+function removeFile(index) {
+    if (index >= 0 && index < uploadedFiles.length) {
+        const removed = uploadedFiles.splice(index, 1);
+        if (removed.length > 0) {
+            StudyFlowToast.info(`Removed ${removed[0].name}`);
+        }
+        renderFilesList();
+    }
+}
+
+function renderFilesList() {
+    if (!fileListContainer) return;
+
+    if (uploadedFiles.length === 0) {
+        fileListContainer.style.display = 'none';
+        fileListContainer.innerHTML = '';
+        fileNames.style.display = 'inline';
+        fileNames.textContent = 'No files chosen';
+    } else {
+        fileNames.style.display = 'none';
+        fileListContainer.style.display = 'flex';
+        fileListContainer.innerHTML = '';
+
+        uploadedFiles.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+
+            const info = document.createElement('div');
+            info.className = 'file-info';
+
+            const icon = document.createElement('span');
+            icon.className = 'file-icon';
+            icon.textContent = '📄';
+
+            const name = document.createElement('span');
+            name.className = 'file-name-text';
+            name.textContent = file.name;
+
+            info.appendChild(icon);
+            info.appendChild(name);
+            item.appendChild(info);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-file-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.type = 'button';
+            removeBtn.title = 'Remove file';
+            removeBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                removeFile(index);
+            });
+
+            item.appendChild(removeBtn);
+            fileListContainer.appendChild(item);
+        });
+    }
+}
+
+fileInput.addEventListener('change', () => {
+    addFiles(fileInput.files);
+    fileInput.value = '';
+});
 
 const dropArea = document.getElementById('fileDropArea');
 
@@ -81,12 +192,7 @@ dropArea.addEventListener('drop', event => {
     event.preventDefault();
     dropArea.classList.remove('drag-over');
     const droppedFiles = event.dataTransfer.files;
-    try {
-        fileInput.files = droppedFiles;
-    } catch (_) {
-        // Some browsers do not allow assigning DataTransfer files to inputs.
-    }
-    updateFileLabel(droppedFiles);
+    addFiles(droppedFiles);
 });
 
 function startUploadLoader() {
@@ -134,7 +240,7 @@ function clearUploadTimers() {
 async function doUpload() {
     if (isUploading) return;
 
-    const hasFiles = fileInput.files && fileInput.files.length > 0;
+    const hasFiles = uploadedFiles.length > 0;
     const rawText = manualText?.value || '';
     const cleanText = sanitizeText(rawText);
     const words = countWords(cleanText);
@@ -167,7 +273,7 @@ async function doUpload() {
     try {
         const formData = new FormData();
         if (hasFiles) {
-            Array.from(fileInput.files).forEach(file => formData.append('files', file));
+            uploadedFiles.forEach(file => formData.append('files', file));
         }
         if (cleanText) {
             formData.append('manual_text', cleanText);

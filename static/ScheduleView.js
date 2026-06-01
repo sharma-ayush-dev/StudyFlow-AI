@@ -118,7 +118,7 @@ function renderSchedule(data) {
                 studyBtn.innerText = 'Study Now';
                 studyBtn.addEventListener('click', () => {
                     const enc = (s) => encodeURIComponent(s);
-                    window.location.href = `/study/${enc(subjectName)}/${enc(topicName)}`;
+                    window.location.href = `/study/${enc(subjectName)}/${enc(topicName)}?date=${enc(date)}`;
                 });
 
                 rightDiv.appendChild(hoursEl);

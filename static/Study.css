@@ -614,17 +614,15 @@
     animation: blink 0.8s step-end infinite;
     color: #7b2ff7;
     font-size: 0.9em;
+    margin-left: 2px;
 }
 
 @keyframes blink {
     50% { opacity: 0; }
 }
 
-.streaming-cursor::after {
-    content: '|';
-}
-
 .streaming-text {
+    display: inline;
     min-height: 24px;
     transition: color 0.18s ease;
 }

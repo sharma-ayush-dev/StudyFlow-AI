@@ -527,6 +527,14 @@
                     <button class="btn-save" onclick="saveWordLimit()">Save Word Limit</button>
                 </div>
 
+                <!-- Schedule Preference Limit -->
+                <label class="admin-label">Schedule preference character limit (10–2000)</label>
+                <input type="number" id="schedPrefLimitInput" class="admin-input" value="{{ sched_pref_limit }}" min="10"
+                    max="2000" step="10">
+                <div class="admin-row" style="margin-bottom:28px;">
+                    <button class="btn-save" onclick="saveSchedPrefLimit()">Save Schedule Preference Limit</button>
+                </div>
+
                 <!-- Schedule models -->
                 <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
                     Schedule generator models (tried top → bottom)
@@ -776,6 +784,11 @@
         async function saveWordLimit() {
             const v = parseInt(document.getElementById('wordLimitInput').value);
             const [ok, d] = await api('/admin/set_word_limit', { word_limit: v });
+            fb('aiFb', ok ? '✓ ' + d.message : d.error, !ok);
+        }
+        async function saveSchedPrefLimit() {
+            const v = parseInt(document.getElementById('schedPrefLimitInput').value);
+            const [ok, d] = await api('/admin/set_sched_pref_limit', { limit: v });
             fb('aiFb', ok ? '✓ ' + d.message : d.error, !ok);
         }
 

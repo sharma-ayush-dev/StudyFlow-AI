@@ -46,6 +46,7 @@ def admin_dashboard():
         default_extract_models=VISION_MODELS,
         default_teacher_models=TEACHER_MODELS,
         word_limit=get_word_limit(), default_word_limit=DEFAULT_WORD_LIMIT,
+        sched_pref_limit=get_sched_pref_limit(), default_sched_pref_limit=DEFAULT_SCHED_PREF_LIMIT,
         use_chinese=get_use_chinese())
 
 

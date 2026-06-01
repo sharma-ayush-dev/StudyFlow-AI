@@ -60,7 +60,8 @@ def progress_page():
     return render_template('Progress.html',
         today_str=today_str, past_schedule=past_schedule,
         full_schedule=schedule, topic_status=topic_status,
-        userid=current_user.id, is_admin=current_user.is_admin)
+        userid=current_user.id, is_admin=current_user.is_admin,
+        pref_limit=get_sched_pref_limit())
 
 
 def _safe_parse_dmy(s):
@@ -73,7 +74,7 @@ def _safe_parse_dmy(s):
 def study_page(subject: str, topic: str):
     subject = _sanitize_field(urllib.parse.unquote(subject), 200)
     topic   = _sanitize_field(urllib.parse.unquote(topic),   200)
-    schedule_date = _sanitize_field(request.args.get('date', ''), 20) or None
+    schedule_date = _sanitize_field(request.args.get('date', ''), 20) or get_today()
 
     user_data = _get_study_data()
     if not user_data: return redirect(url_for('upload_page'))

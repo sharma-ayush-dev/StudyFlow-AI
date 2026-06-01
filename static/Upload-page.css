@@ -149,10 +149,104 @@
     color: #bbb;
 }
 
-
 .upload-btn {
     margin-top: 10px;
     font-size: 20px;
     padding: 14px;
+}
+
+/* FILE LIST STYLING */
+.file-list-container {
+    width: 100%;
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.file-list-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.file-list-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 3px;
+}
+
+.file-list-container::-webkit-scrollbar-thumb {
+    background: rgba(123, 47, 247, 0.3);
+    border-radius: 3px;
+}
+
+.file-list-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(123, 47, 247, 0.5);
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(123, 47, 247, 0.06);
+    border: 1px solid rgba(123, 47, 247, 0.15);
+    padding: 10px 14px;
+    border-radius: 10px;
+    transition: background-color 0.2s, border-color 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.file-item:hover {
+    background: rgba(123, 47, 247, 0.1);
+    border-color: rgba(123, 47, 247, 0.3);
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+    flex-grow: 1;
+    text-align: left;
+}
+
+.file-icon {
+    font-size: 16px;
+    color: #9f55ff;
+    flex-shrink: 0;
+}
+
+.file-name-text {
+    color: #eee;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.remove-file-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 20px;
+    font-weight: 300;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s, background-color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.remove-file-btn:hover {
+    color: #ff4d4d;
+    background-color: rgba(255, 77, 77, 0.1);
+    transform: scale(1.1);
 }
 

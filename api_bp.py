@@ -46,12 +46,31 @@ def upload_files():
         manual_text = _sanitize(request.form.get('manual_text', ''), max_words=get_word_limit())
         if not files and not manual_text:
             return jsonify({'error': 'Please upload files or paste text'}), 400
+        
+        # Enforce file size checks (individual 5MB, combined 15MB)
+        total_size = 0
+        valid_files_count = 0
+        for file in files:
+            if not file.filename: continue
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0)  # Reset to start of file
+            
+            if file_size > 5 * 1024 * 1024:
+                return jsonify({'error': f'File "{file.filename}" exceeds the maximum 5MB size limit.'}), 400
+            
+            total_size += file_size
+            valid_files_count += 1
+            
+        if valid_files_count > 0 and total_size > 15 * 1024 * 1024:
+            return jsonify({'error': 'Combined size of all files exceeds the maximum 15MB size limit.'}), 400
+
         for file in files:
             if not file.filename: continue
             filename = secure_filename(file.filename)
             if not filename: continue
             ext = os.path.splitext(filename)[1].lower()
-            if ext not in current_app.config.get('ALLOWED_EXTENSIONS', {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'}):
+            if ext not in current_app.config.get('ALLOWED_EXTENSIONS', {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp', '.txt', '.xlsx', '.pptx', '.ppt'}):
                 return jsonify({'error': f'Unsupported file type: {ext}'}), 400
             path = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
             file.save(path)
@@ -144,6 +163,7 @@ def generate(userid):
     max_tok_ovr = get_max_tokens()
     uid         = current_user.id
     job_id      = _job_create(uid)
+    app         = current_app._get_current_object()
 
     def _run():
         with app.app_context():
@@ -257,6 +277,7 @@ def regenerate_schedule(userid):
     max_tok_ovr = get_max_tokens()
     uid         = current_user.id
     job_id      = _job_create(uid)
+    app         = current_app._get_current_object()
 
     def _run():
         with app.app_context():

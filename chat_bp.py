@@ -4,7 +4,7 @@ import json
 import datetime
 
 from extensions import db, limiter
-from models import Chat, Message, User
+from models import Chat, Message, User, StudyData
 from helpers import *
 from teacher import stream_reply, stream_quiz, get_initial_message, get_reply, get_quiz
 
@@ -46,7 +46,8 @@ def _get_topic_context(chat: Chat) -> tuple:
 
     schedule = json.loads(user_data.schedule_json) if user_data.schedule_json else {}
     today_str = get_today()
-    slot = _get_today_slot(schedule, chat.subject, chat.topic, today_str)
+    slot_date = chat.schedule_date or today_str
+    slot = _get_today_slot(schedule, chat.subject, chat.topic, slot_date)
     hours = slot.get('hours')
     subtopics = slot.get('subtopics', [])
 
@@ -251,6 +252,7 @@ def chat_send_stream(chat_id: int):
     if not user_message:
         return jsonify({'error': 'Empty message'}), 400
     user_msg = _save_message(chat_id, 'user', user_message)
+    user_msg_id = user_msg.id
     history = _get_chat_history(chat_id)[:-1]
     subtopics, hours, course = _get_topic_context(chat)
     model_list = get_teacher_model_list()
@@ -275,7 +277,8 @@ def chat_send_stream(chat_id: int):
                 full_text += chunk
                 yield f"data: {json.dumps(chunk)}\n\n"
             asst_msg = _save_message(chat_id, 'assistant', full_text)
-            yield f"data: [DONE]{json.dumps({'user_msg_id': user_msg.id, 'assistant_msg_id': asst_msg.id})}\n\n"
+            asst_msg_id = asst_msg.id
+            yield f"data: [DONE]{json.dumps({'user_msg_id': user_msg_id, 'assistant_msg_id': asst_msg_id})}\n\n"
         except RuntimeError as e:
             yield f'data: [ERROR] {str(e)}\n\n'
 
@@ -295,6 +298,7 @@ def chat_quiz_stream(chat_id: int):
     if len(history) < 2:
         return jsonify({'error': 'Study a bit first before taking a quiz!'}), 400
     quiz_user_msg = _save_message(chat_id, 'user', 'Quiz me on what we have covered so far.', chat=chat)
+    quiz_user_msg_id = quiz_user_msg.id
     subtopics, hours, course = _get_topic_context(chat)
     model_list = get_teacher_model_list()
     use_zh = get_use_chinese()
@@ -318,7 +322,8 @@ def chat_quiz_stream(chat_id: int):
                 yield f"data: {json.dumps(chunk)}\n\n"
 
             asst_msg = _save_message(chat_id, 'assistant', full_text)
-            yield f"data: [DONE_QUIZ]{json.dumps({'user_msg_id': quiz_user_msg.id, 'assistant_msg_id': asst_msg.id})}\n\n"
+            asst_msg_id = asst_msg.id
+            yield f"data: [DONE_QUIZ]{json.dumps({'user_msg_id': quiz_user_msg_id, 'assistant_msg_id': asst_msg_id})}\n\n"
         except RuntimeError as e:
             yield f'data: [ERROR] {str(e)}\n\n'
 

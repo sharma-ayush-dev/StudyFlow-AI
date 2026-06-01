@@ -25,7 +25,8 @@ __all__ = [
     '_generation_inputs_snapshot', '_rl', '_get_study_data', '_ensure_runtime_schema',
     '_require_owner', '_delete_files', '_render_error', '_log_activity', '_extract_meta',
     '_build_llm_notice', '_get_today_slot', 'HARDCODED_OTP', '_send_otp_email',
-    '_create_otp', '_verify_otp', 'log_request', '_job_create', '_job_set', '_job_get'
+    '_create_otp', '_verify_otp', 'log_request', '_job_create', '_job_set', '_job_get',
+    'get_sched_model_list', 'get_extract_model_list', 'get_teacher_model_list'
 ]
 
 

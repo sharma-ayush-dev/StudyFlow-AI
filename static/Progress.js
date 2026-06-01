@@ -8,6 +8,27 @@ const todayStr = window.TODAY_STR;
 const isAdmin = window.IS_ADMIN || false;
 const schedulePreferences = topicStatus.schedule_preferences || {};
 
+function formatDateToCustom(dateStr) {
+    try {
+        const [day, month, year] = dateStr.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        if (isNaN(dateObj.getTime())) return dateStr;
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthName = dateObj.toLocaleDateString('en-US', { month: 'long' });
+        const shortYear = String(year).slice(-2);
+        return `${dayName} ${day} ${monthName} ${shortYear}`;
+    } catch (e) {
+        return dateStr;
+    }
+}
+
+function sanitizeField(s, maxLen) {
+    if (typeof s !== 'string') return '';
+    s = s.replace(/[\x00-\x1f\x7f]/g, '');
+    s = s.replace(/<[^>]+>/g, '');
+    return s.substring(0, maxLen).trim();
+}
+
 // ── OVERDUE SET ──────────────────────────────────────────────
 
 function buildOverdueSet() {
@@ -202,9 +223,9 @@ function renderRegenerationControls() {
     const hoursList = document.getElementById('regenHoursList');
     if (!body || !toggle || !hoursList) return;
 
-    document.getElementById('regenIntensity').value = schedulePreferences.intensity || 'balanced';
-    document.getElementById('regenBlockLength').value = schedulePreferences.block_length || '1-2';
-    document.getElementById('regenPreferenceNote').value = schedulePreferences.preference_note || '';
+    if (document.getElementById('regenPreferenceNote')) {
+        document.getElementById('regenPreferenceNote').value = schedulePreferences.preference_note || '';
+    }
 
     toggle.addEventListener('click', () => {
         const isHidden = body.classList.toggle('hidden');
@@ -220,7 +241,7 @@ function renderRegenerationControls() {
 
         const dateEl = document.createElement('span');
         dateEl.className = 'regen-hour-date';
-        dateEl.textContent = date;
+        dateEl.textContent = formatDateToCustom(date);
 
         const input = document.createElement('input');
         input.className = 'regen-hour-input';
@@ -241,10 +262,12 @@ function renderRegenerationControls() {
     }
 
     document.getElementById('applyHoursPreset')?.addEventListener('click', () => {
+        const valInput = document.getElementById('weekdayHoursInput');
+        const hVal = valInput ? valInput.value : '3';
         document.querySelectorAll('.regen-hour-row').forEach(row => {
             const [day, month, year] = row.dataset.date.split('-').map(Number);
             const weekday = new Date(year, month - 1, day).getDay();
-            row.querySelector('input').value = weekday === 0 ? '1' : '3';
+            row.querySelector('input').value = weekday === 0 ? '1' : hVal;
         });
         StudyFlowToast.info('Study hours updated. You can fine-tune any day.');
     });
@@ -258,12 +281,14 @@ function collectRegenerationInputs() {
         studyDays[row.dataset.date] = String(Number.isFinite(value) ? value : 0);
     });
 
+    const prefLimit = window.PREF_LIMIT || 200;
+    const rawNote = document.getElementById('regenPreferenceNote')?.value || '';
     return {
         study_days: studyDays,
         schedule_preferences: {
-            intensity: document.getElementById('regenIntensity')?.value || 'balanced',
-            block_length: document.getElementById('regenBlockLength')?.value || '1-2',
-            preference_note: document.getElementById('regenPreferenceNote')?.value.trim() || ''
+            intensity: 'balanced',
+            block_length: '1-2',
+            preference_note: sanitizeField(rawNote, prefLimit)
         }
     };
 }
@@ -530,7 +555,7 @@ function renderScheduleInto(containerId, scheduleData) {
 
         const dateTitle = document.createElement('div');
         dateTitle.className = 'cmp-date-title';
-        dateTitle.textContent = date;
+        dateTitle.textContent = formatDateToCustom(date);
         dateBlock.appendChild(dateTitle);
 
         Object.entries(scheduleData[date]).forEach(([subj, topics]) => {

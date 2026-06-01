@@ -431,6 +431,8 @@ async function streamResponse(url, isQuiz = false) {
     messagesEl.appendChild(wrapper);
 
     let fullText = '';
+    const origScrollBehavior = messagesEl.style.scrollBehavior;
+    messagesEl.style.scrollBehavior = 'auto';
 
     try {
         const res = await fetch(url, { method: 'POST' });
@@ -465,11 +467,25 @@ async function streamResponse(url, isQuiz = false) {
                 if (!line.startsWith('data: ')) continue;
                 const payload = line.slice(6);
 
-                if (payload === '[DONE]' || payload === '[DONE_QUIZ]') {
+                if (payload.startsWith('[DONE]') || payload.startsWith('[DONE_QUIZ]')) {
+                    const isQuizDone = payload.startsWith('[DONE_QUIZ]');
+                    const jsonStr = payload.slice(isQuizDone ? 11 : 6);
+                    let assistantMsgId = null;
+                    let userMsgId = null;
+                    if (jsonStr) {
+                        try {
+                            const meta = JSON.parse(jsonStr);
+                            assistantMsgId = meta.assistant_msg_id;
+                            userMsgId = meta.user_msg_id;
+                        } catch (e) {
+                            console.error("Failed to parse metadata", e);
+                        }
+                    }
+
                     // Streaming complete — replace raw text with rich rendering
                     bubble.classList.remove('streaming-cursor');
                     bubble.innerHTML = '';
-                    bubble.appendChild(buildBubbleContent(fullText, isQuiz));
+                    bubble.appendChild(buildBubbleContent(fullText, isQuizDone));
                     triggerMathRender(bubble);
 
                     // Add action buttons
@@ -478,9 +494,27 @@ async function streamResponse(url, isQuiz = false) {
                     ts.textContent = new Date().toLocaleTimeString([],
                         { hour: '2-digit', minute: '2-digit' });
 
-                    const actions = buildMessageActions('assistant', fullText, null, wrapper, bubble, inner);
+                    if (assistantMsgId) {
+                        wrapper.dataset.msgId = assistantMsgId;
+                    }
+                    const actions = buildMessageActions('assistant', fullText, assistantMsgId, wrapper, bubble, inner);
                     inner.appendChild(ts);
                     inner.appendChild(actions);
+
+                    if (userMsgId) {
+                        const prev = wrapper.previousElementSibling;
+                        if (prev && prev.classList.contains('user-msg')) {
+                            prev.dataset.msgId = userMsgId;
+                            const prevInner = prev.querySelector('.msg-inner');
+                            if (prevInner) {
+                                const oldActions = prevInner.querySelector('.msg-actions');
+                                if (oldActions) oldActions.remove();
+                                const prevBubble = prevInner.querySelector('.msg-bubble');
+                                const newActions = buildMessageActions('user', prevBubble.textContent, userMsgId, prev, prevBubble, prevInner);
+                                prevInner.appendChild(newActions);
+                            }
+                        }
+                    }
 
                     return;
                 }
@@ -513,6 +547,8 @@ async function streamResponse(url, isQuiz = false) {
             'A network error occurred during streaming. Check your connection and try again.'
         ));
         hideTyping();
+    } finally {
+        messagesEl.style.scrollBehavior = origScrollBehavior;
     }
 }
 
@@ -670,6 +706,8 @@ async function streamResponseWithBody(url, body, isQuiz) {
     hideTyping();
 
     let fullText = '';
+    const origScrollBehavior = messagesEl.style.scrollBehavior;
+    messagesEl.style.scrollBehavior = 'auto';
 
     try {
         const res = await fetch(url, {
@@ -704,18 +742,53 @@ async function streamResponseWithBody(url, body, isQuiz) {
                 if (!line.startsWith('data: ')) continue;
                 const payload = line.slice(6);
 
-                if (payload === '[DONE]' || payload === '[DONE_QUIZ]') {
+                if (payload.startsWith('[DONE]') || payload.startsWith('[DONE_QUIZ]')) {
+                    const isQuizDone = payload.startsWith('[DONE_QUIZ]');
+                    const jsonStr = payload.slice(isQuizDone ? 11 : 6);
+                    let assistantMsgId = null;
+                    let userMsgId = null;
+                    if (jsonStr) {
+                        try {
+                            const meta = JSON.parse(jsonStr);
+                            assistantMsgId = meta.assistant_msg_id;
+                            userMsgId = meta.user_msg_id;
+                        } catch (e) {
+                            console.error("Failed to parse metadata", e);
+                        }
+                    }
+
                     bubble.classList.remove('streaming-cursor');
                     bubble.innerHTML = '';
-                    bubble.appendChild(buildBubbleContent(fullText, payload === '[DONE_QUIZ]'));
+                    bubble.appendChild(buildBubbleContent(fullText, isQuizDone));
                     triggerMathRender(bubble);
+
                     const ts = document.createElement('div');
                     ts.className = 'msg-timestamp';
                     ts.textContent = new Date().toLocaleTimeString([],
                         { hour: '2-digit', minute: '2-digit' });
-                    const actions = buildMessageActions('assistant', fullText, null, wrapper, bubble, inner);
+
+                    if (assistantMsgId) {
+                        wrapper.dataset.msgId = assistantMsgId;
+                    }
+                    const actions = buildMessageActions('assistant', fullText, assistantMsgId, wrapper, bubble, inner);
                     inner.appendChild(ts);
                     inner.appendChild(actions);
+
+                    if (userMsgId) {
+                        const prev = wrapper.previousElementSibling;
+                        if (prev && prev.classList.contains('user-msg')) {
+                            prev.dataset.msgId = userMsgId;
+                            const prevInner = prev.querySelector('.msg-inner');
+                            if (prevInner) {
+                                const oldActions = prevInner.querySelector('.msg-actions');
+                                if (oldActions) oldActions.remove();
+                                const prevBubble = prevInner.querySelector('.msg-bubble');
+                                const newActions = buildMessageActions('user', prevBubble.textContent, userMsgId, prev, prevBubble, prevInner);
+                                prevInner.appendChild(newActions);
+                            }
+                        }
+                    }
+
                     return;
                 }
 
@@ -744,6 +817,8 @@ async function streamResponseWithBody(url, body, isQuiz) {
             'Connection Lost',
             'A network error occurred. Check your connection and try again.'
         ));
+    } finally {
+        messagesEl.style.scrollBehavior = origScrollBehavior;
     }
 }
 

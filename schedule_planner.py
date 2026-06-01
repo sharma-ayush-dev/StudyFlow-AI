@@ -18,10 +18,10 @@ from openai import OpenAI
 import apikey
 
 
-client = OpenAI(base_url="https://api.doubleword.ai/v1", api_key=apikey.key)
+client = OpenAI(base_url="https://api.aicredits.in/v1", api_key=apikey.key)
 
 MODELS = [
-    "openai/gpt-oss-20b"
+    "mistralai/mistral-nemo"
 ]
 
 # ── TOKEN BUDGET CONSTANTS ────────────────────────────────────────────────────
