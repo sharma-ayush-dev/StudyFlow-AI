@@ -1,124 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StudyFlow — Study: {{ topic }}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='Study.css') }}">
 
-<!-- KaTeX for mathematical formulas -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyFlow — Study: {{ topic }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Study.css') }}">
+
+    <!-- KaTeX for mathematical formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
         onload="renderMathInDocument()"></script>
 
-<!-- highlight.js for code blocks -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
-<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+    <!-- highlight.js for code blocks -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
 
-<!-- Google Fonts — better reading experience -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Google Fonts — better reading experience -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
 
-{% include '_navbar.html' %}
+    {% include '_navbar.html' %}
 
-<div class="study-layout">
+    <div class="study-layout">
 
-    <!-- ═══ LEFT SIDEBAR ═══ -->
-    <aside class="study-sidebar">
+        <!-- ═══ LEFT SIDEBAR ═══ -->
+        <aside class="study-sidebar">
 
-        <div class="sidebar-subject">{{ subject }}</div>
-        <h2 class="sidebar-topic">{{ topic }}</h2>
+            <div class="sidebar-subject">{{ subject }}</div>
+            <h2 class="sidebar-topic">{{ topic }}</h2>
 
-        {% if hours %}
-        <div class="sidebar-pill">⏱ {{ hours }}h allocated today</div>
-        {% endif %}
+            {% if hours %}
+            <div class="sidebar-pill">⏱ {{ hours }}h allocated today</div>
+            {% endif %}
 
-        {% if subtopics %}
-        <div class="sidebar-section-title">Today's subtopics</div>
-        <ul class="subtopic-list">
-            {% for s in subtopics %}
-            <li class="subtopic-item" id="sub-{{ loop.index0 }}">{{ s }}</li>
-            {% endfor %}
-        </ul>
-        {% endif %}
+            {% if subtopics %}
+            <div class="sidebar-section-title">Today's subtopics</div>
+            <ul class="subtopic-list">
+                {% for s in subtopics %}
+                <li class="subtopic-item" id="sub-{{ loop.index0 }}">{{ s }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
 
-        <div style="flex:1;"></div>
+            <div style="flex:1;"></div>
 
-        <!-- Font size controls -->
-        <div class="font-size-controls">
-            <span class="font-size-label">Text size</span>
-            <div class="font-size-btns">
-                <button class="font-btn" id="fontDecBtn" title="Smaller">A−</button>
-                <span id="fontSizeDisplay">16px</span>
-                <button class="font-btn" id="fontIncBtn" title="Larger">A+</button>
+            <!-- Font size controls -->
+            <div class="font-size-controls">
+                <span class="font-size-label">Text size</span>
+                <div class="font-size-btns">
+                    <button class="font-btn" id="fontDecBtn" title="Smaller">A−</button>
+                    <span id="fontSizeDisplay">16px</span>
+                    <button class="font-btn" id="fontIncBtn" title="Larger">A+</button>
+                </div>
             </div>
-        </div>
 
-        <button class="quiz-btn" id="quizBtn">🎯 Quiz Me</button>
+            <button class="quiz-btn" id="quizBtn">🎯 Quiz Me</button>
 
-        <a href="{{ url_for('schedule_page') }}" class="back-link">← Back to Schedule</a>
+            <a href="{{ url_for('schedule_page') }}" class="back-link">← Back to Schedule</a>
 
-    </aside>
+        </aside>
 
 
-    <!-- ═══ CHAT PANEL ═══ -->
-    <main class="chat-panel">
+        <!-- ═══ CHAT PANEL ═══ -->
+        <main class="chat-panel">
 
-        <div class="chat-messages" id="chatMessages">
-            <div class="chat-loading" id="chatLoading">
-                <div class="loader-ring"></div>
-                <p style="color:#777;margin-top:12px;font-size:14px;">Loading conversation…</p>
+            <div class="chat-messages" id="chatMessages">
+                <div class="sf-chat-loading" id="chatLoading">
+                    <div class="sf-chat-loading-orbs">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <p class="sf-chat-loading-text" id="chatLoadingText">Preparing your lesson…</p>
+                </div>
             </div>
-        </div>
 
-        <!-- TYPING INDICATOR -->
-        <div class="typing-indicator hidden" id="typingIndicator">
-            <span></span><span></span><span></span>
-        </div>
+            <!-- TYPING INDICATOR -->
+            <div class="typing-indicator hidden" id="typingIndicator">
+                <span></span><span></span><span></span>
+            </div>
 
-        <!-- NOTICE BANNER -->
-        <div class="llm-notice hidden" id="llmNotice"></div>
+            <!-- NOTICE BANNER -->
+            <div class="llm-notice hidden" id="llmNotice"></div>
 
-        <!-- INPUT ROW -->
-        <div class="chat-input-row">
-            <textarea id="chatInput" class="chat-textarea"
-                      placeholder="Ask a question, or say 'continue'…"
-                      rows="1"></textarea>
-            <button class="send-btn" id="sendBtn">Send</button>
-        </div>
+            <!-- INPUT ROW -->
+            <div class="chat-input-row">
+                <textarea id="chatInput" class="chat-textarea" placeholder="Ask a question, or say 'continue'…"
+                    rows="1"></textarea>
+                <button class="send-btn" id="sendBtn">Send</button>
+            </div>
 
-    </main>
+        </main>
 
-</div>
+    </div>
 
-<script>
-    window.CHAT_ID   = {{ chat_id   | tojson }};
-    window.USER_ID   = {{ userid    | tojson }};
-    window.SUBJECT   = {{ subject   | tojson }};
-    window.TOPIC     = {{ topic     | tojson }};
-    window.TODAY_STR = {{ today_str | tojson }};
+    <script>
+        window.CHAT_ID = {{ chat_id | tojson }};
+        window.USER_ID = {{ userid | tojson }};
+        window.SUBJECT = {{ subject | tojson }};
+        window.TOPIC = {{ topic | tojson }};
+        window.TODAY_STR = {{ today_str | tojson }};
 
-    // KaTeX auto-render config
-    function renderMathInDocument() {
-        if (typeof renderMathInElement === 'undefined') return;
-        document.querySelectorAll('.msg-bubble').forEach(el => {
-            renderMathInElement(el, {
-                delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$',  right: '$',  display: false},
-                    {left: '\\(', right: '\\)', display: false},
-                    {left: '\\[', right: '\\]', display: true}
-                ],
-                throwOnError: false
+        // KaTeX auto-render config
+        function renderMathInDocument() {
+            if (typeof renderMathInElement === 'undefined') return;
+            document.querySelectorAll('.msg-bubble').forEach(el => {
+                renderMathInElement(el, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '\\[', right: '\\]', display: true }
+                    ],
+                    throwOnError: false
+                });
             });
-        });
-    }
-    window.renderMathInDocument = renderMathInDocument;
-</script>
-<script src="{{ url_for('static', filename='Study.js') }}"></script>
+        }
+        window.renderMathInDocument = renderMathInDocument;
+    </script>
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
+    <script src="{{ url_for('static', filename='Study.js') }}"></script>
 
 </body>
+
 </html>

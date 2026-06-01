@@ -635,3 +635,404 @@
     background-position: right 14px center;
     padding-right: 40px !important;
 }
+
+/* ── EDIT MODE HIERARCHY & LAYOUT ── */
+
+.topics-container-wrapper {
+    flex: 2;
+    min-width: 0;
+    height: 600px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-right: 8px;
+}
+
+/* Custom Scrollbar for wrapper */
+.topics-container-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+.topics-container-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+.topics-container-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+.topics-container-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(123, 47, 247, 0.3);
+}
+
+/* Subject Card UI */
+.subject-card {
+    position: relative;
+    z-index: 1;
+    background: rgba(20, 20, 35, 0.65);
+    border: 1px solid rgba(123, 47, 247, 0.2);
+    border-radius: 24px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(123, 47, 247, 0.05);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.subject-card:hover {
+    border-color: rgba(123, 47, 247, 0.35);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(123, 47, 247, 0.1);
+}
+
+.edit-mode-card {
+    border-style: dashed;
+    background: rgba(25, 20, 40, 0.7);
+}
+
+/* Subject Card Header */
+.subject-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 20px;
+    gap: 16px;
+    user-select: none;
+}
+
+.subject-card.collapsed .subject-card-header {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+.subject-collapse-toggle {
+    font-size: 14px;
+    color: #9f55ff;
+    transition: transform 0.2s ease;
+    width: 20px;
+    text-align: center;
+}
+
+.subject-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.subject-title-text {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+.subject-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.exam-date-badge {
+    background: rgba(123, 47, 247, 0.12);
+    color: #b37fff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(123, 47, 247, 0.25);
+    white-space: nowrap;
+}
+
+.subject-stats-badge {
+    color: #888;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Subject Progress Indicator */
+.subject-progress-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    min-width: 140px;
+}
+
+.subject-progress-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9f55ff;
+}
+
+.subject-progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.subject-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7b2ff7, #9f55ff);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+/* Topics layout */
+.normal-topics-container, .edit-topics-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.edit-topics-container {
+    border-left: 2px dashed rgba(123, 47, 247, 0.25);
+    padding-left: 20px;
+    margin-left: 8px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+/* Topic Accordion UI */
+.topic-accordion {
+    position: relative;
+    z-index: 1;
+    background: rgba(25, 25, 40, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    overflow: visible;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subject-card:has(.custom-select.active) {
+    z-index: 100 !important;
+}
+
+.topic-accordion:has(.custom-select.active) {
+    z-index: 101 !important;
+}
+
+.topic-accordion.expanded {
+    border-color: rgba(123, 47, 247, 0.25);
+    background: rgba(30, 30, 50, 0.5);
+    box-shadow: inset 0 0 15px rgba(123, 47, 247, 0.03);
+}
+
+.topic-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    gap: 16px;
+}
+
+.topic-accordion-header:hover {
+    background: rgba(123, 47, 247, 0.05);
+}
+
+.topic-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topic-accordion-arrow {
+    font-size: 11px;
+    color: #7b2ff7;
+    width: 14px;
+    text-align: center;
+}
+
+.topic-title-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: #eee;
+}
+
+.topic-subtopic-count-badge {
+    font-size: 11px;
+    color: #666;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 2px 8px;
+    border-radius: 8px;
+}
+
+.topic-accordion-content {
+    padding: 18px 24px;
+    background: rgba(10, 10, 18, 0.25);
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Subtopics UI */
+.subtopics-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-left: 2px solid rgba(255, 255, 255, 0.05);
+    padding-left: 18px;
+    margin-left: 6px;
+    margin-bottom: 12px;
+}
+
+.subtopic-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.subtopic-bullet {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 16px;
+    user-select: none;
+}
+
+.subtopic-text {
+    font-size: 13.5px;
+    color: #aaa;
+}
+
+/* Dropdown color-coded indicators */
+.select-trigger.progress-0 {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+}
+.select-trigger.progress-0 .value { color: #888; }
+
+.select-trigger.progress-25 {
+    border-color: rgba(159, 85, 255, 0.3);
+    background: rgba(159, 85, 255, 0.05);
+}
+.select-trigger.progress-25 .value { color: #b37fff; }
+
+.select-trigger.progress-50 {
+    border-color: rgba(123, 47, 247, 0.4);
+    background: rgba(123, 47, 247, 0.08);
+}
+.select-trigger.progress-50 .value { color: #9f55ff; }
+
+.select-trigger.progress-75 {
+    border-color: rgba(123, 47, 247, 0.6);
+    background: rgba(123, 47, 247, 0.12);
+}
+.select-trigger.progress-75 .value { color: #c094ff; }
+
+.select-trigger.progress-100 {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.08);
+}
+.select-trigger.progress-100 .value { color: #10b981; }
+
+.option-progress-0:hover { background: rgba(255, 255, 255, 0.08) !important; }
+.option-progress-25:hover { background: rgba(159, 85, 255, 0.15) !important; }
+.option-progress-50:hover { background: rgba(123, 47, 247, 0.15) !important; }
+.option-progress-75:hover { background: rgba(123, 47, 247, 0.2) !important; }
+.option-progress-100:hover { background: rgba(16, 185, 129, 0.15) !important; }
+
+/* Secondary Trash/Delete buttons */
+.edit-delete-icon-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.edit-delete-icon-btn:hover {
+    background: rgba(220, 50, 50, 0.15);
+    color: #ff7c7c;
+    transform: scale(1.08);
+}
+
+/* Edit Mode styling details */
+.edit-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.edit-field-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.edit-field-label.subject-label { color: #b37fff; }
+.edit-field-label.date-label { color: #9f55ff; }
+.edit-field-label.topic-label { color: #7b2ff7; }
+.edit-field-label.subtopics-section-label { color: #888; }
+
+.edit-topic-input {
+    font-size: 15px;
+    font-weight: 600;
+    border-color: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+}
+
+.edit-subtopic-input {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.edit-add-subtopic-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    padding-left: 18px;
+    margin-left: 6px;
+}
+
+.edit-add-subtopic-btn {
+    font-size: 12px !important;
+    padding: 6px 14px !important;
+    border-radius: 10px !important;
+}
+
+.edit-add-topic-container {
+    margin-top: 16px;
+}
+
+/* Flatpickr Month Dropdown Select styling */
+.flatpickr-monthDropdown-months {
+    background: #11111a !important;
+    color: #fff !important;
+    border: 1px solid rgba(123, 47, 247, 0.2) !important;
+    border-radius: 8px !important;
+    padding: 4px 8px !important;
+    outline: none !important;
+    cursor: pointer;
+    font-family: inherit !important;
+    font-weight: 500 !important;
+}
+
+.flatpickr-monthDropdown-months:hover {
+    border-color: rgba(123, 47, 247, 0.5) !important;
+}
+
+.flatpickr-monthDropdown-months option {
+    background: #11111a !important;
+    color: #fff !important;
+    padding: 8px !important;
+}

@@ -31,6 +31,164 @@
     max-height: 620px;
 }
 
+.regen-preferences-card {
+    width: min(850px, calc(100% - 40px));
+    margin: 24px auto 0;
+    padding: 24px;
+    border-radius: 24px;
+    border: 1px solid rgba(123, 47, 247, 0.18);
+    background:
+        radial-gradient(circle at 8% 0%, rgba(123, 47, 247, 0.14), transparent 28%),
+        rgba(8, 8, 16, 0.76);
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(16px);
+    animation: fadeIn 0.8s ease-out 0.1s both;
+}
+
+.regen-pref-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 22px;
+}
+
+.regen-kicker {
+    display: inline-flex;
+    margin-bottom: 8px;
+    color: #50dc8c;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.regen-pref-header h2 {
+    margin: 0 0 8px;
+    color: #fff;
+    font-size: 23px;
+}
+
+.regen-pref-header p {
+    margin: 0;
+    color: #8a8a9a;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.regen-pref-toggle,
+.regen-hours-header button {
+    border: 1px solid rgba(123, 47, 247, 0.32);
+    background: rgba(123, 47, 247, 0.08);
+    color: #bf9bff;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font: 600 13px/1 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.regen-pref-toggle:hover,
+.regen-hours-header button:hover {
+    border-color: #9f55ff;
+    color: #fff;
+    box-shadow: 0 0 16px rgba(123, 47, 247, 0.24);
+}
+
+.regen-pref-body {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    animation: fadeIn 0.35s ease-out;
+}
+
+.regen-pref-body.hidden {
+    display: none;
+}
+
+.regen-pref-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.regen-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.regen-field.wide {
+    grid-column: 1 / -1;
+}
+
+.regen-field span,
+.regen-hours-header span {
+    color: #b9b9c8;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.regen-field input,
+.regen-field select,
+.regen-hour-input {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 14px;
+    background: rgba(12, 12, 22, 0.88);
+    color: #f5f5ff;
+    padding: 12px 14px;
+    outline: none;
+    font: 500 14px/1.2 'Inter', sans-serif;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.regen-field input:focus,
+.regen-field select:focus,
+.regen-hour-input:focus {
+    border-color: rgba(123, 47, 247, 0.62);
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.10);
+}
+
+.regen-hours-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin: 24px 0 12px;
+}
+
+.regen-hours-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 10px;
+    max-height: 260px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.regen-hour-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.regen-hour-date {
+    color: #a9a9bb;
+    font-size: 12px;
+}
+
+.regen-hour-input {
+    width: 64px;
+    padding: 8px 10px;
+    text-align: center;
+}
+
 /* ── OVERDUE BADGE ── */
 
 .overdue-badge {
@@ -425,4 +583,30 @@
     opacity: 1;
     margin-top: 6px;
     margin-bottom: 6px;
+}
+
+@media (max-width: 720px) {
+    .regen-pref-header,
+    .regen-hours-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .regen-pref-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .regen-pref-toggle,
+    .regen-hours-header button {
+        width: 100%;
+    }
+
+    .topic-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .custom-select {
+        width: 100%;
+    }
 }
