@@ -16,6 +16,13 @@ let activeTopicState = {};
 
 // ── HELPERS ──────────────────────────────────────────────────
 
+function sanitizeField(s, maxLen) {
+    if (typeof s !== 'string') return '';
+    s = s.replace(/[\x00-\x1f\x7f]/g, '');
+    s = s.replace(/<[^>]+>/g, '');
+    return s.substring(0, maxLen).trim();
+}
+
 function _topicData(subj, topic) {
     const raw = state.Subjects[subj][topic];
     if (typeof raw === 'object' && raw !== null) return raw;
@@ -673,6 +680,14 @@ document.getElementById('cancelEditsBtn').addEventListener('click', () => {
     if (hasUnsavedEdits && !confirm('Discard all unsaved changes?')) return;
     state = JSON.parse(JSON.stringify(snapshot)); snapshot = null; hasUnsavedEdits = false;
     exitEditMode(); renderHoursPanel();
+    const prefNoteEl = document.getElementById('statusPreferenceNote');
+    if (prefNoteEl) {
+        prefNoteEl.value = (state.schedule_preferences && state.schedule_preferences.preference_note) || '';
+        const counterEl = document.getElementById('statusPrefCounter');
+        if (counterEl) {
+            counterEl.textContent = `${prefNoteEl.value.length} / 200`;
+        }
+    }
 });
 
 
@@ -705,8 +720,15 @@ async function saveEdits() {
         });
     });
 
-    const extractedPayload = { Exam_dates: state.Exam_dates, Subjects: cleanSubjects, study_days: state.study_days };
-    const statusPayload = { Exam_dates: state.Exam_dates, Subjects: statusSubjects, study_days: state.study_days };
+    const prefLimit = 200;
+    const rawNote = document.getElementById('statusPreferenceNote')?.value || '';
+    const schedulePreferences = {
+        preference_note: sanitizeField(rawNote, prefLimit)
+    };
+    state.schedule_preferences = schedulePreferences;
+
+    const extractedPayload = { Exam_dates: state.Exam_dates, Subjects: cleanSubjects, study_days: state.study_days, schedule_preferences: schedulePreferences };
+    const statusPayload = { Exam_dates: state.Exam_dates, Subjects: statusSubjects, study_days: state.study_days, schedule_preferences: schedulePreferences };
 
     // Save extracted structure
     const res1 = await fetch(`/save_extracted/${userId}`, {
@@ -776,7 +798,13 @@ function collectPayload() {
         studyDays[date] = input ? (input.value.trim() || '0') : '0';
     });
 
-    return { Exam_dates: examDates, Subjects: subjects, study_days: studyDays };
+    const prefLimit = 200;
+    const rawNote = document.getElementById('statusPreferenceNote')?.value || '';
+    const schedulePreferences = {
+        preference_note: sanitizeField(rawNote, prefLimit)
+    };
+
+    return { Exam_dates: examDates, Subjects: subjects, study_days: studyDays, schedule_preferences: schedulePreferences };
 }
 
 
@@ -943,6 +971,28 @@ async function init() {
 
     renderTopicsPanel();
     renderHoursPanel();
+
+    // Initialize schedule preference note
+    const prefNoteEl = document.getElementById('statusPreferenceNote');
+    const counterEl = document.getElementById('statusPrefCounter');
+    const prefLimit = 200;
+    if (prefNoteEl) {
+        prefNoteEl.value = (state.schedule_preferences && state.schedule_preferences.preference_note) || '';
+        const updateCounter = () => {
+            if (counterEl) {
+                counterEl.textContent = `${prefNoteEl.value.length} / ${prefLimit}`;
+            }
+        };
+        prefNoteEl.addEventListener('input', () => {
+            if (!state.schedule_preferences) state.schedule_preferences = {};
+            state.schedule_preferences.preference_note = prefNoteEl.value;
+            updateCounter();
+            if (editMode) {
+                hasUnsavedEdits = true;
+            }
+        });
+        updateCounter();
+    }
 }
 
 init();

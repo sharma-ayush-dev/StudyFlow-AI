@@ -11,7 +11,8 @@ def understand_document(
     clean_text: str,
     today_str: str = None,
     model_list: list = None,
-    max_output_tokens: int = 4000
+    max_output_tokens: int = 4000,
+    user_id: int = None
 ) -> dict:
     """
     Takes clean extracted text and runs it through the LLM understanding layer.
@@ -21,6 +22,12 @@ def understand_document(
         today_str = datetime.date.today().strftime('%d-%m-%Y')
     if model_list is None:
         model_list = MODEL_CANDIDATES
+
+    # ── Check cost limit before LLM call ──────────────────────
+    if user_id:
+        from helpers import check_user_cost_limit
+        if not check_user_cost_limit(user_id):
+            raise ValueError("Cost limit exceeded. Please contact the administrator.")
 
     # Format content as block objects to match original API payload style
     content = [
@@ -43,6 +50,18 @@ def understand_document(
             if not choice or not choice.message.content:
                 raise ValueError("Empty response from LLM")
             
+            # Track usage
+            if user_id:
+                prompt_tokens = getattr(resp.usage, 'prompt_tokens', 0) if (hasattr(resp, 'usage') and resp.usage) else 0
+                completion_tokens = getattr(resp.usage, 'completion_tokens', 0) if (hasattr(resp, 'usage') and resp.usage) else 0
+                if not prompt_tokens:
+                    prompt_tokens = max(1, len(clean_text) // 4)
+                if not completion_tokens:
+                    completion_tokens = max(1, len(choice.message.content) // 4)
+                
+                from helpers import track_llm_call
+                track_llm_call(user_id, model, prompt_tokens, completion_tokens)
+
             # Clean and extract JSON object
             parsed = _extract_json(choice.message.content)
             

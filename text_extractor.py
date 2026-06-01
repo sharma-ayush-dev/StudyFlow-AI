@@ -87,7 +87,8 @@ def _estimate_extraction_tokens(content_char_count: int) -> int:
 def organize_with_llm(file_paths: list,
                       manual_text: str = None,
                       today_str:   str = None,
-                      model_list:  list = None) -> dict:
+                      model_list:  list = None,
+                      user_id:     int  = None) -> dict:
     """
     Processes files and manual text through document extractors, cleans the combined
     text, and utilizes the LLM understanding layer to extract structured planner JSON.
@@ -148,5 +149,6 @@ def organize_with_llm(file_paths: list,
         clean_text=combined_text,
         today_str=today_str,
         model_list=model_list,
-        max_output_tokens=extract_max_tokens
+        max_output_tokens=extract_max_tokens,
+        user_id=user_id
     )

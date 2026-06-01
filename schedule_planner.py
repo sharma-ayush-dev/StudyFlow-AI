@@ -59,11 +59,7 @@ Hard rules:
 - For each topic slot, include only the subtopics that fit in the allotted hours
   (pick the most important ones if not all fit)
 - Respect schedule_preferences when they are present:
-  - gentle means lighter days and more revision breathing room
-  - balanced means steady workload
-  - focused means prioritize unfinished topics more aggressively
-  - intense means use more available hours while still respecting daily limits
-  - preferred block length and preference_note should guide topic grouping
+  - preference_note should guide topic grouping, scheduling priority, or study style
 
 You MUST return valid JSON.
 - No explanations, no markdown, no trailing commas, no comments
@@ -202,7 +198,12 @@ def invalidate_schedule_cache(topic_data: dict, today_str: str):
 
 # ── MODEL CALL ───────────────────────────────────────────────────────────────
 
-def _call_model(model: str, messages: list, max_tokens: int) -> str:
+def _should_retry_without_json_mode(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "json_object" in msg or "response_format" in msg or "not support" in msg
+
+
+def _call_model(model: str, messages: list, max_tokens: int) -> tuple:
     kwargs = {
         'model': model,
         'temperature': 0,
@@ -226,7 +227,15 @@ def _call_model(model: str, messages: list, max_tokens: int) -> str:
     if choice.finish_reason == 'length':
         print(f'[WARN] [{model}] Output truncated at {max_tokens} tokens. '
               f'Consider raising HARD_CAP for large schedules.')
-    return choice.message.content
+
+    prompt_tokens = getattr(resp.usage, 'prompt_tokens', 0) if (hasattr(resp, 'usage') and resp.usage) else 0
+    completion_tokens = getattr(resp.usage, 'completion_tokens', 0) if (hasattr(resp, 'usage') and resp.usage) else 0
+    if not prompt_tokens:
+        prompt_tokens = max(1, sum(len(str(msg.get('content', ''))) for msg in messages) // 4)
+    if not completion_tokens:
+        completion_tokens = max(1, len(choice.message.content) // 4)
+
+    return choice.message.content, prompt_tokens, completion_tokens
 
 
 # ── JSON SANITISATION ────────────────────────────────────────────────────────
@@ -297,7 +306,8 @@ def _serialize_input(topic_data: dict) -> str:
 def generate_schedule(topic_data: dict,
                       today_str:  str  = None,
                       max_tokens: int  = None,   # admin override, or None for adaptive
-                      model_list: list = None) -> dict:
+                      model_list: list = None,
+                      user_id:    int  = None) -> dict:
     """
     Generate a study schedule from topic_data.
 
@@ -306,6 +316,12 @@ def generate_schedule(topic_data: dict,
     """
     if today_str  is None: today_str  = datetime.date.today().strftime('%d-%m-%Y')
     if model_list is None: model_list = MODELS
+
+    # ── Check cost limit before LLM call ──────────────────────
+    if user_id:
+        from helpers import check_user_cost_limit
+        if not check_user_cost_limit(user_id):
+            raise ValueError("Cost limit exceeded. Please contact the administrator.")
 
     # ── Validate before touching LLM ─────────────────────────
     validate_schedule_input(topic_data)
@@ -337,8 +353,13 @@ def generate_schedule(topic_data: dict,
         try:
             print(f'[SCHED] Trying {i+1}/{len(model_list)}: {model} '
                   f'max_tokens={effective_max}')
-            raw      = _call_model(model, messages, effective_max)
+            raw, p_tok, c_tok = _call_model(model, messages, effective_max)
             schedule = _parse(raw)
+
+            # Track usage
+            if user_id:
+                from helpers import track_llm_call
+                track_llm_call(user_id, model, p_tok, c_tok)
             schedule['_meta'] = {
                 'model_used':      model,
                 'primary_failed':  i > 0,

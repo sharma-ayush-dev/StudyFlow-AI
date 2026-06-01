@@ -10,19 +10,58 @@
         <p class="auth-sub">Log in to your StudyFlow account</p>
         <div id="loginError" class="auth-error hidden"></div>
 
-        <label class="auth-label">Username or Email</label>
-        <input id="loginIdentifier" class="auth-input" type="text"
-               placeholder="you@example.com" autocomplete="username">
+        <!-- Google Login Option -->
+        <a href="{{ url_for('auth.google_login') }}" class="auth-google-btn">
+            <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 10px;">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.3 1 3.4 3.7 1.5 7.7l3.9 3C6.3 7.8 8.9 5 12 5z"/>
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                <path fill="#FBBC05" d="M5.4 14.7c-.3-.8-.4-1.7-.4-2.7s.1-1.9.4-2.7L1.5 6.3C.5 8.2 0 10.3 0 12.5s.5 4.3 1.5 6.2l3.9-3z"/>
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.7-2.8-6.6-5.7l-3.9 3C3.4 20.3 7.3 23 12 23z"/>
+            </svg>
+            Sign in with Google
+        </a>
 
-        <label class="auth-label">Password</label>
-        <input id="loginPassword" class="auth-input" type="password"
-               placeholder="••••••••" autocomplete="current-password">
+        <div class="auth-divider">
+            <span>or sign in with</span>
+        </div>
 
-        <label class="auth-remember">
-            <input type="checkbox" id="loginRemember"> Remember me for 7 days
-        </label>
+        <div class="auth-tabs">
+            <button class="auth-tab-btn active" id="loginTabPassword">Password</button>
+            <button class="auth-tab-btn" id="loginTabOTP">Email OTP</button>
+        </div>
 
-        <button class="auth-btn" id="loginSubmit">Log In</button>
+        <!-- Password login form fields -->
+        <div id="passwordLoginForm">
+            <label class="auth-label">Username or Email</label>
+            <input id="loginIdentifier" class="auth-input" type="text"
+                   placeholder="you@example.com" autocomplete="username">
+
+            <label class="auth-label" style="margin-top: 10px; display: block;">Password</label>
+            <input id="loginPassword" class="auth-input" type="password"
+                   placeholder="••••••••" autocomplete="current-password">
+
+            <label class="auth-remember" style="margin-top: 10px; display: flex;">
+                <input type="checkbox" id="loginRemember"> Remember me for 7 days
+            </label>
+
+            <button class="auth-btn" id="loginSubmit" style="width: 100%; margin-top: 15px;">Log In</button>
+        </div>
+
+        <!-- OTP login form fields -->
+        <div id="otpLoginForm" class="hidden">
+            <label class="auth-label">Email Address</label>
+            <div style="display: flex; gap: 10px; margin-top: 4px;">
+                <input id="otpEmail" class="auth-input" type="email" placeholder="you@example.com" style="flex: 1;">
+                <button type="button" id="sendOtpBtn" class="auth-btn" style="margin-top: 0; padding: 10px 15px; font-size: 13px; white-space: nowrap;">Send OTP</button>
+            </div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px;">For testing, you can use OTP <strong>123456</strong> or check the terminal log.</div>
+
+            <div id="otpVerifySection" class="hidden" style="margin-top: 15px;">
+                <label class="auth-label">Enter 6-Digit OTP</label>
+                <input id="otpCode" class="auth-input" type="text" placeholder="######" maxlength="6" style="letter-spacing: 4px; text-align: center; font-size: 18px; font-weight: bold;">
+                <button type="button" id="verifyOtpSubmit" class="auth-btn" style="width: 100%; margin-top: 15px;">Verify & Log In</button>
+            </div>
+        </div>
 
         <p class="auth-switch">
             Don't have an account?

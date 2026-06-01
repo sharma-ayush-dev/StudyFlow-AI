@@ -98,12 +98,17 @@ def _is_context_error(exc: Exception) -> bool:
     return any(kw in msg for kw in _CONTEXT_ERRORS)
 
 
-def _call_with_fallback(messages_fn, model_list, is_streaming=False):
+def _call_with_fallback(messages_fn, model_list, user_id=None, is_streaming=False):
     """
     Try each model. On context-length error only, shrink the window and retry.
     On any other error, move immediately to the next model (no window retry).
     Returns (content_or_generator, model_used, failures)
     """
+    if user_id:
+        from helpers import check_user_cost_limit
+        if not check_user_cost_limit(user_id):
+            raise ValueError("Cost limit exceeded. Please contact the administrator.")
+
     failures = []
 
     for i, model in enumerate(model_list):
@@ -116,11 +121,26 @@ def _call_with_fallback(messages_fn, model_list, is_streaming=False):
                         model=model, temperature=0.7, max_tokens=800,
                         messages=msgs, stream=True)
 
-                    def _gen(r=resp):
+                    def _gen(r=resp, m=model, ms=msgs):
+                        full_content = []
+                        prompt_tokens = 0
+                        completion_tokens = 0
                         for chunk in r:
+                            if hasattr(chunk, 'usage') and chunk.usage:
+                                prompt_tokens = getattr(chunk.usage, 'prompt_tokens', 0)
+                                completion_tokens = getattr(chunk.usage, 'completion_tokens', 0)
                             delta = chunk.choices[0].delta if chunk.choices else None
                             if delta and delta.content:
+                                full_content.append(delta.content)
                                 yield delta.content
+
+                        if user_id:
+                            if not prompt_tokens:
+                                prompt_tokens = max(1, sum(len(str(msg.get('content', ''))) for msg in ms) // 4)
+                            if not completion_tokens:
+                                completion_tokens = max(1, len("".join(full_content)) // 4)
+                            from helpers import track_llm_call
+                            track_llm_call(user_id, m, prompt_tokens, completion_tokens)
 
                     return _gen(), model, failures
 
@@ -130,6 +150,17 @@ def _call_with_fallback(messages_fn, model_list, is_streaming=False):
                     choice = resp.choices[0] if resp.choices else None
                     if not choice or not choice.message.content:
                         raise ValueError("Empty response")
+
+                    if user_id:
+                        prompt_tokens = getattr(resp.usage, 'prompt_tokens', 0) if (hasattr(resp, 'usage') and resp.usage) else 0
+                        completion_tokens = getattr(resp.usage, 'completion_tokens', 0) if (hasattr(resp, 'usage') and resp.usage) else 0
+                        if not prompt_tokens:
+                            prompt_tokens = max(1, sum(len(str(msg.get('content', ''))) for msg in msgs) // 4)
+                        if not completion_tokens:
+                            completion_tokens = max(1, len(choice.message.content) // 4)
+                        from helpers import track_llm_call
+                        track_llm_call(user_id, model, prompt_tokens, completion_tokens)
+
                     return choice.message.content.strip(), model, failures
 
             except Exception as exc:
@@ -190,27 +221,27 @@ def _build_initial_messages(trigger, system):
 # ─────────────────────────────────────────────
 
 def get_initial_message(course, subject, topic, subtopics, hours,
-                        model_list=None, use_chinese=False):
+                        model_list=None, use_chinese=False, user_id=None):
     if model_list is None: model_list = TEACHER_MODELS
     system  = build_system_prompt(course, subject, topic, subtopics, hours, use_chinese)
     trigger = (f"I want to study {topic} today. I have {hours or 'some'} hours. "
                f"Please start teaching me the first subtopic.")
-    return _call_with_fallback(_build_initial_messages(trigger, system), model_list)
+    return _call_with_fallback(_build_initial_messages(trigger, system), model_list, user_id=user_id)
 
 
 def get_reply(history, new_message, course, subject, topic,
-              subtopics, hours, model_list=None, use_chinese=False):
+              subtopics, hours, model_list=None, use_chinese=False, user_id=None):
     if model_list is None: model_list = TEACHER_MODELS
     system = build_system_prompt(course, subject, topic, subtopics, hours, use_chinese)
     return _call_with_fallback(
-        _build_reply_messages(history, new_message, system), model_list)
+        _build_reply_messages(history, new_message, system), model_list, user_id=user_id)
 
 
 def get_quiz(history, course, subject, topic, subtopics, hours,
-             model_list=None, use_chinese=False):
+             model_list=None, use_chinese=False, user_id=None):
     if model_list is None: model_list = TEACHER_MODELS
     system = build_system_prompt(course, subject, topic, subtopics, hours, use_chinese)
-    return _call_with_fallback(_build_quiz_messages(history, system), model_list)
+    return _call_with_fallback(_build_quiz_messages(history, system), model_list, user_id=user_id)
 
 
 # ─────────────────────────────────────────────
@@ -218,22 +249,22 @@ def get_quiz(history, course, subject, topic, subtopics, hours,
 # ─────────────────────────────────────────────
 
 def stream_reply(history, new_message, course, subject, topic,
-                 subtopics, hours, model_list=None, use_chinese=False):
+                 subtopics, hours, model_list=None, use_chinese=False, user_id=None):
     """Yields text chunks. Raises RuntimeError if all models fail."""
     if model_list is None: model_list = TEACHER_MODELS
     system = build_system_prompt(course, subject, topic, subtopics, hours, use_chinese)
     gen, _, _ = _call_with_fallback(
         _build_reply_messages(history, new_message, system),
-        model_list, is_streaming=True)
+        model_list, user_id=user_id, is_streaming=True)
     yield from gen
 
 
 def stream_quiz(history, course, subject, topic, subtopics, hours,
-                model_list=None, use_chinese=False):
+                model_list=None, use_chinese=False, user_id=None):
     """Yields text chunks for quiz. Raises RuntimeError if all models fail."""
     if model_list is None: model_list = TEACHER_MODELS
     system = build_system_prompt(course, subject, topic, subtopics, hours, use_chinese)
     gen, _, _ = _call_with_fallback(
         _build_quiz_messages(history, system),
-        model_list, is_streaming=True)
+        model_list, user_id=user_id, is_streaming=True)
     yield from gen

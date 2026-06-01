@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 import datetime
 import json
 
-from extensions import db, RATE_LIMIT_DEFAULTS, DEFAULT_WORD_LIMIT
+from extensions import db, RATE_LIMIT_DEFAULTS, DEFAULT_WORD_LIMIT, DEFAULT_SCHED_PREF_LIMIT
 from models import User, ActivityLog, RequestLog, StudyData, Chat
 from helpers import *
 from schedule_planner import MODELS as SCHED_MODELS
@@ -25,15 +25,8 @@ def admin_dashboard():
         db.func.count().label('count'))
         .filter(RequestLog.timestamp >= fourteen_days_ago)
         .group_by('day').order_by('day').all())
-    recent_activity = (db.session.query(ActivityLog, User.username)
-        .outerjoin(User, User.id == ActivityLog.userid)
-        .order_by(ActivityLog.timestamp.desc()).limit(50).all())
     return render_template('Admin.html',
-        total_users=User.query.count(),
-        total_requests=RequestLog.query.count(),
-        total_schedules=StudyData.query.filter(StudyData.schedule_json.isnot(None)).count(),
-        total_chats=Chat.query.count(),
-        daily_logs=daily_logs, recent_activity=recent_activity,
+        daily_logs=daily_logs,
         test_today=_get_setting('test_today'),
         real_today=datetime.date.today().strftime('%d-%m-%Y'),
         current_limits={k: (_get_setting(k) or v) for k, v in RATE_LIMIT_DEFAULTS.items()},
@@ -47,7 +40,176 @@ def admin_dashboard():
         default_teacher_models=TEACHER_MODELS,
         word_limit=get_word_limit(), default_word_limit=DEFAULT_WORD_LIMIT,
         sched_pref_limit=get_sched_pref_limit(), default_sched_pref_limit=DEFAULT_SCHED_PREF_LIMIT,
-        use_chinese=get_use_chinese())
+        use_chinese=get_use_chinese(),
+        model_costs=get_model_costs())
+
+
+@admin_bp.route('/admin/api/stats')
+@login_required
+def admin_api_stats():
+    if not current_user.is_admin: abort(403)
+    
+    today_str = get_today()
+    today_date = parse_dmy(today_str)
+    start_of_today = datetime.datetime.combine(today_date, datetime.time.min)
+    end_of_today = datetime.datetime.combine(today_date, datetime.time.max)
+    
+    # 1. Active Users Today (unique userids in RequestLog or ActivityLog today)
+    req_uids = {r[0] for r in db.session.query(RequestLog.userid).filter(
+        RequestLog.timestamp >= start_of_today,
+        RequestLog.timestamp <= end_of_today,
+        RequestLog.userid.isnot(None)
+    ).all()}
+    
+    act_uids = {r[0] for r in db.session.query(ActivityLog.userid).filter(
+        ActivityLog.timestamp >= start_of_today,
+        ActivityLog.timestamp <= end_of_today,
+        ActivityLog.userid.isnot(None)
+    ).all()}
+    
+    active_users_today = len(req_uids.union(act_uids))
+    
+    # 2. Total Requests Today
+    requests_today = RequestLog.query.filter(
+        RequestLog.timestamp >= start_of_today,
+        RequestLog.timestamp <= end_of_today
+    ).count()
+    
+    # 3. Uploads Today
+    uploads_today = ActivityLog.query.filter(
+        ActivityLog.action == 'upload',
+        ActivityLog.timestamp >= start_of_today,
+        ActivityLog.timestamp <= end_of_today
+    ).count()
+    
+    # 4. LLM calls today (tokens & cost)
+    llm_logs_today = ActivityLog.query.filter(
+        ActivityLog.action == 'llm_call',
+        ActivityLog.timestamp >= start_of_today,
+        ActivityLog.timestamp <= end_of_today
+    ).all()
+    
+    tokens_today = 0
+    cost_today = 0.0
+    for log in llm_logs_today:
+        try:
+            dt = json.loads(log.detail)
+            tokens_today += dt.get('prompt_tokens', 0) + dt.get('completion_tokens', 0)
+            cost_today += dt.get('cost', 0.0)
+        except:
+            pass
+            
+    # 5. Schedules generated today
+    schedules_today = ActivityLog.query.filter(
+        ActivityLog.action.in_(['generate', 'regenerate']),
+        ActivityLog.timestamp >= start_of_today,
+        ActivityLog.timestamp <= end_of_today
+    ).count()
+    
+    return jsonify({
+        'active_users_today': active_users_today,
+        'requests_today': requests_today,
+        'uploads_today': uploads_today,
+        'tokens_today': tokens_today,
+        'cost_today': round(cost_today, 4),
+        'schedules_today': schedules_today,
+        'total_users': User.query.count(),
+        'total_requests': RequestLog.query.count(),
+        'total_schedules': StudyData.query.filter(StudyData.schedule_json.isnot(None)).count(),
+        'total_chats': Chat.query.count()
+    })
+
+
+@admin_bp.route('/admin/api/logs/activity')
+@login_required
+def admin_api_logs_activity():
+    if not current_user.is_admin: abort(403)
+    limit = max(10, min(100, int(request.args.get('limit', 50))))
+    page = max(1, int(request.args.get('page', 1)))
+    
+    query_results = (db.session.query(ActivityLog, User.username)
+                     .outerjoin(User, User.id == ActivityLog.userid)
+                     .order_by(ActivityLog.timestamp.desc())
+                     .limit(500)
+                     .all())
+    
+    total = len(query_results)
+    pages = (total + limit - 1) // limit
+    offset = (page - 1) * limit
+    paginated = query_results[offset:offset+limit]
+    
+    formatted = []
+    for log, username in paginated:
+        detail_text = ""
+        if log.detail:
+            try:
+                dt = json.loads(log.detail)
+                if log.action == 'upload':
+                    detail_text = f"Uploaded {dt.get('files', 0)} files (manual text: {'Yes' if dt.get('manual') else 'No'})"
+                elif log.action == 'study_start':
+                    detail_text = f"Tutoring slot: {dt.get('subject')} - {dt.get('topic')}"
+                elif log.action == 'llm_call':
+                    detail_text = f"LLM Call: {dt.get('model')} (In: {dt.get('prompt_tokens', 0)}, Out: {dt.get('completion_tokens', 0)} tokens, Cost: ₹{round(dt.get('cost', 0.0), 4)})"
+                elif log.action == 'register':
+                    detail_text = f"Registered username: {dt.get('username')}"
+                else:
+                    detail_text = json.dumps(dt)
+            except:
+                detail_text = log.detail
+        else:
+            detail_text = "—"
+            
+        formatted.append({
+            'id': log.id,
+            'timestamp': log.timestamp.strftime('%d %b %H:%M:%S'),
+            'username': username or 'Guest',
+            'action': log.action,
+            'detail': detail_text
+        })
+        
+    return jsonify({
+        'logs': formatted,
+        'total': total,
+        'pages': pages,
+        'current_page': page
+    })
+
+
+@admin_bp.route('/admin/api/logs/requests')
+@login_required
+def admin_api_logs_requests():
+    if not current_user.is_admin: abort(403)
+    limit = max(10, min(100, int(request.args.get('limit', 50))))
+    page = max(1, int(request.args.get('page', 1)))
+    
+    query_results = (db.session.query(RequestLog, User.username)
+                     .outerjoin(User, User.id == RequestLog.userid)
+                     .order_by(RequestLog.timestamp.desc())
+                     .limit(500)
+                     .all())
+    
+    total = len(query_results)
+    pages = (total + limit - 1) // limit
+    offset = (page - 1) * limit
+    paginated = query_results[offset:offset+limit]
+    
+    formatted = []
+    for log, username in paginated:
+        formatted.append({
+            'id': log.id,
+            'timestamp': log.timestamp.strftime('%d %b %H:%M:%S'),
+            'username': username or 'Guest',
+            'method': log.method,
+            'path': log.path,
+            'status_code': log.status_code
+        })
+        
+    return jsonify({
+        'logs': formatted,
+        'total': total,
+        'pages': pages,
+        'current_page': page
+    })
 
 
 @admin_bp.route('/admin/api/users')
@@ -59,7 +221,15 @@ def admin_list_users():
         'id': u.id, 'username': u.username, 'email': u.email,
         'course': u.course or '', 'is_admin': u.is_admin,
         'created_at': u.created_at.strftime('%d %b %Y %H:%M'),
-        'password_hash': u.password_hash
+        'password_hash': u.password_hash,
+        'upload_count': u.upload_count or 0,
+        'generations_count': u.generations_count or 0,
+        'last_active': u.last_active.strftime('%d %b %H:%M') if u.last_active else 'Never',
+        'input_tokens_used': u.input_tokens_used or 0,
+        'output_tokens_used': u.output_tokens_used or 0,
+        'last_model_used': u.last_model_used or 'None',
+        'total_cost': round(u.total_cost or 0.0, 4),
+        'cost_limit': round(u.cost_limit or 10.0, 2)
     } for u in users])
 
 
@@ -100,6 +270,14 @@ def admin_update_user(uid):
         if len(pw) < 8: return jsonify({'error': 'Password too short'}), 400
         user.set_password(pw)
         user.session_version = (user.session_version or 0) + 1
+    if 'cost_limit' in data:
+        try:
+            cl = float(data['cost_limit'])
+            user.cost_limit = max(0.0, cl)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid cost limit'}), 400
+    if data.get('reset_cost'):
+        user.total_cost = 0.0
     db.session.commit()
     return jsonify({'message': 'User updated'})
 
@@ -199,4 +377,17 @@ def admin_settings(action):
         val = bool(data.get('enabled', False))
         _set_setting('use_chinese_prompts', 'true' if val else 'false')
         return jsonify({'message': f'Chinese prompts {"enabled" if val else "disabled"}'})
+    if ep == 'set_model_costs':
+        costs = data.get('costs', {})
+        cleaned = {}
+        for m, val in costs.items():
+            if not m: continue
+            try:
+                inp = float(val.get('input', 0.0))
+                out = float(val.get('output', 0.0))
+                cleaned[m] = {'input': max(0.0, inp), 'output': max(0.0, out)}
+            except:
+                pass
+        save_model_costs(cleaned)
+        return jsonify({'message': 'Model costs updated successfully'})
     abort(404)

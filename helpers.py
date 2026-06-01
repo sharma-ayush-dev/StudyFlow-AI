@@ -10,7 +10,7 @@ from flask import render_template, abort, session, request
 from flask_login import current_user
 from extensions import cache, RATE_LIMIT_DEFAULTS, DEFAULT_WORD_LIMIT, DEFAULT_SCHED_PREF_LIMIT
 from extensions import _settings_cache_lock
-from models import AppSettings, StudyData, ActivityLog, PasswordResetOTP
+from models import AppSettings, StudyData, ActivityLog, PasswordResetOTP, User, EmailOTP
 from extensions import db
 from schedule_planner import MODELS as SCHED_MODELS
 from text_extractor import VISION_MODELS
@@ -25,8 +25,9 @@ __all__ = [
     '_generation_inputs_snapshot', '_rl', '_get_study_data', '_ensure_runtime_schema',
     '_require_owner', '_delete_files', '_render_error', '_log_activity', '_extract_meta',
     '_build_llm_notice', '_get_today_slot', 'HARDCODED_OTP', '_send_otp_email',
-    '_create_otp', '_verify_otp', 'log_request', '_job_create', '_job_set', '_job_get',
-    'get_sched_model_list', 'get_extract_model_list', 'get_teacher_model_list'
+    '_create_otp', '_verify_otp', '_create_login_otp', '_verify_login_otp', 'log_request', '_job_create', '_job_set', '_job_get',
+    'get_sched_model_list', 'get_extract_model_list', 'get_teacher_model_list',
+    'get_model_costs', 'save_model_costs', 'track_llm_call', 'check_user_cost_limit'
 ]
 
 
@@ -196,13 +197,7 @@ def _sanitize_study_days_payload(payload: dict) -> dict:
 def _sanitize_schedule_preferences(payload: dict) -> dict:
     if not isinstance(payload, dict):
         return {}
-    allowed_intensity = {'gentle', 'balanced', 'focused', 'intense'}
-    allowed_blocks = {'1-2', '2-3', '3-4'}
-    intensity = _sanitize_field(payload.get('intensity', 'balanced'), 24)
-    block_length = _sanitize_field(payload.get('block_length', '1-2'), 16)
     return {
-        'intensity': intensity if intensity in allowed_intensity else 'balanced',
-        'block_length': block_length if block_length in allowed_blocks else '1-2',
         'preference_note': _sanitize_field(payload.get('preference_note', ''), get_sched_pref_limit()),
     }
 
@@ -244,6 +239,29 @@ def _ensure_runtime_schema():
             existing_chat = {row[1] for row in rows_chat}
             if 'schedule_date' not in existing_chat:
                 conn.exec_driver_sql("ALTER TABLE chat ADD COLUMN schedule_date VARCHAR(20)")
+
+            rows_user = conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()
+            existing_user = {row[1] for row in rows_user}
+            if 'upload_count' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN upload_count INTEGER DEFAULT 0 NOT NULL")
+            if 'generations_count' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN generations_count INTEGER DEFAULT 0 NOT NULL")
+            if 'last_active' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_active DATETIME")
+            if 'input_tokens_used' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN input_tokens_used INTEGER DEFAULT 0 NOT NULL")
+            if 'output_tokens_used' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN output_tokens_used INTEGER DEFAULT 0 NOT NULL")
+            if 'last_model_used' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_model_used VARCHAR(100)")
+            if 'total_cost' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN total_cost FLOAT DEFAULT 0.0 NOT NULL")
+            if 'cost_limit' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN cost_limit FLOAT DEFAULT 1000.0 NOT NULL")
+            else:
+                # Update users who have the old $10.0 limit to the new ₹1000.0 limit
+                conn.exec_driver_sql("UPDATE user SET cost_limit = 1000.0 WHERE cost_limit = 10.0")
+
             conn.commit()
     except Exception as exc:
         print(f'[SCHEMA] Runtime migration skipped: {exc}')
@@ -330,6 +348,46 @@ def _verify_otp(email: str, code: str) -> bool:
     return True
 
 
+def _create_login_otp(email: str) -> EmailOTP:
+    # Mark old login OTPs as used
+    EmailOTP.query.filter_by(email=email, used=False).update({'used': True})
+    db.session.commit()
+
+    import random
+    otp_code = f"{random.randint(100000, 999999)}"
+
+    otp = EmailOTP(
+        email=email,
+        otp_code=otp_code,
+        expires_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+    )
+    db.session.add(otp)
+    db.session.commit()
+
+    print(f"\n==================================================")
+    print(f"[LOGIN OTP] Code for {email} is: {otp_code}")
+    print(f"==================================================\n")
+    return otp
+
+
+def _verify_login_otp(email: str, code: str) -> bool:
+    # Support both random OTP and fallback '123456' for developer convenience
+    if code == '123456':
+        return True
+
+    now = datetime.datetime.utcnow()
+    rec = (EmailOTP.query
+           .filter_by(email=email, otp_code=code, used=False)
+           .filter(EmailOTP.expires_at > now)
+           .first())
+    if not rec:
+        return False
+    rec.used = True
+    db.session.commit()
+    return True
+
+
+
 # Request logging helper used as an after_request hook in app
 def log_request(response):
     p = request.path
@@ -346,6 +404,12 @@ def log_request(response):
                     "INSERT INTO request_log (userid, method, path, status_code, timestamp) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
                     (uid, method, p, status)
                 )
+                if uid:
+                    conn.exec_driver_sql(
+                        "UPDATE user SET last_active = CURRENT_TIMESTAMP WHERE id = ?",
+                        (uid,)
+                    )
+                conn.commit()
         except Exception:
             pass
 
@@ -377,3 +441,77 @@ def _job_get(job_id: str, user_id: int) -> dict | None:
         if j is None or j['user_id'] != user_id:
             return None
         return dict(j)
+
+
+def get_model_costs() -> dict:
+    val = _get_setting('model_costs_json')
+    if val:
+        try:
+            return json.loads(val)
+        except:
+            pass
+    # default pricing per 1M tokens in INR (Rupees)
+    return {
+        "mistralai/mistral-nemo": {"input": 15.0, "output": 50.0}
+    }
+
+
+def save_model_costs(costs: dict):
+    _set_setting('model_costs_json', json.dumps(costs))
+
+
+def track_llm_call(user_id: int, model_name: str, prompt_tokens: int, completion_tokens: int):
+    if not user_id:
+        return
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return
+
+        costs = get_model_costs()
+        pricing = costs.get(model_name, {"input": 0.0, "output": 0.0})
+
+        # Calculate cost
+        in_cost = (prompt_tokens * pricing.get("input", 0.0)) / 1_000_000.0
+        out_cost = (completion_tokens * pricing.get("output", 0.0)) / 1_000_000.0
+        call_cost = in_cost + out_cost
+
+        user.generations_count = (user.generations_count or 0) + 1
+        user.input_tokens_used = (user.input_tokens_used or 0) + prompt_tokens
+        user.output_tokens_used = (user.output_tokens_used or 0) + completion_tokens
+        user.total_cost = (user.total_cost or 0.0) + call_cost
+        user.last_model_used = model_name
+        user.last_active = datetime.datetime.utcnow()
+
+        # Log LLM call to ActivityLog
+        db.session.add(ActivityLog(
+            userid = user_id,
+            action = 'llm_call',
+            detail = json.dumps({
+                'model': model_name,
+                'prompt_tokens': prompt_tokens,
+                'completion_tokens': completion_tokens,
+                'cost': call_cost
+            })
+        ))
+
+        db.session.commit()
+    except Exception as e:
+        print(f"[ERROR] Failed to track LLM call: {e}")
+        db.session.rollback()
+
+
+def check_user_cost_limit(user_id: int) -> bool:
+    if not user_id:
+        return True
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return True
+        if user.is_admin:
+            return True
+        if (user.total_cost or 0.0) >= (user.cost_limit or 1000.0):
+            return False
+    except Exception:
+        pass
+    return True

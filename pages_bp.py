@@ -195,6 +195,8 @@ def settings_update():
         current_user.set_password(new_pw)
         current_user.session_version = (current_user.session_version or 0) + 1
         db.session.commit()
+        from flask_login import login_user
+        login_user(current_user, remember=True)
         session['session_version'] = current_user.session_version
         return jsonify({'message': 'Password changed successfully'})
 

@@ -8,7 +8,7 @@
     <style>
         /* ── LAYOUT ── */
         .admin-page {
-            max-width: 960px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px 80px;
         }
@@ -24,6 +24,75 @@
             color: #666;
             font-size: 14px;
             margin-bottom: 40px;
+        }
+
+        .admin-container {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .admin-sidebar {
+            width: 240px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: sticky;
+            top: 20px;
+        }
+
+        .sidebar-item {
+            padding: 14px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #aaa;
+            transition: all 0.2s;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-item:hover {
+            color: #fff;
+            background: rgba(123, 47, 247, 0.1);
+            border-color: rgba(123, 47, 247, 0.2);
+        }
+
+        .sidebar-item.active {
+            color: #fff;
+            background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+            border-color: transparent;
+            box-shadow: 0 0 12px rgba(123, 47, 247, 0.4);
+        }
+
+        .admin-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .admin-panel {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .admin-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* ── STAT CARDS ── */
@@ -418,257 +487,328 @@
     {% include '_navbar.html' %}
 
     <div class="admin-page">
+        <h1>Admin Control Panel</h1>
+        <p class="admin-subtitle">Real-time control center — changes take effect immediately.</p>
 
-        <h1>Admin Dashboard</h1>
-        <p class="admin-subtitle">Real-time controls — changes take effect immediately without restart.</p>
-
-
-        <!-- ── STAT CARDS ── -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number">{{ total_users }}</div>
-                <div class="stat-label">Users</div>
+        <div class="admin-container">
+            <!-- Sidebar -->
+            <div class="admin-sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item active" id="tab-btn-overview" onclick="switchTab('overview')">📊 Overview</li>
+                    <li class="sidebar-item" id="tab-btn-users" onclick="switchTab('users')">👥 Users</li>
+                    <li class="sidebar-item" id="tab-btn-ai" onclick="switchTab('ai')">🤖 AI & Costs</li>
+                    <li class="sidebar-item" id="tab-btn-limits" onclick="switchTab('limits')">⚡ Rate Limits</li>
+                    <li class="sidebar-item" id="tab-btn-logs" onclick="switchTab('logs')">📋 System Logs</li>
+                </ul>
             </div>
-            <div class="stat-card">
-                <div class="stat-number">{{ total_requests }}</div>
-                <div class="stat-label">Requests</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">{{ total_schedules }}</div>
-                <div class="stat-label">Schedules</div>
-            </div>
-        </div>
 
-
-        <!-- ════════════════════════════════
-     1. DATE OVERRIDE
-════════════════════════════════ -->
-        <div class="admin-section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <span class="section-title">🗓 Test Date Override</span>
-                <span class="section-chevron">▼</span>
-            </div>
-            <div class="section-body open">
-                <p style="color:#888;font-size:13px;line-height:1.6;">
-                    Overrides "today" site-wide — useful for testing the progress page.
-                    <br>Real today: <strong style="color:#9f55ff;">{{ real_today }}</strong>
-                </p>
-                <label class="admin-label">Set test date</label>
-                <input type="date" id="overrideDateInput" class="admin-input"
-                    value="{{ (test_today.split('-')[2]+'-'+test_today.split('-')[1]+'-'+test_today.split('-')[0]) if test_today else '' }}">
-                <div class="admin-row">
-                    <button class="btn-save" onclick="setDate()">Set Date</button>
-                    <button class="btn-reset" onclick="resetDate()">Reset to Real Today</button>
-                </div>
-                <div class="{{ 'pill-active' if test_today else 'pill-inactive' }}" id="dateStatus">
-                    {% if test_today %}⚠ Override active: {{ test_today }}
-                    {% else %}No override — using system date.{% endif %}
-                </div>
-                <div class="feedback" id="dateFb"></div>
-            </div>
-        </div>
-
-
-        <!-- ════════════════════════════════
-     2. RATE LIMITS
-════════════════════════════════ -->
-        <div class="admin-section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <span class="section-title">⚡ Rate Limits <span style="color:#555;font-size:12px;">(regular users only —
-                        admins unlimited)</span></span>
-                <span class="section-chevron">▼</span>
-            </div>
-            <div class="section-body">
-                {% set rl_meta = [
-                ('rl_login', 'Login attempts'),
-                ('rl_register', 'Registration'),
-                ('rl_upload', 'File uploads'),
-                ('rl_generate', 'Schedule generations')
-                ] %}
-                {% for key, label in rl_meta %}
-                <label class="admin-label">{{ label }}
-                    <span style="color:#444;font-size:11px;"> default: {{ default_limits[key] }}</span>
-                </label>
-                <input type="text" id="rl_{{ key }}" class="admin-input" value="{{ current_limits[key] }}"
-                    placeholder="{{ default_limits[key] }}">
-                {% endfor %}
-                <div class="admin-row">
-                    <button class="btn-save" onclick="saveRateLimits()">Save</button>
-                    <button class="btn-reset" onclick="resetRateLimits()">Reset Defaults</button>
-                </div>
-                <div class="feedback" id="rlFb"></div>
-            </div>
-        </div>
-
-
-        <!-- ════════════════════════════════
-     3. AI SETTINGS
-════════════════════════════════ -->
-        <div class="admin-section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <span class="section-title">🤖 AI Settings</span>
-                <span class="section-chevron">▼</span>
-            </div>
-            <div class="section-body">
-
-                <!-- Max Tokens -->
-                <label class="admin-label">Max tokens per schedule generation (500–32000)</label>
-                <input type="number" id="maxTokensInput" class="admin-input" value="{{ max_tokens }}" min="500"
-                    max="32000" step="500">
-                <div class="admin-row" style="margin-bottom:20px;">
-                    <button class="btn-save" onclick="saveTokens()">Save Tokens</button>
-                </div>
-
-                <!-- Word Limit -->
-                <label class="admin-label">Manual text word limit (100–10000)</label>
-                <input type="number" id="wordLimitInput" class="admin-input" value="{{ word_limit }}" min="100"
-                    max="10000" step="100">
-                <div class="admin-row" style="margin-bottom:28px;">
-                    <button class="btn-save" onclick="saveWordLimit()">Save Word Limit</button>
-                </div>
-
-                <!-- Schedule Preference Limit -->
-                <label class="admin-label">Schedule preference character limit (10–2000)</label>
-                <input type="number" id="schedPrefLimitInput" class="admin-input" value="{{ sched_pref_limit }}" min="10"
-                    max="2000" step="10">
-                <div class="admin-row" style="margin-bottom:28px;">
-                    <button class="btn-save" onclick="saveSchedPrefLimit()">Save Schedule Preference Limit</button>
-                </div>
-
-                <!-- Schedule models -->
-                <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
-                    Schedule generator models (tried top → bottom)
-                </label>
-                <div id="schedModelRows"></div>
-                <button class="btn-add-model" onclick="addModelRow('sched')">+ Add model</button>
-                <div class="admin-row" style="margin-bottom:28px;">
-                    <button class="btn-save" onclick="saveModels('sched')">Save</button>
-                    <button class="btn-reset" onclick="resetModels('sched')">Reset Defaults</button>
-                </div>
-
-                <!-- Extract models -->
-                <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
-                    Text extraction models (tried top → bottom)
-                </label>
-                <div id="extractModelRows"></div>
-                <button class="btn-add-model" onclick="addModelRow('extract')">+ Add model</button>
-                <div class="admin-row">
-                    <button class="btn-save" onclick="saveModels('extract')">Save</button>
-                    <button class="btn-reset" onclick="resetModels('extract')">Reset Defaults</button>
-                </div>
-
-                <!-- Teacher models -->
-                <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
-                    Teacher assistant models (tried top â†’ bottom)
-                </label>
-                <div id="teacherModelRows"></div>
-                <button class="btn-add-model" onclick="addModelRow('teacher')">+ Add model</button>
-                <div class="admin-row">
-                    <button class="btn-save" onclick="saveModels('teacher')">Save</button>
-                    <button class="btn-reset" onclick="resetModels('teacher')">Reset Defaults</button>
-                </div>
-
-                <div class="feedback" id="aiFb"></div>
-            </div>
-        </div>
-
-
-        <!-- ════════════════════════════════
-     4. USERS
-════════════════════════════════ -->
-        <div class="admin-section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <span class="section-title">👥 User Management</span>
-                <span class="section-chevron">▼</span>
-            </div>
-            <div class="section-body">
-                <div id="usersLoading" style="color:#666;font-size:13px;">Loading users…</div>
-                <table class="admin-table" id="usersTable" style="display:none;">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Password Hash</th>
-                            <th>Joined</th>
-                            <th>Admin</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersBody"></tbody>
-                </table>
-                <div class="feedback" id="userFb"></div>
-            </div>
-        </div>
-
-
-        <!-- ════════════════════════════════
-     5. ACTIVITY LOG
-════════════════════════════════ -->
-        <div class="admin-section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <span class="section-title">📋 Activity Log <span style="color:#555;font-size:12px;">(last
-                        50)</span></span>
-                <span class="section-chevron">▼</span>
-            </div>
-            <div class="section-body">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>User</th>
-                            <th>Action</th>
-                            <th>Detail</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for log, username in recent_activity %}
-                        <tr>
-                            <td style="white-space:nowrap;color:#555;font-size:12px;">
-                                {{ log.timestamp.strftime('%d %b %H:%M') }}
-                            </td>
-                            <td>{{ username or '—' }}</td>
-                            <td>
-                                <span class="activity-pill act-{{ log.action }}">
-                                    {{ log.action }}
-                                </span>
-                            </td>
-                            <td style="color:#666;font-size:12px;">
-                                {% if log.detail %}
-                                {% set d = log.detail | tojson %}{{ d[:80] }}{% if d|length > 80 %}…{% endif %}
-                                {% else %}—{% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-
-        <!-- ════════════════════════════════
-     6. DAILY REQUESTS CHART
-════════════════════════════════ -->
-        {% if daily_logs %}
-        <div class="admin-section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <span class="section-title">📊 Requests — Last 14 Days</span>
-                <span class="section-chevron">▼</span>
-            </div>
-            <div class="section-body">
-                {% set max_c = daily_logs | map(attribute='count') | max %}
-                {% for row in daily_logs %}
-                <div class="bar-row">
-                    <div class="bar-label">{{ row.day }}</div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width:{{ (row.count/max_c*100)|round }}%"></div>
+            <!-- Main Content Area -->
+            <div class="admin-main">
+                
+                <!-- 1. OVERVIEW PANEL -->
+                <div class="admin-panel active" id="panel-overview">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">System Overview</h2>
+                    
+                    <div style="margin-bottom:12px; font-size:12px; font-weight:600; color:#555; letter-spacing: 0.5px;">LIFETIME STATS</div>
+                    <div class="stats-grid" style="margin-bottom:30px; justify-content: flex-start;">
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-total-users">—</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-total-requests">—</div>
+                            <div class="stat-label">Total Requests</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-total-schedules">—</div>
+                            <div class="stat-label">Total Schedules</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-total-chats">—</div>
+                            <div class="stat-label">Total Chats</div>
+                        </div>
                     </div>
-                    <div class="bar-count">{{ row.count }}</div>
+
+                    <div style="margin-bottom:12px; font-size:12px; font-weight:600; color:#555; letter-spacing: 0.5px;">TODAY'S STATS</div>
+                    <div class="stats-grid" style="margin-bottom:38px; justify-content: flex-start;">
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-active-users">—</div>
+                            <div class="stat-label">Active Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-requests-today">—</div>
+                            <div class="stat-label">Requests</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-uploads-today">—</div>
+                            <div class="stat-label">Uploads</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-tokens-today">—</div>
+                            <div class="stat-label">Tokens Used</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-cost-today">—</div>
+                            <div class="stat-label">LLM Cost</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="stat-schedules-today">—</div>
+                            <div class="stat-label">Schedules Generated</div>
+                        </div>
+                    </div>
+
+                    <!-- Date override -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">🗓 Test Date Override</span>
+                        </div>
+                        <div class="section-body open">
+                            <p style="color:#888;font-size:13px;line-height:1.6;">
+                                Overrides "today" site-wide — useful for testing the progress page.
+                                <br>Real today: <strong style="color:#9f55ff;">{{ real_today }}</strong>
+                            </p>
+                            <label class="admin-label">Set test date</label>
+                            <input type="date" id="overrideDateInput" class="admin-input"
+                                value="{{ (test_today.split('-')[2]+'-'+test_today.split('-')[1]+'-'+test_today.split('-')[0]) if test_today else '' }}">
+                            <div class="admin-row">
+                                <button class="btn-save" onclick="setDate()">Set Date</button>
+                                <button class="btn-reset" onclick="resetDate()">Reset to Real Today</button>
+                            </div>
+                            <div class="{{ 'pill-active' if test_today else 'pill-inactive' }}" id="dateStatus">
+                                {% if test_today %}⚠ Override active: {{ test_today }}
+                                {% else %}No override — using system date.{% endif %}
+                            </div>
+                            <div class="feedback" id="dateFb"></div>
+                        </div>
+                    </div>
+
+                    <!-- Daily requests chart -->
+                    {% if daily_logs %}
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a; margin-top:30px;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">📊 Requests — Last 14 Days</span>
+                        </div>
+                        <div class="section-body open">
+                            {% set max_c = daily_logs | map(attribute='count') | max %}
+                            {% for row in daily_logs %}
+                            <div class="bar-row">
+                                <div class="bar-label">{{ row.day }}</div>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width:{{ (row.count/max_c*100)|round }}%"></div>
+                                </div>
+                                <div class="bar-count">{{ row.count }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
+
+                <!-- 2. USERS PANEL -->
+                <div class="admin-panel" id="panel-users">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">User Management</h2>
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-body open">
+                            <div id="usersLoading" style="color:#666;font-size:13px;">Loading users…</div>
+                            <table class="admin-table" id="usersTable" style="display:none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;">#</th>
+                                        <th>User</th>
+                                        <th>Activity</th>
+                                        <th>Usage</th>
+                                        <th>Tokens & Cost</th>
+                                        <th>Admin</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersBody"></tbody>
+                            </table>
+                            <div class="feedback" id="userFb"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. AI & COSTS PANEL -->
+                <div class="admin-panel" id="panel-ai">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">AI Configuration & Pricing</h2>
+                    
+                    <!-- Token limits -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a; margin-bottom: 24px;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">⚙️ LLM Limits & Constraints</span>
+                        </div>
+                        <div class="section-body open">
+                            <!-- Max Tokens -->
+                            <label class="admin-label">Max tokens per schedule generation (500–32000)</label>
+                            <input type="number" id="maxTokensInput" class="admin-input" value="{{ max_tokens }}" min="500" max="32000" step="500">
+                            <div class="admin-row" style="margin-bottom:20px;">
+                                <button class="btn-save" onclick="saveTokens()">Save Tokens</button>
+                            </div>
+
+                            <!-- Word Limit -->
+                            <label class="admin-label">Manual text word limit (100–10000)</label>
+                            <input type="number" id="wordLimitInput" class="admin-input" value="{{ word_limit }}" min="100" max="10000" step="100">
+                            <div class="admin-row" style="margin-bottom:28px;">
+                                <button class="btn-save" onclick="saveWordLimit()">Save Word Limit</button>
+                            </div>
+
+                            <!-- Schedule Preference Limit -->
+                            <label class="admin-label">Schedule preference character limit (10–2000)</label>
+                            <input type="number" id="schedPrefLimitInput" class="admin-input" value="{{ sched_pref_limit }}" min="10" max="2000" step="10">
+                            <div class="admin-row" style="margin-bottom:28px;">
+                                <button class="btn-save" onclick="saveSchedPrefLimit()">Save Schedule Preference Limit</button>
+                            </div>
+
+                            <!-- Schedule models -->
+                            <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
+                                Schedule generator models (tried top → bottom)
+                            </label>
+                            <div id="schedModelRows"></div>
+                            <button class="btn-add-model" onclick="addModelRow('sched')">+ Add model</button>
+                            <div class="admin-row" style="margin-bottom:28px;">
+                                <button class="btn-save" onclick="saveModels('sched')">Save</button>
+                                <button class="btn-reset" onclick="resetModels('sched')">Reset Defaults</button>
+                            </div>
+
+                            <!-- Extract models -->
+                            <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
+                                Text extraction models (tried top → bottom)
+                            </label>
+                            <div id="extractModelRows"></div>
+                            <button class="btn-add-model" onclick="addModelRow('extract')">+ Add model</button>
+                            <div class="admin-row" style="margin-bottom:28px;">
+                                <button class="btn-save" onclick="saveModels('extract')">Save</button>
+                                <button class="btn-reset" onclick="resetModels('extract')">Reset Defaults</button>
+                            </div>
+
+                            <!-- Teacher models -->
+                            <label class="admin-label" style="font-size:14px;font-weight:600;color:#ddd;">
+                                Teacher assistant models (tried top → bottom)
+                            </label>
+                            <div id="teacherModelRows"></div>
+                            <button class="btn-add-model" onclick="addModelRow('teacher')">+ Add model</button>
+                            <div class="admin-row">
+                                <button class="btn-save" onclick="saveModels('teacher')">Save</button>
+                                <button class="btn-reset" onclick="resetModels('teacher')">Reset Defaults</button>
+                            </div>
+                            <div class="feedback" id="aiFb"></div>
+                        </div>
+                    </div>
+
+                    <!-- Model pricing -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">💰 Model Cost Configuration</span>
+                        </div>
+                        <div class="section-body open">
+                            <p style="color:#888;font-size:13px;line-height:1.6;margin-bottom:16px;">
+                                Configure custom costs in **Rupees (₹)** for input and output tokens per million (1,000,000) tokens.
+                                Defaults to ₹0.00 if not specified.
+                            </p>
+                            <div id="costModelContainer"></div>
+                            <button class="btn-add-model" onclick="addCostModelRow()">+ Add Model Cost</button>
+                            <div class="admin-row" style="margin-top:20px;">
+                                <button class="btn-save" onclick="saveModelCosts()">Save Costs</button>
+                            </div>
+                            <div class="feedback" id="costFb"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. RATE LIMITS PANEL -->
+                <div class="admin-panel" id="panel-limits">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">Rate Limits Configuration</h2>
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-body open">
+                            {% set rl_meta = [
+                            ('rl_login', 'Login attempts'),
+                            ('rl_register', 'Registration'),
+                            ('rl_upload', 'File uploads'),
+                            ('rl_generate', 'Schedule generations')
+                            ] %}
+                            {% for key, label in rl_meta %}
+                            <label class="admin-label">{{ label }}
+                                <span style="color:#444;font-size:11px;"> default: {{ default_limits[key] }}</span>
+                            </label>
+                            <input type="text" id="rl_{{ key }}" class="admin-input" value="{{ current_limits[key] }}"
+                                placeholder="{{ default_limits[key] }}">
+                            {% endfor %}
+                            <div class="admin-row">
+                                <button class="btn-save" onclick="saveRateLimits()">Save</button>
+                                <button class="btn-reset" onclick="resetRateLimits()">Reset Defaults</button>
+                            </div>
+                            <div class="feedback" id="rlFb"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. LOGS PANEL -->
+                <div class="admin-panel" id="panel-logs">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">System Logs</h2>
+                    
+                    <!-- Sub-tabs for log types -->
+                    <div style="display:flex;gap:10px;margin-bottom:20px;">
+                        <button class="btn-reset active" id="btn-subtab-activity" onclick="switchLogTab('activity')" style="padding: 8px 16px; border-radius: 8px;">Activity Logs</button>
+                        <button class="btn-reset" id="btn-subtab-requests" onclick="switchLogTab('requests')" style="padding: 8px 16px; border-radius: 8px;">HTTP Request Logs</button>
+                        
+                        <!-- Customizable Page Size -->
+                        <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                            <span style="color:#888; font-size:13px;">Show:</span>
+                            <select id="logPageSize" class="admin-input" onchange="changeLogLimit(this.value)" style="width:80px; padding:6px; height:auto;">
+                                <option value="20">20</option>
+                                <option value="50" selected>50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Log Table -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-body open" style="padding: 10px 0;">
+                            <div id="logsLoading" style="color:#666;font-size:13px;padding: 14px 20px;">Loading logs…</div>
+                            
+                            <!-- Activity Log Table View -->
+                            <table class="admin-table" id="logTableActivity" style="display:none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 140px;">Time</th>
+                                        <th style="width: 100px;">User</th>
+                                        <th style="width: 110px;">Action</th>
+                                        <th>Detail</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logBodyActivity"></tbody>
+                            </table>
+
+                            <!-- Requests Log Table View -->
+                            <table class="admin-table" id="logTableRequests" style="display:none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 140px;">Time</th>
+                                        <th style="width: 100px;">User</th>
+                                        <th style="width: 60px;">Method</th>
+                                        <th>Path</th>
+                                        <th style="width: 60px;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logBodyRequests"></tbody>
+                            </table>
+                            
+                            <!-- Pagination Controls -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding: 14px 20px 0; border-top: 1px solid #111; margin-top: 10px;">
+                                <div style="color:#666; font-size:13px;" id="logPaginationInfo">Showing logs 1 to 50</div>
+                                <div style="display:flex; gap:6px;">
+                                    <button class="btn-reset" id="btn-log-prev" onclick="changeLogPage(-1)" style="padding:6px 14px; font-size:12px;">Previous</button>
+                                    <button class="btn-reset" id="btn-log-next" onclick="changeLogPage(1)" style="padding:6px 14px; font-size:12px;">Next</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /admin-main -->
+        </div><!-- /admin-container -->
 
     </div><!-- /admin-page -->
 
@@ -690,6 +830,14 @@
                     keep)</span></label>
             <input type="password" id="modalPassword" class="admin-input" placeholder="••••••••">
 
+            <label class="admin-label">Cost Limit (INR)</label>
+            <input type="number" id="modalCostLimit" class="admin-input" step="50" min="0">
+
+            <div style="margin-top:14px;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" id="modalResetCost" style="width:auto;">
+                <label for="modalResetCost" style="color:#ccc;font-size:13px;cursor:pointer;">Reset total cost to ₹0.00</label>
+            </div>
+
             <div class="admin-row" style="margin-top:20px;">
                 <button class="btn-save" onclick="saveUserEdits()">Save Changes</button>
             </div>
@@ -706,6 +854,176 @@
         const defSched = {{ default_sched_models   | tojson }};
         const defExtract = {{ default_extract_models | tojson }};
         const defTeacher = {{ default_teacher_models | tojson }};
+        let modelCosts = {{ model_costs | tojson }};
+
+        // ── PAGINATION & TABS STATE ────────────────────────────────
+        let activeTab = 'overview';
+        let currentLogType = 'activity';
+        let currentLogPage = 1;
+        let currentLogLimit = 50;
+        let totalLogPages = 1;
+
+        // ── TAB SWITCHING ─────────────────────────────────────────
+        function switchTab(tabId) {
+            activeTab = tabId;
+            // Deactivate all tab buttons and panels
+            document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.admin-panel').forEach(panel => panel.classList.remove('active'));
+
+            // Activate current
+            document.getElementById('tab-btn-' + tabId).classList.add('active');
+            document.getElementById('panel-' + tabId).classList.add('active');
+
+            // Load data for that tab
+            if (tabId === 'overview') {
+                loadOverviewStats();
+            } else if (tabId === 'users') {
+                loadUsers();
+            } else if (tabId === 'logs') {
+                loadLogs(currentLogType, currentLogPage, currentLogLimit);
+            }
+        }
+
+        // ── SYSTEM OVERVIEW STATS ──────────────────────────────────
+        async function loadOverviewStats() {
+            try {
+                const res = await fetch('/admin/api/stats');
+                if (!res.ok) throw new Error('Failed to load stats');
+                const data = await res.json();
+                
+                // Lifetime
+                document.getElementById('stat-total-users').textContent = data.total_users.toLocaleString();
+                document.getElementById('stat-total-requests').textContent = data.total_requests.toLocaleString();
+                document.getElementById('stat-total-schedules').textContent = data.total_schedules.toLocaleString();
+                document.getElementById('stat-total-chats').textContent = data.total_chats.toLocaleString();
+                
+                // Today
+                document.getElementById('stat-active-users').textContent = data.active_users_today.toLocaleString();
+                document.getElementById('stat-requests-today').textContent = data.requests_today.toLocaleString();
+                document.getElementById('stat-uploads-today').textContent = data.uploads_today.toLocaleString();
+                document.getElementById('stat-tokens-today').textContent = data.tokens_today.toLocaleString();
+                document.getElementById('stat-cost-today').textContent = '₹' + data.cost_today.toFixed(2);
+                document.getElementById('stat-schedules-today').textContent = data.schedules_today.toLocaleString();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ── LOGS TABLE & PAGINATION ────────────────────────────────
+        function switchLogTab(type) {
+            currentLogType = type;
+            currentLogPage = 1;
+            
+            const actBtn = document.getElementById('btn-subtab-activity');
+            const reqBtn = document.getElementById('btn-subtab-requests');
+            if (type === 'activity') {
+                actBtn.style.borderColor = '#7b2ff7';
+                actBtn.style.color = '#fff';
+                actBtn.style.background = 'rgba(123, 47, 247, 0.1)';
+                reqBtn.style.borderColor = '#444';
+                reqBtn.style.color = '#aaa';
+                reqBtn.style.background = 'transparent';
+            } else {
+                reqBtn.style.borderColor = '#7b2ff7';
+                reqBtn.style.color = '#fff';
+                reqBtn.style.background = 'rgba(123, 47, 247, 0.1)';
+                actBtn.style.borderColor = '#444';
+                actBtn.style.color = '#aaa';
+                actBtn.style.background = 'transparent';
+            }
+            
+            loadLogs(currentLogType, currentLogPage, currentLogLimit);
+        }
+
+        async function loadLogs(type, page, limit) {
+            document.getElementById('logsLoading').style.display = 'block';
+            document.getElementById('logTableActivity').style.display = 'none';
+            document.getElementById('logTableRequests').style.display = 'none';
+            
+            try {
+                const url = `/admin/api/logs/${type}?page=${page}&limit=${limit}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Failed to load logs');
+                const data = await res.json();
+                
+                document.getElementById('logsLoading').style.display = 'none';
+                
+                totalLogPages = data.pages || 1;
+                currentLogPage = data.current_page || 1;
+                
+                if (type === 'activity') {
+                    const tbody = document.getElementById('logBodyActivity');
+                    tbody.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const tr = document.createElement('tr');
+                        
+                        // Parse action pill type
+                        let pillClass = 'act-login';
+                        if (log.action === 'upload') pillClass = 'act-upload';
+                        else if (log.action === 'generate') pillClass = 'act-generate';
+                        else if (log.action === 'regenerate') pillClass = 'act-regenerate';
+                        else if (log.action === 'study_start' || log.action === 'edit') pillClass = 'act-edit';
+                        else if (log.action === 'register') pillClass = 'act-register';
+                        
+                        tr.innerHTML = `
+                            <td>${log.timestamp}</td>
+                            <td style="font-weight:600;color:#fff;">${log.username}</td>
+                            <td><span class="activity-pill ${pillClass}">${log.action}</span></td>
+                            <td style="font-family:monospace; font-size:12px; max-width:400px; overflow-wrap:break-word;">${log.detail}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    document.getElementById('logTableActivity').style.display = 'table';
+                } else {
+                    const tbody = document.getElementById('logBodyRequests');
+                    tbody.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const tr = document.createElement('tr');
+                        
+                        let statusColor = '#4e4';
+                        if (log.status_code >= 400) statusColor = '#ff7c7c';
+                        else if (log.status_code >= 300) statusColor = '#ffc840';
+                        
+                        tr.innerHTML = `
+                            <td>${log.timestamp}</td>
+                            <td style="font-weight:600;color:#fff;">${log.username}</td>
+                            <td style="font-family:monospace; font-weight:bold; color:#bf7fff;">${log.method}</td>
+                            <td style="font-family:monospace; font-size:12px;">${log.path}</td>
+                            <td style="font-weight:600; color:${statusColor};">${log.status_code}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    document.getElementById('logTableRequests').style.display = 'table';
+                }
+                
+                // Update pagination info
+                const totalLogs = data.total || 0;
+                const startIdx = totalLogs === 0 ? 0 : (page - 1) * limit + 1;
+                const endIdx = Math.min(page * limit, totalLogs);
+                document.getElementById('logPaginationInfo').textContent = `Showing logs ${startIdx} to ${endIdx} of ${totalLogs}`;
+                
+                // Enable/disable buttons
+                document.getElementById('btn-log-prev').disabled = (page <= 1);
+                document.getElementById('btn-log-next').disabled = (page >= totalLogPages);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('logsLoading').textContent = 'Error loading logs.';
+            }
+        }
+
+        function changeLogPage(dir) {
+            const newPage = currentLogPage + dir;
+            if (newPage >= 1 && newPage <= totalLogPages) {
+                currentLogPage = newPage;
+                loadLogs(currentLogType, currentLogPage, currentLogLimit);
+            }
+        }
+
+        function changeLogLimit(size) {
+            currentLogLimit = parseInt(size);
+            currentLogPage = 1;
+            loadLogs(currentLogType, currentLogPage, currentLogLimit);
+        }
 
         // ── SECTION TOGGLE ────────────────────────────────────────
         function toggleSection(hdr) {
@@ -878,17 +1196,31 @@
             tbody.innerHTML = '';
             users.forEach(u => {
                 const tr = document.createElement('tr');
-                const hash = u.password_hash ? u.password_hash.substring(0, 32) + '…' : '—';
                 tr.innerHTML = `
             <td>${u.id}</td>
-            <td>${u.username}</td>
-            <td>${u.email}</td>
-            <td title="${u.password_hash}" style="font-size:11px;color:#555;font-family:monospace;">${hash}</td>
-            <td style="white-space:nowrap;font-size:12px;color:#666;">${u.created_at}</td>
+            <td>
+                <div style="font-weight:600;color:#fff;">${u.username}</div>
+                <div style="font-size:11px;color:#666;">${u.email}</div>
+            </td>
+            <td>
+                <div style="font-size:12px;color:#aaa;">Joined: ${u.created_at}</div>
+                <div style="font-size:11px;color:#666;">Active: ${u.last_active}</div>
+            </td>
+            <td>
+                <div>Uploads: <strong style="color:#bf7fff;">${u.upload_count}</strong></div>
+                <div>Generations: <strong style="color:#bf7fff;">${u.generations_count}</strong></div>
+                <div style="font-size:11px;color:#666;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;max-width:150px;" title="${u.last_model_used}">Model: ${u.last_model_used}</div>
+            </td>
+            <td>
+                <div>In: ${u.input_tokens_used.toLocaleString()}</div>
+                <div>Out: ${u.output_tokens_used.toLocaleString()}</div>
+                <div style="font-weight:600;color:#4e4;margin-top:2px;">
+                    Cost: ₹${u.total_cost.toFixed(4)} / ₹${u.cost_limit.toFixed(2)}
+                </div>
+            </td>
             <td>
                 <button onclick="toggleRole(${u.id},this)"
                         style="background:${u.is_admin ? 'rgba(123,47,247,0.2)' : 'rgba(255,255,255,0.05)'};
-                               border:1px solid ${u.is_admin ? '#7b2ff7' : '#333'};
                                border-radius:8px;padding:3px 10px;color:${u.is_admin ? '#9f55ff' : '#666'};
                                font-size:12px;cursor:pointer;"
                         data-admin="${u.is_admin}">
@@ -897,7 +1229,7 @@
             </td>
             <td style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button class="btn-save" style="padding:5px 12px;font-size:12px;"
-                        onclick="openUserModal(${u.id},'${u.username}','${u.email}')">
+                        onclick="openUserModal(${u.id},'${u.username}','${u.email}',${u.cost_limit})">
                     Edit
                 </button>
                 <button class="btn-reset" style="padding:5px 12px;font-size:12px;"
@@ -925,11 +1257,13 @@
             fb('userFb', `✓ ${d.is_admin ? 'Promoted to admin' : 'Demoted to user'}`);
         }
 
-        function openUserModal(uid, username, email) {
+        function openUserModal(uid, username, email, costLimit) {
             document.getElementById('modalUid').value = uid;
             document.getElementById('modalUsername').value = username;
             document.getElementById('modalEmail').value = email;
             document.getElementById('modalPassword').value = '';
+            document.getElementById('modalCostLimit').value = (costLimit !== undefined && costLimit !== null) ? costLimit : 1000.0;
+            document.getElementById('modalResetCost').checked = false;
             document.getElementById('modalTitle').textContent = `Edit User #${uid}`;
             document.getElementById('modalFb').textContent = '';
             document.getElementById('userModal').classList.remove('hidden');
@@ -943,7 +1277,9 @@
             const uid = document.getElementById('modalUid').value;
             const body = {
                 username: document.getElementById('modalUsername').value.trim(),
-                email: document.getElementById('modalEmail').value.trim()
+                email: document.getElementById('modalEmail').value.trim(),
+                cost_limit: parseFloat(document.getElementById('modalCostLimit').value || 0),
+                reset_cost: document.getElementById('modalResetCost').checked
             };
             const pw = document.getElementById('modalPassword').value;
             if (pw) body.password = pw;
@@ -976,30 +1312,83 @@
             if (r.ok) loadUsers();
         }
 
+        // ── MODEL COSTS ───────────────────────────────────────────
+        function renderCostRows() {
+            const container = document.getElementById('costModelContainer');
+            container.innerHTML = '';
+            Object.entries(modelCosts).forEach(([modelName, pricing]) => {
+                const row = document.createElement('div');
+                row.className = 'model-row';
+                row.style.gap = '16px';
+                row.innerHTML = `
+                    <input type="text" class="admin-input model-name-input" value="${modelName}" placeholder="Model Name" style="flex:2;">
+                    <div style="display:flex;align-items:center;gap:6px;flex:1;">
+                        <span style="color:#aaa;font-size:12px;">In/1M:</span>
+                        <input type="number" class="admin-input input-cost-input" value="${pricing.input}" step="0.01" min="0" style="width:80px;">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex:1;">
+                        <span style="color:#aaa;font-size:12px;">Out/1M:</span>
+                        <input type="number" class="admin-input output-cost-input" value="${pricing.output}" step="0.01" min="0" style="width:80px;">
+                    </div>
+                    <button class="btn-rm" onclick="removeCostModelRow(this)">✕</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addCostModelRow() {
+            const container = document.getElementById('costModelContainer');
+            const row = document.createElement('div');
+            row.className = 'model-row';
+            row.style.gap = '16px';
+            row.innerHTML = `
+                <input type="text" class="admin-input model-name-input" value="" placeholder="Model Name" style="flex:2;">
+                <div style="display:flex;align-items:center;gap:6px;flex:1;">
+                    <span style="color:#aaa;font-size:12px;">In/1M:</span>
+                    <input type="number" class="admin-input input-cost-input" value="0.00" step="0.01" min="0" style="width:80px;">
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex:1;">
+                    <span style="color:#aaa;font-size:12px;">Out/1M:</span>
+                    <input type="number" class="admin-input output-cost-input" value="0.00" step="0.01" min="0" style="width:80px;">
+                </div>
+                <button class="btn-rm" onclick="removeCostModelRow(this)">✕</button>
+            `;
+            container.appendChild(row);
+            row.querySelector('.model-name-input').focus();
+        }
+
+        function removeCostModelRow(btn) {
+            btn.closest('.model-row').remove();
+        }
+
+        async function saveModelCosts() {
+            const container = document.getElementById('costModelContainer');
+            const rows = container.querySelectorAll('.model-row');
+            const costs = {};
+            rows.forEach(row => {
+                const name = row.querySelector('.model-name-input').value.trim();
+                const inp = parseFloat(row.querySelector('.input-cost-input').value || 0);
+                const out = parseFloat(row.querySelector('.output-cost-input').value || 0);
+                if (name) {
+                    costs[name] = { input: inp, output: out };
+                }
+            });
+            const [ok, d] = await api('/admin/set_model_costs', { costs });
+            fb('costFb', ok ? '✓ Saved' : d.error, !ok);
+            if (ok) {
+                modelCosts = costs;
+            }
+        }
+
         // ── INIT ──────────────────────────────────────────────────
         renderModelRows('sched');
         renderModelRows('extract');
         renderModelRows('teacher');
+        renderCostRows();
 
-        // Lazy-load users when their section is opened
-        document.querySelectorAll('.section-header').forEach(hdr => {
-            hdr.addEventListener('click', () => {
-                const body = hdr.nextElementSibling;
-                if (body.id === undefined && body.querySelector('#usersTable')) {
-                    loadUsers();
-                }
-                // Load users when users section opens
-                if (hdr.querySelector('.section-title')?.textContent.includes('User Management')) {
-                    if (!document.getElementById('usersTable').style.display ||
-                        document.getElementById('usersTable').style.display === 'none') {
-                        loadUsers();
-                    }
-                }
-            });
-        });
-
-        // Auto-open the first section
-        document.querySelector('.section-body.open')?.classList.add('open');
+        // Active state and tabs load
+        switchTab('overview');
+        switchLogTab('activity');
     </script>
 
     {% include '_footer.html' %}

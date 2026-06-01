@@ -14,6 +14,17 @@ class User(db.Model, UserMixin):
     username_changed_at = db.Column(db.DateTime, nullable=True)
     session_version = db.Column(db.Integer, default=0, nullable=False)
     course = db.Column(db.String(50), nullable=True)
+    upload_count = db.Column(db.Integer, default=0, nullable=False)
+    generations_count = db.Column(db.Integer, default=0, nullable=False)
+    last_active = db.Column(db.DateTime, nullable=True)
+    input_tokens_used = db.Column(db.Integer, default=0, nullable=False)
+    output_tokens_used = db.Column(db.Integer, default=0, nullable=False)
+    last_model_used = db.Column(db.String(100), nullable=True)
+    total_cost = db.Column(db.Float, default=0.0, nullable=False)
+    cost_limit = db.Column(db.Float, default=1000.0, nullable=False)
+
+    def get_id(self):
+        return f"{self.id}:{self.session_version or 0}"
 
     def set_password(self, p):
         from werkzeug.security import generate_password_hash
@@ -63,6 +74,16 @@ class PasswordResetOTP(db.Model):
     used = db.Column(db.Boolean, default=False)
 
 
+class EmailOTP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), nullable=False)
+    otp_code = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+
+
+
 class ContactMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
@@ -96,9 +117,22 @@ class RequestLog(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id: str):
-    user = User.query.get(int(user_id))
+    if not user_id:
+        return None
+    try:
+        if ':' in user_id:
+            uid_str, version_str = user_id.split(':', 1)
+            uid = int(uid_str)
+            version = int(version_str)
+        else:
+            uid = int(user_id)
+            version = None
+    except ValueError:
+        return None
+
+    user = User.query.get(uid)
     if not user:
         return None
-    if session.get('session_version', 0) != (user.session_version or 0):
+    if version is not None and (user.session_version or 0) != version:
         return None
     return user

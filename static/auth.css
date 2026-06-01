@@ -581,3 +581,83 @@ body {
         transform: translateY(0);
     }
 }
+
+
+/* ══════════════════════════════════════════
+   GOOGLE & OTP AUTH STYLING
+   ══════════════════════════════════════════ */
+.auth-google-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    color: #202124;
+    border: 1px solid #dadce0;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+}
+
+.auth-google-btn:hover {
+    background-color: #f8f9fa;
+    box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: #666;
+    font-size: 12px;
+    margin: 15px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #222;
+}
+
+.auth-divider:not(:empty)::before {
+    margin-right: .5em;
+}
+
+.auth-divider:not(:empty)::after {
+    margin-left: .5em;
+}
+
+.auth-tabs {
+    display: flex;
+    background: #151525;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 15px;
+}
+
+.auth-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #888;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.auth-tab-btn:hover {
+    color: #fff;
+}
+
+.auth-tab-btn.active {
+    background: #7b2ff7;
+    color: #fff;
+}

@@ -37,7 +37,10 @@
         <div class="regen-pref-body hidden" id="regenPrefBody">
             <div class="regen-pref-grid">
                 <label class="regen-field wide">
-                    <span>Schedule preference</span>
+                    <span style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Schedule preference</span>
+                        <span id="progressPrefCounter" style="font-size: 11px; color: #777; font-weight: normal;">0 / {{ pref_limit }}</span>
+                    </span>
                     <input id="regenPreferenceNote" maxlength="{{ pref_limit }}"
                         placeholder="Example: keep evenings lighter, revise hard topics first">
                 </label>

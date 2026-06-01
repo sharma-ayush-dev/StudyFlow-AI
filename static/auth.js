@@ -22,6 +22,107 @@ document.getElementById('goToLogin')?.addEventListener('click',     () => showPa
 overlay?.addEventListener('click', e => { if (e.target === overlay) closeAuth(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
 
+// ── LOGIN TABS & OTP ────────────────────────────────
+const tabPassword = document.getElementById('loginTabPassword');
+const tabOTP = document.getElementById('loginTabOTP');
+const passwordForm = document.getElementById('passwordLoginForm');
+const otpForm = document.getElementById('otpLoginForm');
+
+tabPassword?.addEventListener('click', () => {
+    tabPassword.classList.add('active');
+    tabOTP?.classList.remove('active');
+    passwordForm?.classList.remove('hidden');
+    otpForm?.classList.add('hidden');
+    clearErrors();
+});
+
+tabOTP?.addEventListener('click', () => {
+    tabOTP.classList.add('active');
+    tabPassword?.classList.remove('active');
+    otpForm?.classList.remove('hidden');
+    passwordForm?.classList.add('hidden');
+    clearErrors();
+});
+
+const sendOtpBtn = document.getElementById('sendOtpBtn');
+const otpVerifySection = document.getElementById('otpVerifySection');
+const verifyOtpSubmit = document.getElementById('verifyOtpSubmit');
+
+sendOtpBtn?.addEventListener('click', async () => {
+    const email = document.getElementById('otpEmail').value.trim();
+    if (!email) {
+        showError(loginError, 'Please enter your email address.');
+        return;
+    }
+
+    sendOtpBtn.disabled = true;
+    sendOtpBtn.textContent = 'Sending…';
+    clearErrors();
+
+    try {
+        const res = await fetch('/otp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showError(loginError, data.error || 'Failed to send OTP.');
+            sendOtpBtn.disabled = false;
+            sendOtpBtn.textContent = 'Send OTP';
+            return;
+        }
+
+        otpVerifySection?.classList.remove('hidden');
+        sendOtpBtn.textContent = 'Resend OTP';
+        sendOtpBtn.disabled = false;
+        alert(data.message || 'OTP sent! Please check your console.');
+    } catch (err) {
+        showError(loginError, 'Network error. Please try again.');
+        sendOtpBtn.disabled = false;
+        sendOtpBtn.textContent = 'Send OTP';
+    }
+});
+
+verifyOtpSubmit?.addEventListener('click', async () => {
+    const email = document.getElementById('otpEmail').value.trim();
+    const otp = document.getElementById('otpCode').value.trim();
+
+    if (!email || !otp) {
+        showError(loginError, 'Please enter email and OTP.');
+        return;
+    }
+
+    verifyOtpSubmit.disabled = true;
+    verifyOtpSubmit.textContent = 'Verifying…';
+    clearErrors();
+
+    try {
+        const res = await fetch('/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showError(loginError, data.error || 'Invalid or expired OTP.');
+            verifyOtpSubmit.disabled = false;
+            verifyOtpSubmit.textContent = 'Verify & Log In';
+            return;
+        }
+
+        window.location.href = data.redirect || '/';
+    } catch (err) {
+        showError(loginError, 'Network error. Please try again.');
+        verifyOtpSubmit.disabled = false;
+        verifyOtpSubmit.textContent = 'Verify & Log In';
+    }
+});
+
+document.getElementById('otpCode')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') verifyOtpSubmit?.click();
+});
+
 function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
 function clearErrors() {
     loginError?.classList.add('hidden');

@@ -1036,3 +1036,9 @@
     color: #fff !important;
     padding: 8px !important;
 }
+
+/* ── STATUS PREFERENCE NOTE ── */
+#statusPreferenceNote:focus {
+    border-color: #7b2ff7;
+    box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
+}

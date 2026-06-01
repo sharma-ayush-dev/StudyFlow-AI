@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Profile - StudyFlow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <style>
+        .profile-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            z-index: 10;
+            position: relative;
+        }
+        .profile-card {
+            background: rgba(12, 12, 21, 0.7);
+            border: 1px solid rgba(123, 47, 247, 0.25);
+            border-radius: 24px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(20px);
+            animation: fadeIn 0.4s ease-out;
+        }
+        .profile-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff, #a2a2d0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+        .profile-desc {
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+        .profile-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .input-desc {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        .btn-submit {
+            margin-top: 10px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    {% include '_ambient_bg.html' %}
+
+    <div class="profile-container">
+        <div class="profile-card">
+            <h1 class="profile-title">Finish setting up</h1>
+            <p class="profile-desc">You have successfully authenticated! Now, choose a unique username and specify your course to complete your profile.</p>
+
+            <div id="errorBox" class="auth-error hidden" style="margin-bottom: 20px;"></div>
+
+            <form id="profileForm" class="profile-form" onsubmit="submitProfile(event)">
+                <div class="form-group">
+                    <label class="auth-label">Email Address</label>
+                    <input class="auth-input" type="text" value="{{ email }}" disabled style="opacity: 0.6; cursor: not-allowed;">
+                </div>
+
+                <div class="form-group">
+                    <label class="auth-label">Choose Username <span class="auth-hint">(required)</span></label>
+                    <input id="username" class="auth-input" type="text" placeholder="e.g. alex_study" required autocomplete="username">
+                    <div class="input-desc">Letters, numbers, underscores, and hyphens only (min 3 chars).</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="auth-label">Course / Degree <span class="auth-hint">(optional)</span></label>
+                    <input id="course" class="auth-input" type="text" placeholder="e.g. B.Tech Computer Science" maxlength="50">
+                    <div class="input-desc">Maximum 50 characters.</div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="auth-btn btn-submit">Complete Setup</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function submitProfile(event) {
+            event.preventDefault();
+            const usernameInput = document.getElementById('username');
+            const courseInput = document.getElementById('course');
+            const errorBox = document.getElementById('errorBox');
+            const submitBtn = document.getElementById('submitBtn');
+
+            const username = usernameInput.value.trim();
+            const course = courseInput.value.trim();
+
+            if (!username) {
+                showError('Username is required.');
+                return;
+            }
+            if (username.length < 3) {
+                showError('Username must be at least 3 characters.');
+                return;
+            }
+            if (!/^[A-Za-z0-9_\-]+$/.test(username)) {
+                showError('Username can only contain letters, numbers, underscores, and hyphens.');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Setting up your flow...';
+            errorBox.classList.add('hidden');
+
+            try {
+                const res = await fetch('/complete-profile/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, course })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showError(data.error || 'Failed to complete profile.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Complete Setup';
+                    return;
+                }
+                window.location.href = data.redirect || '/';
+            } catch (err) {
+                showError('Network error. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Complete Setup';
+            }
+        }
+
+        function showError(msg) {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = msg;
+            errorBox.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

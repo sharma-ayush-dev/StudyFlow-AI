@@ -96,7 +96,8 @@ def chat_start(chat_id: int):
             subtopics  = subtopics,
             hours      = hours,
             model_list = get_teacher_model_list(),
-            use_chinese= get_use_chinese()
+            use_chinese= get_use_chinese(),
+            user_id    = chat.userid
         )
         _save_message(chat_id, 'assistant', content, chat=chat)
         _log_activity('study_start', {'subject': chat.subject, 'topic': chat.topic})
@@ -129,7 +130,8 @@ def chat_send(chat_id: int):
             subtopics   = subtopics,
             hours       = hours,
             model_list  = get_teacher_model_list(),
-            use_chinese = get_use_chinese()
+            use_chinese = get_use_chinese(),
+            user_id     = chat.userid
         )
         _save_message(chat_id, 'assistant', content)
         resp = {'content': content, 'role': 'assistant'}
@@ -158,7 +160,8 @@ def chat_quiz(chat_id: int):
             subtopics   = subtopics,
             hours       = hours,
             model_list  = get_teacher_model_list(),
-            use_chinese = get_use_chinese()
+            use_chinese = get_use_chinese(),
+            user_id     = chat.userid
         )
         _save_message(chat_id, 'assistant', content)
         resp = {'content': content, 'role': 'assistant'}
@@ -232,7 +235,8 @@ def regenerate_last(chat_id: int):
             subtopics=subtopics,
             hours=hours,
             model_list=get_teacher_model_list(),
-            use_chinese=get_use_chinese()
+            use_chinese=get_use_chinese(),
+            user_id=chat.userid
         )
         new_msg = _save_message(chat_id, 'assistant', content)
         resp = {'content': content, 'role': 'assistant', 'id': new_msg.id}
@@ -272,7 +276,8 @@ def chat_send_stream(chat_id: int):
                 subtopics=subtopics,
                 hours=hours,
                 model_list=model_list,
-                use_chinese=use_zh
+                use_chinese=use_zh,
+                user_id=chat.userid
             ):
                 full_text += chunk
                 yield f"data: {json.dumps(chunk)}\n\n"
@@ -316,7 +321,8 @@ def chat_quiz_stream(chat_id: int):
                 subtopics=subtopics,
                 hours=hours,
                 model_list=model_list,
-                use_chinese=use_zh
+                use_chinese=use_zh,
+                user_id=chat.userid
             ):
                 full_text += chunk
                 yield f"data: {json.dumps(chunk)}\n\n"

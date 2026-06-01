@@ -82,7 +82,11 @@ def upload_files():
 
         final_json = organize_with_llm(
             file_paths, manual_text=manual_text or None,
-            today_str=get_today(), model_list=get_extract_model_list())
+            today_str=get_today(), model_list=get_extract_model_list(),
+            user_id=current_user.id)
+
+        # Increment upload count
+        current_user.upload_count = (current_user.upload_count or 0) + (len(file_paths) if file_paths else 1)
 
         existing = _get_study_data()
         if existing:
@@ -170,7 +174,8 @@ def generate(userid):
             try:
                 schedule = generate_schedule(
                     topic_data, today_str=today_str,
-                    max_tokens=max_tok_ovr, model_list=model_list)
+                    max_tokens=max_tok_ovr, model_list=model_list,
+                    user_id=uid)
                 schedule, meta = _extract_meta(schedule)
                 sd = StudyData.query.filter_by(userid=uid).first()
                 if sd:
@@ -284,7 +289,8 @@ def regenerate_schedule(userid):
             try:
                 new_schedule = generate_schedule(
                     topic_data, today_str=today_str,
-                    max_tokens=max_tok_ovr, model_list=model_list)
+                    max_tokens=max_tok_ovr, model_list=model_list,
+                    user_id=uid)
                 new_schedule, meta = _extract_meta(new_schedule)
                 sd = StudyData.query.filter_by(userid=uid).first()
                 if sd:

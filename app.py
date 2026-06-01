@@ -65,6 +65,25 @@ MAX_MANUAL_TEXT_WORDS = 3000
 # attach helpers' request logger
 app.after_request(log_request)
 
+
+@app.before_request
+def enforce_complete_profile():
+    if current_user.is_authenticated and session.get('incomplete_profile'):
+        if request.endpoint:
+            allowed_endpoints = [
+                'auth.complete_profile',
+                'auth.complete_profile_submit',
+                'auth.logout',
+                'static'
+            ]
+            if request.endpoint in allowed_endpoints:
+                return None
+        path = request.path
+        if path.startswith('/static/') or path == '/logout' or path.startswith('/complete-profile'):
+            return None
+        return redirect(url_for('auth.complete_profile'))
+
+
 # Routes moved to Blueprints: auth_bp, pages_bp
 from auth_bp import auth_bp
 from pages_bp import pages_bp

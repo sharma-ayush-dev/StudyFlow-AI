@@ -223,8 +223,18 @@ function renderRegenerationControls() {
     const hoursList = document.getElementById('regenHoursList');
     if (!body || !toggle || !hoursList) return;
 
-    if (document.getElementById('regenPreferenceNote')) {
-        document.getElementById('regenPreferenceNote').value = schedulePreferences.preference_note || '';
+    const noteInput = document.getElementById('regenPreferenceNote');
+    const counterEl = document.getElementById('progressPrefCounter');
+    const prefLimitVal = window.PREF_LIMIT || 200;
+    if (noteInput) {
+        noteInput.value = schedulePreferences.preference_note || '';
+        if (counterEl) {
+            const updateCounter = () => {
+                counterEl.textContent = `${noteInput.value.length} / ${prefLimitVal}`;
+            };
+            noteInput.addEventListener('input', updateCounter);
+            updateCounter();
+        }
     }
 
     toggle.addEventListener('click', () => {
@@ -286,8 +296,6 @@ function collectRegenerationInputs() {
     return {
         study_days: studyDays,
         schedule_preferences: {
-            intensity: 'balanced',
-            block_length: '1-2',
             preference_note: sanitizeField(rawNote, prefLimit)
         }
     };
@@ -342,7 +350,7 @@ const saveStages = [
 
 const regenStages = [
     { label: 'Saving your progress', detail: 'Applying topic updates and custom study hours.' },
-    { label: 'Understanding preferences', detail: 'Reading intensity, available time, and schedule notes.' },
+    { label: 'Understanding preferences', detail: 'Reading available time and schedule notes.' },
     { label: 'Rescheduling topics', detail: 'Rebalancing your plan around exams and remaining work.' },
     { label: 'Optimizing study flow', detail: 'Choosing a practical order for the next schedule.' },
     { label: 'Preparing your new schedule', detail: 'Building the comparison so you stay in control.' }
