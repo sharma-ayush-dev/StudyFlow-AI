@@ -24,7 +24,7 @@ __all__ = [
     '_sanitize_topics_payload', '_sanitize_study_days_payload', '_sanitize_schedule_preferences',
     '_generation_inputs_snapshot', '_rl', '_get_study_data', '_ensure_runtime_schema',
     '_require_owner', '_delete_files', '_render_error', '_log_activity', '_extract_meta',
-    '_build_llm_notice', '_get_today_slot', 'HARDCODED_OTP', '_send_otp_email',
+    '_build_llm_notice', '_get_today_slot', 'HARDCODED_OTP', '_send_otp_email', '_send_welcome_email',
     '_create_otp', '_verify_otp', '_create_login_otp', '_verify_login_otp', 'log_request', '_job_create', '_job_set', '_job_get',
     'get_sched_model_list', 'get_extract_model_list', 'get_teacher_model_list',
     'get_model_costs', 'save_model_costs', 'track_llm_call', 'check_user_cost_limit'
@@ -317,21 +317,283 @@ HARDCODED_OTP = '1234'
 
 
 def _send_otp_email(email: str, otp: str):
-    print(f'[OTP] Would send OTP {otp} to {email} - email not configured yet')
+    # Get Resend configuration directly from environment variables
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+
+    if not resend_api_key:
+        print("[OTP EMAIL] RESEND_API_KEY not configured. Skipping email delivery.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = os.environ.get('SMTP_FROM_EMAIL', 'auth@studyflowai.app')
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI')
+
+            # Styled HTML template with StudyFlow premium dark styling
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>StudyFlow-AI Verification</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(123, 47, 247, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        text-align: center;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    }}
+                    .logo {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        margin-bottom: 24px;
+                        text-decoration: none;
+                    }}
+                    .title {{
+                        font-size: 20px;
+                        margin-bottom: 10px;
+                        color: #ffffff;
+                    }}
+                    .subtitle {{
+                        font-size: 14px;
+                        color: #888888;
+                        margin-bottom: 30px;
+                        line-height: 1.5;
+                    }}
+                    .otp-box {{
+                        background: linear-gradient(135deg, rgba(123, 47, 247, 0.1), rgba(159, 85, 255, 0.1));
+                        border: 1px dashed #7b2ff7;
+                        border-radius: 12px;
+                        padding: 20px;
+                        font-size: 32px;
+                        font-weight: bold;
+                        letter-spacing: 6px;
+                        color: #9f55ff;
+                        margin: 20px 0;
+                        display: inline-block;
+                    }}
+                    .footer {{
+                        margin-top: 40px;
+                        font-size: 12px;
+                        color: #555555;
+                        line-height: 1.5;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="logo" style="letter-spacing: 2px; font-weight: bold;">StudyFlow</div>
+                        <h2 class="title" style="margin-top: 20px;">Verification Code</h2>
+                        <p class="subtitle">Please use the 6-digit OTP code below to sign in or reset your password on StudyFlow-AI. This code is valid for 10 minutes.</p>
+                        
+                        <div class="otp-box">{otp}</div>
+                        
+                        <p class="subtitle" style="font-size:12px; margin-top:20px;">If you did not request this, you can safely ignore this email.</p>
+                        
+                        <div class="footer">
+                            &copy; 2026 StudyFlow-AI. All rights reserved.<br>
+                            Sent from {from_email}
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_content = f"Your StudyFlow-AI Verification Code is: {otp}\n\nValid for 10 minutes."
+
+            params = {
+                "from": f"{from_name} <{from_email}>",
+                "to": [email],
+                "subject": f"Your StudyFlow-AI Verification Code: {otp}",
+                "html": html_content,
+                "text": text_content
+            }
+
+            resend.Emails.send(params)
+            print(f"[RESEND EMAIL SUCCESS] Successfully sent OTP email to {email}")
+        except Exception as e:
+            print(f"[RESEND EMAIL ERROR] Failed to send OTP email to {email}: {e}")
+
+    threading.Thread(target=send_bg, daemon=True).start()
+
+
+def _send_welcome_email(email: str, username: str):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+
+    if not resend_api_key:
+        print("[WELCOME EMAIL] RESEND_API_KEY not configured. Skipping welcome email.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = os.environ.get('SMTP_FROM_EMAIL', 'auth@studyflowai.app')
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI')
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Welcome to StudyFlow-AI</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(123, 47, 247, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        text-align: center;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    }}
+                    .logo {{
+                        font-size: 26px;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        margin-bottom: 24px;
+                        text-decoration: none;
+                    }}
+                    .title {{
+                        font-size: 22px;
+                        margin-bottom: 15px;
+                        color: #9f55ff;
+                    }}
+                    .subtitle {{
+                        font-size: 14px;
+                        color: #cccccc;
+                        margin-bottom: 30px;
+                        line-height: 1.6;
+                        text-align: left;
+                    }}
+                    .feature-list {{
+                        text-align: left;
+                        margin: 25px 0;
+                        padding-left: 20px;
+                    }}
+                    .feature-item {{
+                        margin-bottom: 12px;
+                        font-size: 14px;
+                        color: #ffffff;
+                    }}
+                    .feature-item strong {{
+                        color: #9f55ff;
+                    }}
+                    .cta-btn {{
+                        display: inline-block;
+                        background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+                        color: #ffffff !important;
+                        text-decoration: none;
+                        padding: 12px 30px;
+                        border-radius: 25px;
+                        font-weight: bold;
+                        font-size: 15px;
+                        margin-top: 15px;
+                        box-shadow: 0 4px 15px rgba(123, 47, 247, 0.4);
+                    }}
+                    .footer {{
+                        margin-top: 40px;
+                        font-size: 12px;
+                        color: #555555;
+                        line-height: 1.5;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05);
+                        padding-top: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="logo">StudyFlow</div>
+                        <h2 class="title">Welcome, {username}!</h2>
+                        <p class="subtitle">Thank you for joining StudyFlow-AI. We're thrilled to help you plan your studies smarter, optimize your schedule, and ace your goals.</p>
+                        
+                        <div class="subtitle">
+                            <strong>Here is what you can do with your new account:</strong>
+                            <ul class="feature-list">
+                                <li class="feature-item"><strong>Optimize Schedules</strong>: Generate AI-tailored daily study plans.</li>
+                                <li class="feature-item"><strong>Track Progress</strong>: Check off topics as you finish studying them.</li>
+                                <li class="feature-item"><strong>Study Chat</strong>: Talk to your personal AI study assistant for questions on any topic.</li>
+                            </ul>
+                        </div>
+                        
+                        <a href="http://127.0.0.1:5000" class="cta-btn">Get Started</a>
+                        
+                        <div class="footer">
+                            &copy; 2026 StudyFlow-AI. All rights reserved.<br>
+                            Sent to {email}
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_content = f"Welcome to StudyFlow-AI, {username}!\n\nGet started planning your studies: http://127.0.0.1:5000"
+
+            params = {
+                "from": f"{from_name} <{from_email}>",
+                "to": [email],
+                "subject": "Welcome to StudyFlow-AI! 🚀",
+                "html": html_content,
+                "text": text_content
+            }
+
+            resend.Emails.send(params)
+            print(f"[WELCOME EMAIL SUCCESS] Successfully sent welcome email to {email}")
+        except Exception as e:
+            print(f"[WELCOME EMAIL ERROR] Failed to send welcome email to {email}: {e}")
+
+    threading.Thread(target=send_bg, daemon=True).start()
 
 
 def _create_otp(email: str) -> PasswordResetOTP:
     PasswordResetOTP.query.filter_by(email=email, used=False).update({'used': True})
     db.session.commit()
 
+    import random
+    otp_code = f"{random.randint(100000, 999999)}"
+
     otp = PasswordResetOTP(
         email=email,
-        otp_code=HARDCODED_OTP,
+        otp_code=otp_code,
         expires_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
     )
     db.session.add(otp)
     db.session.commit()
-    _send_otp_email(email, HARDCODED_OTP)
+    _send_otp_email(email, otp_code)
     return otp
 
 
@@ -364,17 +626,12 @@ def _create_login_otp(email: str) -> EmailOTP:
     db.session.add(otp)
     db.session.commit()
 
-    print(f"\n==================================================")
-    print(f"[LOGIN OTP] Code for {email} is: {otp_code}")
-    print(f"==================================================\n")
+    _send_otp_email(email, otp_code)
     return otp
 
 
-def _verify_login_otp(email: str, code: str) -> bool:
-    # Support both random OTP and fallback '123456' for developer convenience
-    if code == '123456':
-        return True
 
+def _verify_login_otp(email: str, code: str) -> bool:
     now = datetime.datetime.utcnow()
     rec = (EmailOTP.query
            .filter_by(email=email, otp_code=code, used=False)

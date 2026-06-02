@@ -215,7 +215,6 @@
         <div class="section-desc">
             Send an OTP to your registered email
             <strong style="color:#9f55ff;">{{ user.email }}</strong> to reset your password.
-            <br><span style="color:#555;font-size:12px;">Note: Email delivery is not yet configured — the OTP is <strong>1234</strong> for now.</span>
         </div>
         <button class="settings-save-btn" id="sendOtpBtn">Send OTP</button>
         <div class="field-feedback" id="otpSendFb"></div>
@@ -230,8 +229,7 @@
     <p>Enter the 6-digit OTP sent to your email, then choose a new password.</p>
     <div class="field-group">
         <label class="field-label">OTP code</label>
-        <input id="otpCode" class="field-input" type="text" placeholder="1234" maxlength="10">
-        <span class="otp-hint">💡 For testing, OTP is always: <strong>1234</strong></span>
+        <input id="otpCode" class="field-input" type="text" placeholder="######" maxlength="6" style="letter-spacing: 2px; text-align: center; font-size: 16px; font-weight: bold;">
     </div>
     <div class="field-group">
         <label class="field-label">New password</label>

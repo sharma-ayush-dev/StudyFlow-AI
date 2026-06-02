@@ -8,7 +8,7 @@ import secrets as _secrets
 
 from extensions import db, limiter
 from models import User
-from helpers import _sanitize_field, _sanitize_email, _log_activity, _rl, _create_login_otp, _verify_login_otp
+from helpers import _sanitize_field, _sanitize_email, _log_activity, _rl, _create_login_otp, _verify_login_otp, _send_welcome_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -272,4 +272,8 @@ def complete_profile_submit():
     session.pop('incomplete_profile', None)
 
     _log_activity('complete_profile_success', {'username': username, 'course': course})
+    
+    # Send welcome email asynchronously
+    _send_welcome_email(current_user.email, username)
+    
     return jsonify({'redirect': url_for('landing')}), 200
