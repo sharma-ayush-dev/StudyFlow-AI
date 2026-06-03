@@ -6,7 +6,7 @@ from flask_caching import Cache
 from flask_login import LoginManager
 
 db = SQLAlchemy()
-limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri='memory://')
+limiter = Limiter(key_func=get_remote_address, default_limits=["200 per minute"], storage_uri='memory://')
 cache = Cache()
 login_manager = LoginManager()
 

@@ -25,9 +25,11 @@ __all__ = [
     '_generation_inputs_snapshot', '_rl', '_get_study_data', '_ensure_runtime_schema',
     '_require_owner', '_delete_files', '_render_error', '_log_activity', '_extract_meta',
     '_build_llm_notice', '_get_today_slot', 'HARDCODED_OTP', '_send_otp_email', '_send_welcome_email',
+    '_send_contact_email',
     '_create_otp', '_verify_otp', '_create_login_otp', '_verify_login_otp', 'log_request', '_job_create', '_job_set', '_job_get',
     'get_sched_model_list', 'get_extract_model_list', 'get_teacher_model_list',
-    'get_model_costs', 'save_model_costs', 'track_llm_call', 'check_user_cost_limit'
+    'get_model_costs', 'save_model_costs', 'track_llm_call', 'check_user_cost_limit', 'get_default_cost_limit',
+    'check_user_budget', 'get_user_assigned_model'
 ]
 
 
@@ -242,6 +244,8 @@ def _ensure_runtime_schema():
 
             rows_user = conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()
             existing_user = {row[1] for row in rows_user}
+            if 'full_name' not in existing_user:
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN full_name VARCHAR(50)")
             if 'upload_count' not in existing_user:
                 conn.exec_driver_sql("ALTER TABLE user ADD COLUMN upload_count INTEGER DEFAULT 0 NOT NULL")
             if 'generations_count' not in existing_user:
@@ -257,10 +261,109 @@ def _ensure_runtime_schema():
             if 'total_cost' not in existing_user:
                 conn.exec_driver_sql("ALTER TABLE user ADD COLUMN total_cost FLOAT DEFAULT 0.0 NOT NULL")
             if 'cost_limit' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN cost_limit FLOAT DEFAULT 1000.0 NOT NULL")
+                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN cost_limit FLOAT DEFAULT 2.0 NOT NULL")
             else:
-                # Update users who have the old $10.0 limit to the new ₹1000.0 limit
-                conn.exec_driver_sql("UPDATE user SET cost_limit = 1000.0 WHERE cost_limit = 10.0")
+                # Migrate old default limits (10.0 or 1000.0) to the new 2.0 default
+                conn.exec_driver_sql("UPDATE user SET cost_limit = 2.0 WHERE cost_limit = 10.0 OR cost_limit = 1000.0")
+
+            rows_activity = conn.exec_driver_sql("PRAGMA table_info(activity_log)").fetchall()
+            existing_activity = {row[1] for row in rows_activity}
+            if 'ip_address' not in existing_activity:
+                conn.exec_driver_sql("ALTER TABLE activity_log ADD COLUMN ip_address VARCHAR(45)")
+            if 'user_agent' not in existing_activity:
+                conn.exec_driver_sql("ALTER TABLE activity_log ADD COLUMN user_agent VARCHAR(256)")
+
+            rows_request = conn.exec_driver_sql("PRAGMA table_info(request_log)").fetchall()
+            existing_request = {row[1] for row in rows_request}
+            if 'ip_address' not in existing_request:
+                conn.exec_driver_sql("ALTER TABLE request_log ADD COLUMN ip_address VARCHAR(45)")
+            if 'user_agent' not in existing_request:
+                conn.exec_driver_sql("ALTER TABLE request_log ADD COLUMN user_agent VARCHAR(256)")
+
+            # Check/create membership_tier
+            rows_tier = conn.exec_driver_sql("PRAGMA table_info(membership_tier)").fetchall()
+            if not rows_tier:
+                conn.exec_driver_sql("""
+                    CREATE TABLE membership_tier (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name VARCHAR(50) NOT NULL UNIQUE,
+                        display_price INTEGER NOT NULL DEFAULT 0,
+                        model_id VARCHAR(100) NOT NULL,
+                        budget_limit FLOAT NOT NULL DEFAULT 1.0,
+                        speed_label VARCHAR(50) NOT NULL,
+                        tutor_quality_label VARCHAR(50) NOT NULL,
+                        display_order INTEGER NOT NULL DEFAULT 0,
+                        active BOOLEAN NOT NULL DEFAULT 1,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+            else:
+                existing_tier = {row[1] for row in rows_tier}
+                if 'display_order' not in existing_tier:
+                    conn.exec_driver_sql("ALTER TABLE membership_tier ADD COLUMN display_order INTEGER DEFAULT 0 NOT NULL")
+
+            # Seed default tiers if empty
+            count_tiers = conn.exec_driver_sql("SELECT COUNT(*) FROM membership_tier").fetchone()[0]
+            if count_tiers == 0:
+                conn.exec_driver_sql("""
+                    INSERT INTO membership_tier (name, display_price, model_id, budget_limit, speed_label, tutor_quality_label, display_order, active, created_at, updated_at)
+                    VALUES 
+                    ('Bronze', 0, 'mistralai/mistral-nemo', 1.0, 'Standard', 'Standard', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                    ('Platinum', 9, 'mistralai/mistral-nemo', 2.0, 'Standard', 'Improved', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                    ('Diamond', 49, 'mistralai/mistral-nemo', 36.0, 'Faster', 'Best', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """)
+
+            # Check/create user_membership
+            rows_um = conn.exec_driver_sql("PRAGMA table_info(user_membership)").fetchall()
+            if not rows_um:
+                conn.exec_driver_sql("""
+                    CREATE TABLE user_membership (
+                        user_id INTEGER PRIMARY KEY,
+                        tier_id INTEGER NOT NULL,
+                        usage_cost FLOAT NOT NULL DEFAULT 0.0,
+                        usage_percentage FLOAT NOT NULL DEFAULT 0.0,
+                        upgraded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        total_amount_paid FLOAT NOT NULL DEFAULT 0.0,
+                        custom_budget_limit FLOAT,
+                        bronze_exhausted_before BOOLEAN NOT NULL DEFAULT 0,
+                        FOREIGN KEY(user_id) REFERENCES user(id),
+                        FOREIGN KEY(tier_id) REFERENCES membership_tier(id)
+                    )
+                """)
+            else:
+                existing_um = {row[1] for row in rows_um}
+                if 'total_amount_paid' not in existing_um:
+                    conn.exec_driver_sql("ALTER TABLE user_membership ADD COLUMN total_amount_paid FLOAT DEFAULT 0.0 NOT NULL")
+                if 'custom_budget_limit' not in existing_um:
+                    conn.exec_driver_sql("ALTER TABLE user_membership ADD COLUMN custom_budget_limit FLOAT")
+                if 'bronze_exhausted_before' not in existing_um:
+                    conn.exec_driver_sql("ALTER TABLE user_membership ADD COLUMN bronze_exhausted_before BOOLEAN DEFAULT 0 NOT NULL")
+
+            # Check/create usage_log
+            rows_ul = conn.exec_driver_sql("PRAGMA table_info(usage_log)").fetchall()
+            if not rows_ul:
+                conn.exec_driver_sql("""
+                    CREATE TABLE usage_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        endpoint VARCHAR(255) NOT NULL,
+                        model_used VARCHAR(100) NOT NULL,
+                        input_tokens INTEGER NOT NULL DEFAULT 0,
+                        output_tokens INTEGER NOT NULL DEFAULT 0,
+                        total_tokens INTEGER NOT NULL DEFAULT 0,
+                        request_cost FLOAT NOT NULL DEFAULT 0.0,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(user_id) REFERENCES user(id)
+                    )
+                """)
+
+            # Auto-assign Bronze tier to any users missing membership records
+            conn.exec_driver_sql("""
+                INSERT OR IGNORE INTO user_membership (user_id, tier_id, usage_cost, usage_percentage, upgraded_at)
+                SELECT id, (SELECT id FROM membership_tier WHERE name='Bronze'), 0.0, 0.0, CURRENT_TIMESTAMP 
+                FROM user
+            """)
 
             conn.commit()
     except Exception as exc:
@@ -287,10 +390,18 @@ def _render_error(code, title, message):
 
 def _log_activity(action: str, detail: dict = None):
     try:
+        from flask import has_request_context, request
+        ip = None
+        ua = None
+        if has_request_context():
+            ip = request.remote_addr
+            ua = request.user_agent.string
         db.session.add(ActivityLog(
             userid = current_user.id if current_user.is_authenticated else None,
             action = action,
-            detail = json.dumps(detail) if detail else None
+            detail = json.dumps(detail) if detail else None,
+            ip_address = ip,
+            user_agent = ua
         ))
         db.session.commit()
     except:
@@ -305,7 +416,7 @@ def _extract_meta(schedule: dict) -> tuple:
 def _build_llm_notice(meta: dict) -> dict | None:
     if not meta.get('primary_failed'):
         return None
-    return {'type': 'warning', 'model': meta.get('model_used', 'unknown'), 'reasons': meta.get('failure_reasons', [])}
+    return {'type': 'warning', 'message': 'The primary AI assistant encountered an issue. A backup model was automatically used to process your request.'}
 
 
 def _get_today_slot(schedule: dict, subject: str, topic: str, today_str: str) -> dict:
@@ -579,6 +690,137 @@ def _send_welcome_email(email: str, username: str):
     threading.Thread(target=send_bg, daemon=True).start()
 
 
+def _send_contact_email(name: str, email: str, subject: str, message: str):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+
+    if not resend_api_key:
+        print("[CONTACT EMAIL] RESEND_API_KEY not configured. Skipping email delivery.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = os.environ.get('SMTP_FROM_EMAIL', 'auth@studyflowai.app')
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI Contact')
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>New Contact Message</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(123, 47, 247, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    }}
+                    .logo {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        margin-bottom: 24px;
+                        text-decoration: none;
+                        text-align: center;
+                    }}
+                    .title {{
+                        font-size: 20px;
+                        margin-bottom: 20px;
+                        color: #9f55ff;
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                        padding-bottom: 10px;
+                    }}
+                    .field {{
+                        margin-bottom: 15px;
+                    }}
+                    .field-label {{
+                        font-size: 12px;
+                        color: #888888;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        margin-bottom: 5px;
+                    }}
+                    .field-value {{
+                        font-size: 15px;
+                        color: #ffffff;
+                        line-height: 1.5;
+                    }}
+                    .message-box {{
+                        background-color: rgba(255, 255, 255, 0.05);
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin-top: 10px;
+                        white-space: pre-wrap;
+                        border-left: 3px solid #7b2ff7;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="logo">StudyFlow</div>
+                        <h2 class="title">New Support Inquiry</h2>
+                        
+                        <div class="field">
+                            <div class="field-label">From Name</div>
+                            <div class="field-value">{name}</div>
+                        </div>
+                        
+                        <div class="field">
+                            <div class="field-label">From Email</div>
+                            <div class="field-value">{email}</div>
+                        </div>
+                        
+                        <div class="field">
+                            <div class="field-label">Subject</div>
+                            <div class="field-value">{subject}</div>
+                        </div>
+                        
+                        <div class="field">
+                            <div class="field-label">Message</div>
+                            <div class="message-box">{message}</div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_content = f"New Support Inquiry\n\nName: {name}\nEmail: {email}\nSubject: {subject}\n\nMessage:\n{message}"
+
+            params = {
+                "from": f"{from_name} <{from_email}>",
+                "to": ["support@studyflowai.app"],
+                "reply_to": email,
+                "subject": f"Contact Form: {subject}",
+                "html": html_content,
+                "text": text_content
+            }
+
+            resend.Emails.send(params)
+            print(f"[CONTACT EMAIL SUCCESS] Successfully sent contact email to support@studyflowai.app")
+        except Exception as e:
+            print(f"[CONTACT EMAIL ERROR] Failed to send contact email: {e}")
+
+    threading.Thread(target=send_bg, daemon=True).start()
+
+
 def _create_otp(email: str) -> PasswordResetOTP:
     PasswordResetOTP.query.filter_by(email=email, used=False).update({'used': True})
     db.session.commit()
@@ -653,13 +895,15 @@ def log_request(response):
     uid = current_user.id if current_user.is_authenticated else None
     method = request.method
     status = response.status_code
+    ip = request.remote_addr
+    ua = request.user_agent.string
 
     def _write():
         try:
             with db.engine.connect() as conn:
                 conn.exec_driver_sql(
-                    "INSERT INTO request_log (userid, method, path, status_code, timestamp) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                    (uid, method, p, status)
+                    "INSERT INTO request_log (userid, method, path, status_code, ip_address, user_agent, timestamp) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    (uid, method, p, status, ip, ua)
                 )
                 if uid:
                     conn.exec_driver_sql(
@@ -717,22 +961,25 @@ def save_model_costs(costs: dict):
     _set_setting('model_costs_json', json.dumps(costs))
 
 
-def track_llm_call(user_id: int, model_name: str, prompt_tokens: int, completion_tokens: int):
+def track_llm_call(user_id: int, model_name: str, prompt_tokens: int, completion_tokens: int, endpoint: str = ''):
     if not user_id:
         return
     try:
+        from flask import has_request_context, request
+        from models import User, UserMembership, MembershipTier, UsageLog, ActivityLog
         user = User.query.get(user_id)
         if not user:
             return
 
         costs = get_model_costs()
-        pricing = costs.get(model_name, {"input": 0.0, "output": 0.0})
+        pricing = costs.get(model_name, {"input": 15.0, "output": 50.0})
 
         # Calculate cost
         in_cost = (prompt_tokens * pricing.get("input", 0.0)) / 1_000_000.0
         out_cost = (completion_tokens * pricing.get("output", 0.0)) / 1_000_000.0
         call_cost = in_cost + out_cost
 
+        # Update user legacy stats
         user.generations_count = (user.generations_count or 0) + 1
         user.input_tokens_used = (user.input_tokens_used or 0) + prompt_tokens
         user.output_tokens_used = (user.output_tokens_used or 0) + completion_tokens
@@ -740,11 +987,53 @@ def track_llm_call(user_id: int, model_name: str, prompt_tokens: int, completion
         user.last_model_used = model_name
         user.last_active = datetime.datetime.utcnow()
 
-        # Log LLM call to ActivityLog
+        # Update UserMembership
+        membership = UserMembership.query.filter_by(user_id=user_id).first()
+        if not membership:
+            bronze = MembershipTier.query.filter_by(name='Bronze').first()
+            if bronze:
+                membership = UserMembership(
+                    user_id=user_id,
+                    tier_id=bronze.id,
+                    usage_cost=0.0,
+                    usage_percentage=0.0
+                )
+                db.session.add(membership)
+                db.session.flush()
+
+        if membership:
+            tier = MembershipTier.query.get(membership.tier_id)
+            membership.usage_cost = (membership.usage_cost or 0.0) + call_cost
+            limit = membership.custom_budget_limit if (membership.custom_budget_limit is not None) else (tier.budget_limit if tier else 1.0)
+            if limit > 0:
+                membership.usage_percentage = min(100.0, (membership.usage_cost / limit) * 100.0)
+            else:
+                membership.usage_percentage = 100.0
+
+
+
+        # Log to UsageLog
+        resolved_endpoint = endpoint
+        if not resolved_endpoint and has_request_context():
+            resolved_endpoint = request.path
+        if not resolved_endpoint:
+            resolved_endpoint = 'system'
+
+        db.session.add(UsageLog(
+            user_id=user_id,
+            endpoint=resolved_endpoint,
+            model_used=model_name,
+            input_tokens=prompt_tokens,
+            output_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+            request_cost=call_cost
+        ))
+
+        # Log to ActivityLog
         db.session.add(ActivityLog(
-            userid = user_id,
-            action = 'llm_call',
-            detail = json.dumps({
+            userid=user_id,
+            action='llm_call',
+            detail=json.dumps({
                 'model': model_name,
                 'prompt_tokens': prompt_tokens,
                 'completion_tokens': completion_tokens,
@@ -758,6 +1047,14 @@ def track_llm_call(user_id: int, model_name: str, prompt_tokens: int, completion
         db.session.rollback()
 
 
+def get_default_cost_limit() -> float:
+    try:
+        val = _get_setting('default_cost_limit')
+        return float(val) if val else 2.0
+    except:
+        return 2.0
+
+
 def check_user_cost_limit(user_id: int) -> bool:
     if not user_id:
         return True
@@ -767,8 +1064,157 @@ def check_user_cost_limit(user_id: int) -> bool:
             return True
         if user.is_admin:
             return True
-        if (user.total_cost or 0.0) >= (user.cost_limit or 1000.0):
+        limit = user.cost_limit if user.cost_limit is not None else get_default_cost_limit()
+        if (user.total_cost or 0.0) >= limit:
             return False
     except Exception:
         pass
     return True
+
+
+def check_user_budget(user_id: int) -> bool:
+    if not user_id:
+        return True
+    try:
+        from models import User, UserMembership, MembershipTier
+        user = User.query.get(user_id)
+        if not user:
+            return True
+        if user.is_admin:
+            return True
+
+        membership = UserMembership.query.filter_by(user_id=user_id).first()
+        if not membership:
+            # Seed default free Bronze
+            bronze = MembershipTier.query.filter_by(name='Bronze').first()
+            if bronze:
+                membership = UserMembership(
+                    user_id=user_id,
+                    tier_id=bronze.id,
+                    usage_cost=0.0,
+                    usage_percentage=0.0
+                )
+                db.session.add(membership)
+                db.session.commit()
+
+        if membership:
+            tier = MembershipTier.query.get(membership.tier_id)
+            if tier and tier.active:
+                limit = membership.custom_budget_limit if (membership.custom_budget_limit is not None) else tier.budget_limit
+                if (membership.usage_cost or 0.0) >= limit:
+                    return False
+    except Exception as e:
+        print(f"[ERROR] check_user_budget: {e}")
+    return True
+
+
+def get_user_assigned_model(user_id: int) -> str:
+    if not user_id:
+        return "mistralai/mistral-nemo"
+    try:
+        from models import UserMembership, MembershipTier
+        membership = UserMembership.query.filter_by(user_id=user_id).first()
+        if membership:
+            tier = MembershipTier.query.get(membership.tier_id)
+            if tier and tier.active and tier.model_id:
+                return tier.model_id
+    except Exception as e:
+        print(f"[ERROR] get_user_assigned_model: {e}")
+    return "mistralai/mistral-nemo"
+
+
+def send_membership_email(email: str, username: str, tier_name: str):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    if not resend_api_key:
+        print("[MEMBERSHIP EMAIL] RESEND_API_KEY not configured. Skipping email delivery.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = 'subscriptions@studyflowai.app'
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI')
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>StudyFlow-AI Membership Activated</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(123, 47, 247, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        text-align: center;
+                    }}
+                    h1 {{
+                        font-size: 24px;
+                        color: #bf9bff;
+                        margin-bottom: 20px;
+                    }}
+                    p {{
+                        font-size: 16px;
+                        color: #b4b4c6;
+                        line-height: 1.6;
+                        margin-bottom: 30px;
+                    }}
+                    .tier-badge {{
+                        display: inline-block;
+                        background: linear-gradient(135deg, #7b2ff7, #9f55ff);
+                        color: #ffffff;
+                        padding: 10px 24px;
+                        border-radius: 12px;
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 20px;
+                    }}
+                    .footer {{
+                        font-size: 12px;
+                        color: #555566;
+                        margin-top: 30px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <h1>Congratulations, {username}!</h1>
+                        <p>You have successfully activated your premium membership on StudyFlow-AI.</p>
+                        <div class="tier-badge">{tier_name} Tier</div>
+                        <p>Your new token budget, increased tutor quality, and speed are now active. Enjoy your learning flow!</p>
+                        <div class="footer">
+                            &copy; 2026 StudyFlow-AI. All rights reserved.
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            resend.Emails.send({
+                "from": f"{from_name} <{from_email}>",
+                "to": [email],
+                "subject": f"Welcome to StudyFlow-AI {tier_name} Membership!",
+                "html": html_content
+            })
+            print(f"[MEMBERSHIP EMAIL] Upgrade email sent successfully to {email} for {tier_name} tier.")
+        except Exception as e:
+            print(f"[ERROR] send_membership_email background: {e}")
+
+    import threading
+    threading.Thread(target=send_bg, daemon=True).start()

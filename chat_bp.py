@@ -83,6 +83,9 @@ def chat_history(chat_id: int):
 @limiter.limit(_rl('rl_chat'))
 def chat_start(chat_id: int):
     chat = _get_chat_or_403(chat_id)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
+
     existing_count = Message.query.filter_by(chat_id=chat_id).count()
     if existing_count > 0:
         return jsonify({'already_started': True})
@@ -103,9 +106,11 @@ def chat_start(chat_id: int):
         _log_activity('study_start', {'subject': chat.subject, 'topic': chat.topic})
         resp = {'content': content, 'role': 'assistant'}
         if failures:
-            resp['notice'] = {'model': model_used, 'reasons': failures}
+            resp['notice'] = {'message': 'A backup AI assistant was automatically selected.'}
         return jsonify(resp)
     except RuntimeError as e:
+        if 'budget_exhausted' in str(e):
+            return jsonify({'error': 'budget_exhausted'}), 402
         return jsonify({'error': str(e)}), 500
 
 
@@ -114,6 +119,9 @@ def chat_start(chat_id: int):
 @limiter.limit(_rl('rl_chat'))
 def chat_send(chat_id: int):
     chat = _get_chat_or_403(chat_id)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
+
     user_message = _sanitize((request.json or {}).get('message', ''), max_words=500)
     if not user_message:
         return jsonify({'error': 'Empty message'}), 400
@@ -136,9 +144,11 @@ def chat_send(chat_id: int):
         _save_message(chat_id, 'assistant', content)
         resp = {'content': content, 'role': 'assistant'}
         if failures:
-            resp['notice'] = {'model': model_used, 'reasons': failures}
+            resp['notice'] = {'message': 'A backup AI assistant was automatically selected.'}
         return jsonify(resp)
     except RuntimeError as e:
+        if 'budget_exhausted' in str(e):
+            return jsonify({'error': 'budget_exhausted'}), 402
         return jsonify({'error': str(e)}), 500
 
 
@@ -147,6 +157,9 @@ def chat_send(chat_id: int):
 @limiter.limit(_rl('rl_chat'))
 def chat_quiz(chat_id: int):
     chat    = _get_chat_or_403(chat_id)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
+
     history = _get_chat_history(chat_id)
     if len(history) < 2:
         return jsonify({'error': 'Study a bit first before taking a quiz!'}), 400
@@ -166,9 +179,11 @@ def chat_quiz(chat_id: int):
         _save_message(chat_id, 'assistant', content)
         resp = {'content': content, 'role': 'assistant'}
         if failures:
-            resp['notice'] = {'model': model_used, 'reasons': failures}
+            resp['notice'] = {'message': 'A backup AI assistant was automatically selected.'}
         return jsonify(resp)
     except RuntimeError as e:
+        if 'budget_exhausted' in str(e):
+            return jsonify({'error': 'budget_exhausted'}), 402
         return jsonify({'error': str(e)}), 500
 
 
@@ -216,6 +231,9 @@ def delete_message(chat_id: int, msg_id: int):
 @limiter.limit(_rl('rl_chat'))
 def regenerate_last(chat_id: int):
     chat = _get_chat_or_403(chat_id)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
+
     last_assistant = (Message.query
                       .filter_by(chat_id=chat_id, role='assistant')
                       .order_by(Message.id.desc())
@@ -241,9 +259,11 @@ def regenerate_last(chat_id: int):
         new_msg = _save_message(chat_id, 'assistant', content)
         resp = {'content': content, 'role': 'assistant', 'id': new_msg.id}
         if failures:
-            resp['notice'] = {'model': model_used, 'reasons': failures}
+            resp['notice'] = {'message': 'A backup AI assistant was automatically selected.'}
         return jsonify(resp)
     except RuntimeError as e:
+        if 'budget_exhausted' in str(e):
+            return jsonify({'error': 'budget_exhausted'}), 402
         return jsonify({'error': str(e)}), 500
 
 
@@ -252,6 +272,9 @@ def regenerate_last(chat_id: int):
 @limiter.limit(_rl('rl_chat'))
 def chat_send_stream(chat_id: int):
     chat = _get_chat_or_403(chat_id)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
+
     user_message = _sanitize((request.json or {}).get('message', ''), max_words=500)
     if not user_message:
         return jsonify({'error': 'Empty message'}), 400
@@ -284,8 +307,11 @@ def chat_send_stream(chat_id: int):
             asst_msg = _save_message(chat_id, 'assistant', full_text)
             asst_msg_id = asst_msg.id
             yield f"data: [DONE]{json.dumps({'user_msg_id': user_msg_id, 'assistant_msg_id': asst_msg_id})}\n\n"
-        except RuntimeError as e:
-            yield f'data: [ERROR] {str(e)}\n\n'
+        except Exception as e:
+            msg = str(e)
+            if 'budget_exhausted' in msg:
+                msg = 'budget_exhausted'
+            yield f'data: [ERROR] {msg}\n\n'
 
     return Response(
         stream_with_context(generate()),
@@ -299,6 +325,9 @@ def chat_send_stream(chat_id: int):
 @limiter.limit(_rl('rl_chat'))
 def chat_quiz_stream(chat_id: int):
     chat = _get_chat_or_403(chat_id)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
+
     history = _get_chat_history(chat_id)
     if len(history) < 2:
         return jsonify({'error': 'Study a bit first before taking a quiz!'}), 400
@@ -330,8 +359,11 @@ def chat_quiz_stream(chat_id: int):
             asst_msg = _save_message(chat_id, 'assistant', full_text)
             asst_msg_id = asst_msg.id
             yield f"data: [DONE_QUIZ]{json.dumps({'user_msg_id': quiz_user_msg_id, 'assistant_msg_id': asst_msg_id})}\n\n"
-        except RuntimeError as e:
-            yield f'data: [ERROR] {str(e)}\n\n'
+        except Exception as e:
+            msg = str(e)
+            if 'budget_exhausted' in msg:
+                msg = 'budget_exhausted'
+            yield f'data: [ERROR] {msg}\n\n'
 
     return Response(
         stream_with_context(generate()),

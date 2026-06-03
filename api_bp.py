@@ -20,19 +20,34 @@ api_bp = Blueprint('api', __name__)
 @api_bp.route('/contact/submit', methods=['POST'])
 @limiter.limit('3 per hour')
 def contact_submit():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'You must be logged in to send a message.'}), 401
+
     data = request.get_json() or {}
-    msg = ContactMessage(
-        name=_sanitize_field(data.get('name', ''), 100),
-        email=_sanitize_email(data.get('email', '')),
-        subject=_sanitize_field(data.get('subject', ''), 200),
-        message=_sanitize(data.get('message', ''), max_words=500)
-    )
-    if not msg.email:
-        return jsonify({'error': 'Invalid email'}), 400
-    if not msg.message:
+    name = _sanitize_field(data.get('name', ''), 100)
+    email = _sanitize_email(data.get('email', ''))
+    subject = _sanitize_field(data.get('subject', ''), 200)
+    message = _sanitize(data.get('message', ''), max_words=None)[:1000]
+
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    if not email:
+        return jsonify({'error': 'A valid email address is required'}), 400
+    if not subject:
+        return jsonify({'error': 'Subject is required'}), 400
+    if not message:
         return jsonify({'error': 'Message is required'}), 400
+
+    msg = ContactMessage(
+        name=name,
+        email=email,
+        subject=subject,
+        message=message
+    )
     db.session.add(msg)
     db.session.commit()
+    
+    _send_contact_email(name, email, subject, message)
     return jsonify({'message': "Thanks! We'll get back to you within 24 hours."})
 
 
@@ -40,6 +55,8 @@ def contact_submit():
 @login_required
 @limiter.limit(_rl('rl_upload'))
 def upload_files():
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
     file_paths = []
     try:
         files       = request.files.getlist('files')
@@ -157,6 +174,8 @@ def job_status(job_id: str):
 @limiter.limit(_rl('rl_generate'))
 def generate(userid):
     _require_owner(userid)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
     user = _get_study_data()
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
@@ -271,6 +290,8 @@ def update_progress(userid):
 @limiter.limit(_rl('rl_generate'))
 def regenerate_schedule(userid):
     _require_owner(userid)
+    if not check_user_budget(current_user.id):
+        return jsonify({'error': 'budget_exhausted'}), 402
     user = _get_study_data()
     if not user or not user.topic_status:
         return jsonify({'error': 'No topic status found'}), 400
@@ -334,3 +355,103 @@ def keep_schedule(userid):
 def me():
     return jsonify({'id': current_user.id, 'username': current_user.username,
                     'is_admin': current_user.is_admin})
+
+
+@api_bp.route('/subscriptions/purchase/<int:tier_id>', methods=['POST'])
+@login_required
+def purchase_subscription(tier_id):
+    import datetime
+    from models import MembershipTier, UserMembership
+    tier = MembershipTier.query.filter_by(id=tier_id, active=True).first()
+    if not tier:
+        return jsonify({'error': 'Subscription plan not found.'}), 404
+
+    membership = UserMembership.query.filter_by(user_id=current_user.id).first()
+    
+    old_tier = MembershipTier.query.get(membership.tier_id) if membership else None
+    
+    # Enforce subscription upgrade/renewal logic
+    if old_tier:
+        old_exhausted = False
+        limit = membership.custom_budget_limit if (membership.custom_budget_limit is not None) else old_tier.budget_limit
+        if (membership.usage_cost or 0.0) >= limit:
+            old_exhausted = True
+
+        if tier.name == 'Bronze':
+            return jsonify({'error': 'You cannot purchase the Bronze plan.'}), 400
+
+        if old_tier.name == 'Bronze':
+            # Bronze users can always upgrade to Platinum or Diamond
+            pass
+        elif old_tier.name == 'Platinum':
+            if old_exhausted:
+                # Can buy Platinum (renew) or Diamond (upgrade/renew)
+                pass
+            else:
+                # Can only buy Diamond (upgrade)
+                if tier.name == 'Platinum':
+                    return jsonify({'error': 'You already have an active Platinum membership with tokens left.'}), 400
+                elif tier.name == 'Bronze':
+                    return jsonify({'error': 'You cannot downgrade to the Bronze plan.'}), 400
+        elif old_tier.name == 'Diamond':
+            if old_exhausted:
+                # Can buy Platinum (renew/downgrade to Platinum) or Diamond (renew)
+                pass
+            else:
+                # Cannot buy Platinum (no tokens left checked) or Diamond or Bronze
+                if tier.name == 'Platinum':
+                    return jsonify({'error': 'You already have an active Diamond membership with tokens left.'}), 400
+                elif tier.name == 'Diamond':
+                    return jsonify({'error': 'You already have an active Diamond membership with tokens left.'}), 400
+                elif tier.name == 'Bronze':
+                    return jsonify({'error': 'You cannot downgrade to the Bronze plan.'}), 400
+
+    bronze_exhausted = False
+    if old_tier and old_tier.name == 'Bronze' and (membership.usage_cost >= old_tier.budget_limit):
+        bronze_exhausted = True
+
+    rollover_applied = False
+    message_suffix = ""
+
+    if old_tier and old_tier.name == 'Platinum' and tier.name == 'Diamond':
+        current_limit = membership.custom_budget_limit if (membership.custom_budget_limit is not None) else old_tier.budget_limit
+        remaining = current_limit - (membership.usage_cost or 0.0)
+        if remaining > 0:
+            membership.custom_budget_limit = tier.budget_limit + remaining
+            rollover_applied = True
+            message_suffix = " Your remaining Platinum usage limit has been added to your new Diamond membership! Enjoy the extra usage."
+        else:
+            membership.custom_budget_limit = None
+    else:
+        if membership:
+            membership.custom_budget_limit = None
+
+    if not membership:
+        membership = UserMembership(
+            user_id=current_user.id,
+            tier_id=tier.id,
+            usage_cost=0.0,
+            usage_percentage=0.0,
+            total_amount_paid=float(tier.display_price),
+            bronze_exhausted_before=bronze_exhausted
+        )
+        db.session.add(membership)
+    else:
+        membership.tier_id = tier.id
+        membership.usage_cost = 0.0
+        membership.usage_percentage = 0.0
+        membership.total_amount_paid = (membership.total_amount_paid or 0.0) + float(tier.display_price)
+        membership.upgraded_at = datetime.datetime.utcnow()
+        membership.bronze_exhausted_before = bronze_exhausted
+
+    db.session.commit()
+    _log_activity('upgrade', {'tier': tier.name})
+
+    try:
+        from helpers import send_membership_email
+        send_membership_email(current_user.email, current_user.username, tier.name)
+    except Exception as e:
+        print(f"[ERROR] Failed to send membership email: {e}")
+    
+    msg = f"Purchase successful.{message_suffix}"
+    return jsonify({'message': msg, 'tier': tier.name})

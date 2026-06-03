@@ -1,0 +1,355 @@
+<!-- UPGRADE MODAL — Included globally via _navbar.html -->
+<div id="upgradeModalOverlay" class="auth-overlay hidden" style="z-index: 10000; display: flex; align-items: center; justify-content: center;">
+    <div class="auth-modal" style="max-width: 650px; width: calc(100% - 32px); padding: 40px; background: radial-gradient(circle at 50% 0%, rgba(123, 47, 247, 0.15), transparent 40%), #121220; border: 1px solid rgba(123, 47, 247, 0.2); border-radius: 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.6); position: relative; animation: sfSlideUp 0.4s ease-out;">
+        
+        <button class="auth-close" id="closeUpgradeBtn" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: #a0aec0; font-size: 20px; cursor: pointer; transition: color 0.2s;">✕</button>
+
+        <h2 style="font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 800; text-align: center; margin: 0 0 8px; background: linear-gradient(135deg, #ffffff, #bf9bff 60%, #7b2ff7); -webkit-background-clip: text; background-clip: text; color: transparent;">
+            Upgrade Your Membership
+        </h2>
+        <p style="text-align: center; color: #8f8fbf; font-size: 15px; margin: 0 0 32px; max-width: 480px; margin-left: auto; margin-right: auto;">
+            You have consumed 100% of your current plan's budget. Upgrade now to keep learning without limits!
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+            <!-- Platinum Tier Card -->
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                <div>
+                    <h4 style="margin: 0 0 6px; font-size: 20px; font-family: 'Outfit', sans-serif; color: #ffffff;">Platinum</h4>
+                    <div style="color: #bf9bff; font-size: 13px; margin-bottom: 12px;">⭐</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #ffffff; margin-bottom: 16px; font-family: 'Outfit', sans-serif;">₹9</div>
+                    <ul style="list-style: none; padding: 0; margin: 0 0 20px; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+                        <li style="margin-bottom: 8px;">✔️ <strong>2x</strong> token usage limit</li>
+                        <li style="margin-bottom: 8px;">✔️ <strong>Improved</strong> tutor quality</li>
+                        <li>✔️ Standard response speed</li>
+                    </ul>
+                </div>
+                {% set current_tier_name = current_user.membership.tier.name if (current_user.membership and current_user.membership.tier) else 'Bronze' %}
+                {% set is_exhausted = current_user.is_membership_exhausted %}
+                
+                {# Determine button state for Platinum (tier_id=2) #}
+                {% set plat_btn_state = 'activate' %}
+                {% set plat_btn_text = 'Activate Platinum' %}
+                
+                {% if current_tier_name == 'Bronze' %}
+                    {% set plat_btn_state = 'activate' %}
+                {% elif current_tier_name == 'Platinum' %}
+                    {% if is_exhausted %}
+                        {% set plat_btn_state = 'activate' %}
+                    {% else %}
+                        {% set plat_btn_state = 'current' %}
+                        {% set plat_btn_text = 'Current Plan' %}
+                    {% endif %}
+                {% elif current_tier_name == 'Diamond' %}
+                    {% if is_exhausted %}
+                        {% set plat_btn_state = 'activate' %}
+                    {% else %}
+                        {% set plat_btn_state = 'unavailable' %}
+                        {% set plat_btn_text = 'Unavailable' %}
+                    {% endif %}
+                {% endif %}
+
+                {% if plat_btn_state == 'current' %}
+                <button style="width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: not-allowed; background: rgba(255,255,255,0.05); color: #a6a6b6;" disabled>
+                    Current Plan
+                </button>
+                {% elif plat_btn_state == 'unavailable' %}
+                <button style="width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: not-allowed; background: rgba(255,255,255,0.05); color: #a6a6b6;" disabled>
+                    Unavailable
+                </button>
+                {% else %}
+                <button onclick="upgradePurchase(2, 'Platinum')" style="width: 100%; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #ffffff; box-shadow: 0 4px 10px rgba(29, 78, 216, 0.3); transition: all 0.2s;">
+                    Activate Platinum
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Diamond Tier Card -->
+            <div style="background: radial-gradient(circle at 100% 0%, rgba(123, 47, 247, 0.12), transparent 60%), rgba(255, 255, 255, 0.03); border: 1px solid rgba(123, 47, 247, 0.2); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                <div>
+                    <span style="position: absolute; top: 12px; right: 12px; background: rgba(123, 47, 247, 0.2); color: #bf9bff; padding: 2px 8px; border-radius: 99px; font-size: 9px; font-weight: 600; border: 1px solid rgba(123, 47, 247, 0.4);">Best Value</span>
+                    <h4 style="margin: 0 0 6px; font-size: 20px; font-family: 'Outfit', sans-serif; color: #ffffff;">Diamond</h4>
+                    <div style="color: #bf9bff; font-size: 13px; margin-bottom: 12px;">⭐⭐⭐</div>
+                    <div style="font-size: 28px; font-weight: 800; color: #ffffff; margin-bottom: 16px; font-family: 'Outfit', sans-serif;">₹49</div>
+                    <ul style="list-style: none; padding: 0; margin: 0 0 20px; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+                        <li style="margin-bottom: 8px;">✔️ <strong>3x</strong> token usage limit</li>
+                        <li style="margin-bottom: 8px;">✔️ <strong>Best</strong> tutor quality</li>
+                        <li>✔️ <strong>Faster</strong> response speed</li>
+                    </ul>
+                </div>
+                {# Determine button state for Diamond (tier_id=3) #}
+                {% set diam_btn_state = 'activate' %}
+                {% set diam_btn_text = 'Activate Diamond' %}
+                
+                {% if current_tier_name == 'Bronze' or current_tier_name == 'Platinum' %}
+                    {% set diam_btn_state = 'activate' %}
+                {% elif current_tier_name == 'Diamond' %}
+                    {% if is_exhausted %}
+                        {% set diam_btn_state = 'activate' %}
+                    {% else %}
+                        {% set diam_btn_state = 'current' %}
+                        {% set diam_btn_text = 'Current Plan' %}
+                    {% endif %}
+                {% endif %}
+
+                {% if diam_btn_state == 'current' %}
+                <button style="width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: not-allowed; background: rgba(255,255,255,0.05); color: #a6a6b6;" disabled>
+                    Current Plan
+                </button>
+                {% else %}
+                <button onclick="upgradePurchase(3, 'Diamond')" style="width: 100%; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #7b2ff7, #9f55ff); color: #ffffff; box-shadow: 0 4px 10px rgba(123, 47, 247, 0.3); transition: all 0.2s;">
+                    Activate Diamond
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="/subscriptions" style="color: #bf9bff; font-size: 13px; font-weight: 600; text-decoration: none; transition: opacity 0.2s;">
+                View detailed plan comparison &rarr;
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<!-- ROLLOVER NOTIFICATION MODAL -->
+<div id="rolloverModalOverlay" class="auth-overlay hidden" style="z-index: 10005; display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 8, 16, 0.8); backdrop-filter: blur(8px);">
+    <div class="auth-modal" style="max-width: 480px; width: calc(100% - 32px); padding: 40px; background: radial-gradient(circle at 50% 0%, rgba(123, 47, 247, 0.15), transparent 40%), #0c0c15; border: 1px solid rgba(123, 47, 247, 0.25); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); position: relative; text-align: left; box-sizing: border-box; margin: 20px; animation: sfSlideUp 0.4s ease-out;">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom: 20px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(123, 47, 247, 0.15); display: flex; align-items: center; justify-content: center; color: #bf9bff; font-size: 24px; font-weight: bold; flex-shrink: 0;">
+                🔄
+            </div>
+            <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 22px; color: #ffffff; font-weight: 700;">Limit Rollover Active</h3>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <p style="margin: 0 0 12px; color: #b4b4c6; font-size: 15px; line-height: 1.6;">
+                Great news! Since you are upgrading from <strong>Platinum</strong> to <strong>Diamond</strong>, all of your remaining usage limits will be rolled over.
+            </p>
+            <p style="margin: 0; color: #bf9bff; font-size: 14px; line-height: 1.6; padding: 12px; background: rgba(123, 47, 247, 0.05); border-radius: 10px; border-left: 3px solid #7b2ff7;">
+                The unused token budget from your current plan will be appended directly to your new Diamond membership. None of your benefits will be lost!
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button onclick="closeRolloverModal()" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #a6a6b6; padding: 10px 20px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 14px;">Cancel</button>
+            <button id="btnProceedRollover" style="background: linear-gradient(135deg, #7b2ff7, #9f55ff); border: none; color: #ffffff; padding: 10px 24px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 14px; box-shadow: 0 4px 10px rgba(123, 47, 247, 0.3);">Proceed to Upgrade</button>
+        </div>
+    </div>
+</div>
+
+<!-- CONGRATULATIONS SUCCESS MODAL -->
+<div id="successModalOverlay" class="auth-overlay hidden" style="z-index: 10010; display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 8, 16, 0.8); backdrop-filter: blur(8px);">
+    <div class="auth-modal" style="max-width: 480px; width: calc(100% - 32px); padding: 40px; background: radial-gradient(circle at 50% 0%, rgba(80, 220, 140, 0.15), transparent 40%), #0c0c15; border: 1px solid rgba(80, 220, 140, 0.25); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); position: relative; text-align: center; box-sizing: border-box; margin: 20px; animation: sfSlideUp 0.4s ease-out;">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(80, 220, 140, 0.15); display: flex; align-items: center; justify-content: center; color: #50dc8c; font-size: 36px; margin: 0 auto 24px; box-shadow: 0 0 16px rgba(80, 220, 140, 0.4);">
+            🎉
+        </div>
+        
+        <h3 style="margin: 0 0 8px; font-family: 'Outfit', sans-serif; font-size: 26px; color: #ffffff; font-weight: 800;">Congratulations!</h3>
+        <p id="successModalSub" style="margin: 0 0 16px; color: #50dc8c; font-size: 16px; font-weight: 600;">Your Upgrade was Successful</p>
+        
+        <p id="successModalDesc" style="margin: 0 0 24px; color: #b4b4c6; font-size: 15px; line-height: 1.6; text-align: left; padding: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px;"></p>
+        
+        <p style="margin: 0 0 24px; color: #94a3b8; font-size: 13px;">
+            📧 A confirmation email has been sent to your registered address.
+        </p>
+
+        <button onclick="closeSuccessModal()" style="background: linear-gradient(135deg, #50dc8c, #10b981); border: none; color: #ffffff; padding: 12px 32px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-size: 15px; width: 100%; box-shadow: 0 4px 15px rgba(80, 220, 140, 0.3);">Start Learning</button>
+    </div>
+</div>
+
+<!-- THEMED ERROR POPUP MODAL -->
+<div id="errorModalOverlay" class="auth-overlay hidden" style="z-index: 10000; display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 8, 16, 0.8); backdrop-filter: blur(8px);">
+    <div class="auth-modal" style="max-width: 480px; width: calc(100% - 32px); padding: 40px; background: radial-gradient(circle at 50% 0%, rgba(220, 50, 50, 0.15), transparent 40%), #0c0c15; border: 1px solid rgba(220, 50, 50, 0.2); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); position: relative; text-align: left; box-sizing: border-box; margin: 20px; animation: sfSlideUp 0.4s ease-out;">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom: 20px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(220, 50, 50, 0.15); display: flex; align-items: center; justify-content: center; color: #ff7c7c; font-size: 24px; font-weight: bold; flex-shrink: 0;">
+                ⚠️
+            </div>
+            <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 22px; color: #ff7c7c; font-weight: 700;">Plan Activation Failed</h3>
+        </div>
+        
+        <div style="margin-bottom: 18px;">
+            <strong style="color: #ddd; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">What Happened:</strong>
+            <p id="errWhatHappenedText" style="margin: 6px 0 0; color: #b4b4c6; font-size: 14px; line-height: 1.5;"></p>
+        </div>
+
+        <div style="margin-bottom: 18px;">
+            <strong style="color: #ddd; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Why It Happened:</strong>
+            <p id="errWhyHappenedText" style="margin: 6px 0 0; color: #ef4444; font-size: 13px; line-height: 1.5; font-family: monospace; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); word-break: break-all;"></p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <strong style="color: #ddd; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">What You Should Do:</strong>
+            <p id="errWhatToDoText" style="margin: 6px 0 0; color: #b4b4c6; font-size: 14px; line-height: 1.5;"></p>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+            <button onclick="closeErrorModalOverlay()" style="background: rgba(220, 50, 50, 0.1); border: 1px solid rgba(220, 50, 50, 0.4); color: #ff7c7c; padding: 10px 24px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 0; width: auto; font-size: 14px;">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const currentTierName = "{{ current_user.membership.tier.name if (current_user.membership and current_user.membership.tier) else 'Bronze' }}";
+    let pendingPurchaseTierId = null;
+    let pendingPurchaseTierName = null;
+
+    function showUpgradeModal() {
+        const overlay = document.getElementById('upgradeModalOverlay');
+        if (overlay) {
+            overlay.classList.remove('sf-hidden');
+            overlay.classList.remove('hidden');
+        }
+    }
+
+    function hideUpgradeModal() {
+        const overlay = document.getElementById('upgradeModalOverlay');
+        if (overlay) {
+            overlay.classList.add('sf-hidden');
+            overlay.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('closeUpgradeBtn')?.addEventListener('click', hideUpgradeModal);
+    
+    // Hide overlay when clicking outside
+    document.getElementById('upgradeModalOverlay')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideUpgradeModal();
+        }
+    });
+
+    // Make showUpgradeModal function global
+    window.showUpgradeModal = showUpgradeModal;
+
+    function showRolloverModal(tierId, tierName) {
+        pendingPurchaseTierId = tierId;
+        pendingPurchaseTierName = tierName;
+        const modal = document.getElementById('rolloverModalOverlay');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+    }
+
+    function closeRolloverModal() {
+        const modal = document.getElementById('rolloverModalOverlay');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+        pendingPurchaseTierId = null;
+        pendingPurchaseTierName = null;
+    }
+
+    function showSuccessModal(tierName, description) {
+        // Hide standard upgrade modal if open
+        hideUpgradeModal();
+        
+        const modal = document.getElementById('successModalOverlay');
+        if (modal) {
+            document.getElementById('successModalSub').textContent = `Your Upgrade to ${tierName} was Successful`;
+            document.getElementById('successModalDesc').textContent = description;
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+    }
+
+    function closeSuccessModal() {
+        const modal = document.getElementById('successModalOverlay');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+        window.location.reload();
+    }
+
+    function showErrorModalOverlay(what, why, todo) {
+        document.getElementById('errWhatHappenedText').textContent = what;
+        document.getElementById('errWhyHappenedText').textContent = why;
+        document.getElementById('errWhatToDoText').textContent = todo;
+        const modal = document.getElementById('errorModalOverlay');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+    }
+
+    function closeErrorModalOverlay() {
+        const modal = document.getElementById('errorModalOverlay');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+    }
+
+    function initiatePurchase(tierId, tierName) {
+        if (currentTierName === 'Platinum' && tierName === 'Diamond') {
+            showRolloverModal(tierId, tierName);
+        } else {
+            executePurchase(tierId, tierName);
+        }
+    }
+
+    function executePurchase(tierId, tierName) {
+        closeRolloverModal();
+        
+        fetch(`/subscriptions/purchase/${tierId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.status === 200) {
+                return response.json().then(data => {
+                    showSuccessModal(tierName, data.message || `Congratulations! You are now a ${tierName} member.`);
+                });
+            } else {
+                return response.json().then(data => {
+                    showErrorModalOverlay(
+                        "Failed to activate subscription plan.",
+                        data.error || "The server rejected the upgrade request.",
+                        "Please check your account, refresh the page, and try again. Contact support if the issue persists."
+                    );
+                }).catch(() => {
+                    showErrorModalOverlay(
+                        "An unexpected server error occurred.",
+                        `HTTP Status: ${response.status}`,
+                        "The system encountered an error while processing your request. Please try again later."
+                    );
+                });
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showErrorModalOverlay(
+                "Network connection failure.",
+                err.message || "Failed to fetch resource.",
+                "Ensure your device is connected to the internet, and verify that the local server is running."
+            );
+        });
+    }
+
+    // Connect rollover confirm button
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btnProceedRollover');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                if (pendingPurchaseTierId && pendingPurchaseTierName) {
+                    executePurchase(pendingPurchaseTierId, pendingPurchaseTierName);
+                }
+            });
+        }
+    });
+
+    // Bind to window for global access
+    window.initiatePurchase = initiatePurchase;
+    window.closeRolloverModal = closeRolloverModal;
+    window.closeSuccessModal = closeSuccessModal;
+    window.closeErrorModalOverlay = closeErrorModalOverlay;
+    window.upgradePurchase = function(tierId, tierName) {
+        initiatePurchase(tierId, tierName);
+    };
+</script>

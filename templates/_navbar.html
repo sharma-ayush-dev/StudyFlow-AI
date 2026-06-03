@@ -1,3 +1,145 @@
+<style>
+    /* Styling for profile progress ring and membership badges */
+    .nav-avatar-container {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+    }
+
+    .progress-ring {
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform: rotate(-90deg);
+        pointer-events: none;
+    }
+
+    .progress-ring-fill {
+        transition: stroke-dashoffset 0.35s;
+        transform-origin: 50% 50%;
+    }
+
+    .avatar-star-badge {
+        position: absolute;
+        bottom: -4px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e1b4b;
+        border: 1px solid #4338ca;
+        border-radius: 999px;
+        padding: 0px 4px;
+        font-size: 7px;
+        line-height: 1.2;
+        white-space: nowrap;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    .nav-memberships-glow {
+        color: #d8b4fe !important;
+        font-weight: 700;
+        text-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+        animation: pulse-glow 2s infinite alternate;
+        position: relative;
+    }
+    
+    @keyframes pulse-glow {
+        0% {
+            text-shadow: 0 0 4px rgba(168, 85, 247, 0.4);
+        }
+        100% {
+            text-shadow: 0 0 12px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+    }
+
+    .avatar-star-badge-diamond {
+        position: absolute;
+        font-size: 8px;
+        pointer-events: none;
+        z-index: 5;
+        text-shadow: 0 0 3px rgba(168, 85, 247, 0.8);
+    }
+    
+    .star-1 {
+        top: -2px;
+        left: -2px;
+        transform: rotate(-30deg);
+    }
+    .star-2 {
+        top: -6px;
+        left: calc(50% - 5px);
+    }
+    .star-3 {
+        top: -2px;
+        right: -2px;
+        transform: rotate(30deg);
+    }
+
+    .dropdown-usage-info {
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 200px;
+        text-align: left;
+    }
+
+    .dropdown-usage-tier {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: #e2e8f0;
+    }
+
+    .dropdown-usage-tier strong {
+        color: #bf9bff;
+    }
+
+    .dropdown-upgrade-link {
+        font-size: 11px;
+        color: #bf9bff;
+        text-decoration: none;
+        font-weight: 600;
+        transition: opacity 0.2s;
+    }
+
+    .dropdown-upgrade-link:hover {
+        text-decoration: underline;
+        opacity: 0.85;
+    }
+
+    .dropdown-usage-bar-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .dropdown-usage-bar-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #94a3b8;
+    }
+
+    .dropdown-usage-bar {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .dropdown-usage-fill {
+        height: 100%;
+        border-radius: inherit;
+        transition: width 0.3s ease;
+    }
+</style>
+
 <nav class="main-nav">
     <a href="{{ url_for('landing') }}" class="logo">StudyFlow</a>
 
@@ -19,17 +161,75 @@
            class="{{ 'nav-active' if request.endpoint == 'progress_page' else '' }}">
             Progress
         </a>
+        <a href="{{ url_for('pages.subscriptions_page') }}"
+           class="nav-memberships-glow {{ 'nav-active' if request.endpoint == 'subscriptions_page' else '' }}">
+            Memberships
+        </a>
     </div>
     <div class="nav-user">
         <span class="nav-username">{{ current_user.username }}</span>
         <div class="nav-profile-wrapper" id="navProfileWrapper">
-            <button class="nav-profile-icon" id="navProfileBtn" title="Profile menu">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+            
+            {% set usage_pct = current_user.membership.usage_percentage or 0.0 %}
+            {% set circumference = 100.53 %}
+            {% set dashoffset = circumference * (1.0 - (usage_pct / 100.0)) %}
+            {% if usage_pct <= 40.0 %}
+                {% set ring_color = "#50dc8c" %}
+            {% elif usage_pct <= 75.0 %}
+                {% set ring_color = "#fbbf24" %}
+            {% elif usage_pct <= 90.0 %}
+                {% set ring_color = "#f97316" %}
+            {% else %}
+                {% set ring_color = "#ef4444" %}
+            {% endif %}
+            {% set tier_name = current_user.membership.tier.name %}
+
+            <div class="nav-avatar-container">
+                <svg class="progress-ring" width="38" height="38">
+                    <circle class="progress-ring-track" cx="19" cy="19" r="16" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2.5" />
+                    <circle class="progress-ring-fill" cx="19" cy="19" r="16" fill="none" 
+                            stroke="{{ ring_color }}" stroke-dasharray="100.53" stroke-dashoffset="{{ dashoffset }}"
+                            stroke-width="2.5" stroke-linecap="round" />
                 </svg>
-            </button>
+                
+                <button class="nav-profile-icon" id="navProfileBtn" title="Profile menu">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </button>
+
+                {% if tier_name == 'Platinum' %}
+                <div class="avatar-star-badge" title="Platinum Member">⭐</div>
+                {% elif tier_name == 'Diamond' %}
+                <!-- 3 stars curling around the logo -->
+                <div class="avatar-star-badge-diamond star-1" title="Diamond Member">⭐</div>
+                <div class="avatar-star-badge-diamond star-2" title="Diamond Member">⭐</div>
+                <div class="avatar-star-badge-diamond star-3" title="Diamond Member">⭐</div>
+                {% endif %}
+            </div>
+
             <div class="profile-dropdown" id="profileDropdown">
+                <div class="dropdown-usage-info">
+                    <div class="dropdown-usage-tier">
+                        <span>Plan: <strong>{{ tier_name }}</strong></span>
+                        {% if tier_name != 'Diamond' %}
+                        <a href="{{ url_for('pages.subscriptions_page') }}" class="dropdown-upgrade-link">Upgrade</a>
+                        {% endif %}
+                    </div>
+                    <div class="dropdown-usage-bar-wrapper">
+                        <div class="dropdown-usage-bar-label">
+                            <span>Usage</span>
+                            <span>{{ usage_pct | int }}%</span>
+                        </div>
+                        <div class="dropdown-usage-bar">
+                            <div class="dropdown-usage-fill" style="width: {{ usage_pct }}%; background-color: {{ ring_color }};"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-dropdown-divider"></div>
+
                 <a href="{{ url_for('settings_page') }}" class="profile-dropdown-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -66,6 +266,10 @@
     {% endif %}
 </nav>
 
+{% if current_user.is_authenticated %}
+    {% include '_upgrade_modal.html' %}
+{% endif %}
+
 <script>
 (function() {
     const btn = document.getElementById('navProfileBtn');
@@ -78,9 +282,9 @@
     });
 
     document.addEventListener('click', function(e) {
-        if (!dropdown.contains(e.target) && e.target !== btn) {
+        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
             dropdown.classList.remove('open');
         }
     });
 })();
-</script>
+</script>

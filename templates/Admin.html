@@ -496,6 +496,7 @@
                 <ul class="sidebar-menu">
                     <li class="sidebar-item active" id="tab-btn-overview" onclick="switchTab('overview')">📊 Overview</li>
                     <li class="sidebar-item" id="tab-btn-users" onclick="switchTab('users')">👥 Users</li>
+                    <li class="sidebar-item" id="tab-btn-memberships" onclick="switchTab('memberships')">⭐ Memberships</li>
                     <li class="sidebar-item" id="tab-btn-ai" onclick="switchTab('ai')">🤖 AI & Costs</li>
                     <li class="sidebar-item" id="tab-btn-limits" onclick="switchTab('limits')">⚡ Rate Limits</li>
                     <li class="sidebar-item" id="tab-btn-logs" onclick="switchTab('logs')">📋 System Logs</li>
@@ -615,9 +616,10 @@
                                     <tr>
                                         <th style="width: 40px;">#</th>
                                         <th>User</th>
+                                        <th>Full Name</th>
                                         <th>Activity</th>
                                         <th>Usage</th>
-                                        <th>Tokens & Cost</th>
+                                        <th>Token Stats & Profit</th>
                                         <th>Admin</th>
                                         <th>Actions</th>
                                     </tr>
@@ -658,6 +660,13 @@
                             <input type="number" id="schedPrefLimitInput" class="admin-input" value="{{ sched_pref_limit }}" min="10" max="2000" step="10">
                             <div class="admin-row" style="margin-bottom:28px;">
                                 <button class="btn-save" onclick="saveSchedPrefLimit()">Save Schedule Preference Limit</button>
+                            </div>
+
+                            <!-- Default Cost Limit -->
+                            <label class="admin-label">Default user token cost limit (INR ₹)</label>
+                            <input type="number" id="defaultCostLimitInput" class="admin-input" value="{{ default_cost_limit }}" min="0" step="1">
+                            <div class="admin-row" style="margin-bottom:28px;">
+                                <button class="btn-save" onclick="saveDefaultCostLimit()">Save Default Cost Limit</button>
                             </div>
 
                             <!-- Schedule models -->
@@ -774,6 +783,7 @@
                                     <tr>
                                         <th style="width: 140px;">Time</th>
                                         <th style="width: 100px;">User</th>
+                                        <th style="width: 110px;">IP Address</th>
                                         <th style="width: 110px;">Action</th>
                                         <th>Detail</th>
                                     </tr>
@@ -787,6 +797,7 @@
                                     <tr>
                                         <th style="width: 140px;">Time</th>
                                         <th style="width: 100px;">User</th>
+                                        <th style="width: 110px;">IP Address</th>
                                         <th style="width: 60px;">Method</th>
                                         <th>Path</th>
                                         <th style="width: 60px;">Status</th>
@@ -807,6 +818,88 @@
                     </div>
                 </div>
 
+                <!-- 6. MEMBERSHIPS PANEL -->
+                <div class="admin-panel" id="panel-memberships">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">Membership Tiers Management</h2>
+                    
+                    <!-- Create Tier Form -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a; margin-bottom: 24px;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">✨ Create New Membership Tier</span>
+                        </div>
+                        <div class="section-body open">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label class="admin-label">Tier Name</label>
+                                    <input type="text" id="createTierName" class="admin-input" placeholder="e.g. Platinum">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Price (INR)</label>
+                                    <input type="number" id="createTierPrice" class="admin-input" value="0">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Model ID</label>
+                                    <input type="text" id="createTierModel" class="admin-input" placeholder="e.g. mistralai/mistral-nemo">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Budget Limit (INR)</label>
+                                    <input type="number" id="createTierBudget" class="admin-input" value="1.0" step="0.1">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Speed Label</label>
+                                    <input type="text" id="createTierSpeed" class="admin-input" placeholder="e.g. Faster">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Tutor Quality Label</label>
+                                    <input type="text" id="createTierQuality" class="admin-input" placeholder="e.g. Improved">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Display Order</label>
+                                    <input type="number" id="createTierOrder" class="admin-input" value="0">
+                                </div>
+                                <div style="display:flex; align-items:center; margin-top:28px;">
+                                    <input type="checkbox" id="createTierActive" checked style="width:auto; margin-right:8px;">
+                                    <label for="createTierActive" style="color:#ccc; font-size:13px; cursor:pointer;">Active</label>
+                                </div>
+                            </div>
+                            <div class="admin-row" style="margin-top:20px;">
+                                <button class="btn-save" onclick="createTier()">Create Tier</button>
+                            </div>
+                            <div class="feedback" id="createTierFb"></div>
+                        </div>
+                    </div>
+
+                    <!-- Manage Existing Tiers -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">🛠️ Manage Existing Tiers</span>
+                        </div>
+                        <div class="section-body open">
+                            <div style="overflow-x: auto;">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Price</th>
+                                            <th>Model ID</th>
+                                            <th>Budget</th>
+                                            <th>Speed</th>
+                                            <th>Quality</th>
+                                            <th>Order</th>
+                                            <th style="text-align:center;">Active</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tiersTableBody">
+                                        <!-- populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="feedback" id="tiersFb" style="margin-top:10px;"></div>
+                        </div>
+                    </div>
+                </div>
+
             </div><!-- /admin-main -->
         </div><!-- /admin-container -->
 
@@ -815,7 +908,7 @@
 
     <!-- USER EDIT MODAL -->
     <div class="modal-overlay hidden" id="userModal">
-        <div class="modal-box">
+        <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
             <button class="modal-close" onclick="closeUserModal()">✕</button>
             <h3 id="modalTitle">Edit User</h3>
             <input type="hidden" id="modalUid">
@@ -826,22 +919,58 @@
             <label class="admin-label">Email</label>
             <input type="email" id="modalEmail" class="admin-input">
 
-            <label class="admin-label">New Password <span style="color:#555;font-size:12px;">(leave blank to
-                    keep)</span></label>
+            <label class="admin-label">New Password <span style="color:#555;font-size:12px;">(leave blank to keep)</span></label>
             <input type="password" id="modalPassword" class="admin-input" placeholder="••••••••">
+            <hr style="border: 0; border-top: 1px solid #222; margin: 20px 0;">
 
-            <label class="admin-label">Cost Limit (INR)</label>
-            <input type="number" id="modalCostLimit" class="admin-input" step="50" min="0">
+            <h4 style="color:#bf7fff;margin:0 0 10px;font-size:15px;">Membership Settings</h4>
+
+            <label class="admin-label">Membership Tier</label>
+            <select id="modalMembershipTier" class="admin-input"></select>
+
+            <label class="admin-label">Adjust Membership Usage Cost (offset in ₹, e.g. +0.5 or -0.2)</label>
+            <input type="number" id="modalMembershipUsageAdjust" class="admin-input" step="0.1" value="0">
 
             <div style="margin-top:14px;display:flex;align-items:center;gap:8px;">
-                <input type="checkbox" id="modalResetCost" style="width:auto;">
-                <label for="modalResetCost" style="color:#ccc;font-size:13px;cursor:pointer;">Reset total cost to ₹0.00</label>
+                <input type="checkbox" id="modalResetMembershipUsage" style="width:auto;">
+                <label for="modalResetMembershipUsage" style="color:#ccc;font-size:13px;cursor:pointer;">Reset membership usage to 0%</label>
+            </div>
+
+            <div style="margin-top:20px; display:flex; gap:10px;">
+                <button class="btn-reset" onclick="viewUserAiLogs()" style="flex:1;">View AI Request Logs</button>
             </div>
 
             <div class="admin-row" style="margin-top:20px;">
-                <button class="btn-save" onclick="saveUserEdits()">Save Changes</button>
+                <button class="btn-save" onclick="saveUserEdits()" style="width:100%;">Save Changes</button>
             </div>
             <div class="feedback" id="modalFb"></div>
+        </div>
+    </div>
+
+    <!-- USER AI REQUEST LOGS MODAL -->
+    <div class="modal-overlay hidden" id="userLogsModal">
+        <div class="modal-box" style="max-width: 700px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h3 id="logsModalTitle" style="margin:0;">AI Request Logs</h3>
+                <button class="modal-close" onclick="closeUserLogsModal()" style="font-size: 20px; cursor: pointer;">✕</button>
+            </div>
+            <div style="flex: 1; overflow-y: auto; margin-top: 10px; border: 1px solid #222; border-radius: 8px;">
+                <table class="admin-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th style="width:140px;">Time</th>
+                            <th>Endpoint</th>
+                            <th>Model</th>
+                            <th>Tokens (In/Out)</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userLogsTableBody">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="feedback" id="logsModalFb" style="margin-top: 10px;"></div>
         </div>
     </div>
 
@@ -879,6 +1008,8 @@
                 loadOverviewStats();
             } else if (tabId === 'users') {
                 loadUsers();
+            } else if (tabId === 'memberships') {
+                loadTiers();
             } else if (tabId === 'logs') {
                 loadLogs(currentLogType, currentLogPage, currentLogLimit);
             }
@@ -968,6 +1099,7 @@
                         tr.innerHTML = `
                             <td>${log.timestamp}</td>
                             <td style="font-weight:600;color:#fff;">${log.username}</td>
+                            <td style="font-family:monospace;color:#aaa;">${log.ip_address || '—'}</td>
                             <td><span class="activity-pill ${pillClass}">${log.action}</span></td>
                             <td style="font-family:monospace; font-size:12px; max-width:400px; overflow-wrap:break-word;">${log.detail}</td>
                         `;
@@ -987,6 +1119,7 @@
                         tr.innerHTML = `
                             <td>${log.timestamp}</td>
                             <td style="font-weight:600;color:#fff;">${log.username}</td>
+                            <td style="font-family:monospace;color:#aaa;">${log.ip_address || '—'}</td>
                             <td style="font-family:monospace; font-weight:bold; color:#bf7fff;">${log.method}</td>
                             <td style="font-family:monospace; font-size:12px;">${log.path}</td>
                             <td style="font-weight:600; color:${statusColor};">${log.status_code}</td>
@@ -1110,6 +1243,21 @@
             fb('aiFb', ok ? '✓ ' + d.message : d.error, !ok);
         }
 
+        async function saveDefaultCostLimit() {
+            const v = parseFloat(document.getElementById('defaultCostLimitInput').value);
+            if (isNaN(v) || v < 0) {
+                fb('aiFb', 'Invalid cost limit.', true);
+                return;
+            }
+            const [ok, d] = await api('/admin/set_default_cost_limit', { limit: v });
+            fb('aiFb', ok ? '✓ ' + d.message : d.error, !ok);
+            if (ok) {
+                if (activeTab === 'users') {
+                    loadUsers();
+                }
+            }
+        }
+
         // ── MODEL ROWS ────────────────────────────────────────────
         function renderModelRows(type) {
             const arr = type === 'sched'
@@ -1185,6 +1333,16 @@
             } else fb('aiFb', d.error, true);
         }
 
+        let allTiers = [];
+        async function fetchTiers() {
+            try {
+                const res = await fetch('/admin/api/tiers');
+                allTiers = await res.json();
+            } catch (e) {
+                console.error("Failed to fetch tiers", e);
+            }
+        }
+
         // ── USERS ─────────────────────────────────────────────────
         async function loadUsers() {
             const res = await fetch('/admin/api/users');
@@ -1202,20 +1360,24 @@
                 <div style="font-weight:600;color:#fff;">${u.username}</div>
                 <div style="font-size:11px;color:#666;">${u.email}</div>
             </td>
+            <td style="font-weight:500;color:#ddd;">
+                ${u.full_name || '—'}
+            </td>
             <td>
                 <div style="font-size:12px;color:#aaa;">Joined: ${u.created_at}</div>
                 <div style="font-size:11px;color:#666;">Active: ${u.last_active}</div>
             </td>
             <td>
-                <div>Uploads: <strong style="color:#bf7fff;">${u.upload_count}</strong></div>
-                <div>Generations: <strong style="color:#bf7fff;">${u.generations_count}</strong></div>
-                <div style="font-size:11px;color:#666;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;max-width:150px;" title="${u.last_model_used}">Model: ${u.last_model_used}</div>
+                <div>Plan: <strong style="color:#bf7fff;">${u.membership_tier_name}</strong></div>
+                <div style="font-size:11px;color:#94a3b8;">Usage: ${u.membership_usage_percentage}% (₹${u.membership_usage_cost.toFixed(4)} / ₹${u.membership_budget_limit.toFixed(2)})</div>
             </td>
             <td>
                 <div>In: ${u.input_tokens_used.toLocaleString()}</div>
                 <div>Out: ${u.output_tokens_used.toLocaleString()}</div>
-                <div style="font-weight:600;color:#4e4;margin-top:2px;">
-                    Cost: ₹${u.total_cost.toFixed(4)} / ₹${u.cost_limit.toFixed(2)}
+                <div style="margin-top:2px;">Cost: <span style="color:#ff7c7c;">₹${u.total_cost.toFixed(4)}</span></div>
+                <div>Paid: <span style="color:#4e4;">₹${u.membership_total_amount_paid.toFixed(2)}</span></div>
+                <div style="font-weight:700;margin-top:2px;color:${u.net_profit_loss >= 0 ? '#4e4' : '#ff7c7c'};">
+                    Net: ₹${u.net_profit_loss.toFixed(4)}
                 </div>
             </td>
             <td>
@@ -1229,7 +1391,7 @@
             </td>
             <td style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button class="btn-save" style="padding:5px 12px;font-size:12px;"
-                        onclick="openUserModal(${u.id},'${u.username}','${u.email}',${u.cost_limit})">
+                        onclick="openUserModal(${u.id},'${u.username}','${u.email}',${u.membership_tier_id},${u.membership_usage_cost})">
                     Edit
                 </button>
                 <button class="btn-reset" style="padding:5px 12px;font-size:12px;"
@@ -1248,22 +1410,36 @@
         async function toggleRole(uid, btn) {
             const r = await fetch(`/admin/api/users/${uid}/role`, { method: 'POST' });
             const d = await r.json();
-            if (!r.ok) { fb('userFb', d.error, true); return; }
-            btn.dataset.admin = d.is_admin;
             btn.textContent = d.is_admin ? 'Admin ✓' : 'User';
-            btn.style.color = d.is_admin ? '#9f55ff' : '#666';
             btn.style.borderColor = d.is_admin ? '#7b2ff7' : '#333';
             btn.style.background = d.is_admin ? 'rgba(123,47,247,0.2)' : 'rgba(255,255,255,0.05)';
             fb('userFb', `✓ ${d.is_admin ? 'Promoted to admin' : 'Demoted to user'}`);
         }
 
-        function openUserModal(uid, username, email, costLimit) {
+        async function openUserModal(uid, username, email, tierId, usageCost) {
             document.getElementById('modalUid').value = uid;
             document.getElementById('modalUsername').value = username;
             document.getElementById('modalEmail').value = email;
             document.getElementById('modalPassword').value = '';
-            document.getElementById('modalCostLimit').value = (costLimit !== undefined && costLimit !== null) ? costLimit : 1000.0;
-            document.getElementById('modalResetCost').checked = false;
+            document.getElementById('modalMembershipUsageAdjust').value = '0';
+            document.getElementById('modalResetMembershipUsage').checked = false;
+
+            // Populate select dropdown
+            const select = document.getElementById('modalMembershipTier');
+            if (select) {
+                if (allTiers.length === 0) {
+                    await fetchTiers();
+                }
+                select.innerHTML = '';
+                allTiers.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = `${t.name} (Budget: ₹${t.budget_limit}, Model: ${t.model_id.split('/').pop()})`;
+                    if (t.id === tierId) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            }
+
             document.getElementById('modalTitle').textContent = `Edit User #${uid}`;
             document.getElementById('modalFb').textContent = '';
             document.getElementById('userModal').classList.remove('hidden');
@@ -1278,8 +1454,9 @@
             const body = {
                 username: document.getElementById('modalUsername').value.trim(),
                 email: document.getElementById('modalEmail').value.trim(),
-                cost_limit: parseFloat(document.getElementById('modalCostLimit').value || 0),
-                reset_cost: document.getElementById('modalResetCost').checked
+                membership_tier_id: parseInt(document.getElementById('modalMembershipTier').value),
+                reset_membership_usage: document.getElementById('modalResetMembershipUsage').checked,
+                membership_usage_adjust: parseFloat(document.getElementById('modalMembershipUsageAdjust').value || 0)
             };
             const pw = document.getElementById('modalPassword').value;
             if (pw) body.password = pw;
@@ -1378,6 +1555,155 @@
             if (ok) {
                 modelCosts = costs;
             }
+        }
+
+        // ── MEMBERSHIP TIERS MANAGEMENT ───────────────────────────
+        async function loadTiers() {
+            const tbody = document.getElementById('tiersTableBody');
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#666;padding:20px;">Loading tiers...</td></tr>';
+            try {
+                await fetchTiers();
+                tbody.innerHTML = '';
+                if (allTiers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#666;padding:20px;">No membership tiers configured.</td></tr>';
+                    return;
+                }
+                allTiers.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="vertical-align: middle;"><input type="text" class="admin-input" value="${t.name}" id="tier-name-${t.id}" style="width:100px;"></td>
+                        <td style="vertical-align: middle;"><input type="number" class="admin-input" value="${t.display_price}" id="tier-price-${t.id}" style="width:60px;"></td>
+                        <td style="vertical-align: middle;"><input type="text" class="admin-input" value="${t.model_id}" id="tier-model-${t.id}" style="width:180px;"></td>
+                        <td style="vertical-align: middle;"><input type="number" class="admin-input" value="${t.budget_limit}" id="tier-budget-${t.id}" step="0.1" style="width:70px;"></td>
+                        <td style="vertical-align: middle;"><input type="text" class="admin-input" value="${t.speed_label}" id="tier-speed-${t.id}" style="width:90px;"></td>
+                        <td style="vertical-align: middle;"><input type="text" class="admin-input" value="${t.tutor_quality_label}" id="tier-quality-${t.id}" style="width:90px;"></td>
+                        <td style="vertical-align: middle;"><input type="number" class="admin-input" value="${t.display_order}" id="tier-order-${t.id}" style="width:50px;"></td>
+                        <td style="text-align:center; vertical-align: middle;"><input type="checkbox" ${t.active ? 'checked' : ''} id="tier-active-${t.id}" style="width:auto; margin:0 auto;"></td>
+                        <td style="vertical-align: middle;">
+                            <div style="display:flex;gap:4px;">
+                                <button class="btn-save" onclick="updateTier(${t.id})" style="padding:5px 10px;font-size:11px;">Save</button>
+                                <button class="btn-danger" onclick="deleteTier(${t.id})" style="padding:5px 10px;font-size:11px;${t.name === 'Bronze' ? 'display:none;' : ''}">Delete</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#ff7c7c;padding:20px;">Error loading tiers.</td></tr>';
+            }
+        }
+
+        async function createTier() {
+            const body = {
+                name: document.getElementById('createTierName').value.trim(),
+                display_price: parseInt(document.getElementById('createTierPrice').value || 0),
+                model_id: document.getElementById('createTierModel').value.trim(),
+                budget_limit: parseFloat(document.getElementById('createTierBudget').value || 1.0),
+                speed_label: document.getElementById('createTierSpeed').value.trim(),
+                tutor_quality_label: document.getElementById('createTierQuality').value.trim(),
+                display_order: parseInt(document.getElementById('createTierOrder').value || 0),
+                active: document.getElementById('createTierActive').checked
+            };
+
+            if (!body.name) {
+                fb('createTierFb', 'Name is required.', true);
+                return;
+            }
+
+            const [ok, d] = await api('/admin/api/tiers/create', body);
+            fb('createTierFb', ok ? '✓ Tier created successfully' : d.error, !ok);
+            if (ok) {
+                document.getElementById('createTierName').value = '';
+                document.getElementById('createTierPrice').value = '0';
+                document.getElementById('createTierModel').value = '';
+                document.getElementById('createTierBudget').value = '1.0';
+                document.getElementById('createTierSpeed').value = '';
+                document.getElementById('createTierQuality').value = '';
+                document.getElementById('createTierOrder').value = '0';
+                document.getElementById('createTierActive').checked = true;
+                loadTiers();
+            }
+        }
+
+        async function updateTier(tierId) {
+            const body = {
+                name: document.getElementById(`tier-name-${tierId}`).value.trim(),
+                display_price: parseInt(document.getElementById(`tier-price-${tierId}`).value || 0),
+                model_id: document.getElementById(`tier-model-${tierId}`).value.trim(),
+                budget_limit: parseFloat(document.getElementById(`tier-budget-${tierId}`).value || 0),
+                speed_label: document.getElementById(`tier-speed-${tierId}`).value.trim(),
+                tutor_quality_label: document.getElementById(`tier-quality-${tierId}`).value.trim(),
+                display_order: parseInt(document.getElementById(`tier-order-${tierId}`).value || 0),
+                active: document.getElementById(`tier-active-${tierId}`).checked
+            };
+
+            if (!body.name) {
+                alert('Tier name is required.');
+                return;
+            }
+
+            const [ok, d] = await api(`/admin/api/tiers/${tierId}/update`, body);
+            if (ok) {
+                fb('tiersFb', '✓ Tier updated successfully');
+                loadTiers();
+            } else {
+                alert(d.error || 'Failed to update tier');
+            }
+        }
+
+        async function deleteTier(tierId) {
+            if (!confirm('Are you sure you want to delete this membership tier?')) return;
+            const res = await fetch(`/admin/api/tiers/${tierId}`, { method: 'DELETE' });
+            const d = await res.json();
+            if (res.ok) {
+                fb('tiersFb', '✓ Tier deleted successfully');
+                loadTiers();
+            } else {
+                alert(d.error || 'Failed to delete tier');
+            }
+        }
+
+        // ── USER AI LOGS ──────────────────────────────────────────
+        async function viewUserAiLogs() {
+            const uid = document.getElementById('modalUid').value;
+            if (!uid) return;
+            
+            closeUserModal();
+            
+            document.getElementById('logsModalTitle').textContent = `AI Request Logs for User #${uid}`;
+            const tbody = document.getElementById('userLogsTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Loading logs...</td></tr>';
+            document.getElementById('userLogsModal').classList.remove('hidden');
+            
+            try {
+                const res = await fetch(`/admin/api/users/${uid}/usage_logs`);
+                if (!res.ok) throw new Error();
+                const logs = await res.json();
+                
+                tbody.innerHTML = '';
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No AI logs found for this user.</td></tr>';
+                    return;
+                }
+                
+                logs.forEach(l => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${l.created_at}</td>
+                        <td style="font-family:monospace;color:#bf7fff;vertical-align:middle;">${l.endpoint}</td>
+                        <td style="font-family:monospace;color:#aaa;vertical-align:middle;">${l.model_used}</td>
+                        <td style="vertical-align:middle;">In: ${l.input_tokens.toLocaleString()} / Out: ${l.output_tokens.toLocaleString()}</td>
+                        <td style="font-weight:600;color:#4e4;vertical-align:middle;">₹${l.request_cost.toFixed(4)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ff7c7c;padding:20px;">Error loading logs.</td></tr>';
+            }
+        }
+
+        function closeUserLogsModal() {
+            document.getElementById('userLogsModal').classList.add('hidden');
         }
 
         // ── INIT ──────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import urllib.parse
 import re
 
 from extensions import db, cache, limiter
-from models import Chat, StudyData, Message, User
+from models import Chat, StudyData, Message, User, MembershipTier, UserMembership
 from helpers import *
 
 pages_bp = Blueprint('pages', __name__)
@@ -201,3 +201,11 @@ def settings_update():
         return jsonify({'message': 'Password changed successfully'})
 
     return jsonify({'error': 'Unknown action'}), 400
+
+
+@pages_bp.route('/subscriptions', endpoint='subscriptions_page')
+@login_required
+def subscriptions_page():
+    # Fetch active tiers sorted by display_order
+    tiers = MembershipTier.query.filter_by(active=True).order_by(MembershipTier.display_order).all()
+    return render_template('Subscriptions.html', tiers=tiers)

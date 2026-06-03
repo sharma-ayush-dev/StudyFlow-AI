@@ -315,13 +315,15 @@ def generate_schedule(topic_data: dict,
                 If None, computed dynamically from workload.
     """
     if today_str  is None: today_str  = datetime.date.today().strftime('%d-%m-%Y')
-    if model_list is None: model_list = MODELS
-
-    # ── Check cost limit before LLM call ──────────────────────
     if user_id:
-        from helpers import check_user_cost_limit
+        from helpers import get_user_assigned_model, check_user_budget, check_user_cost_limit
+        model_list = [get_user_assigned_model(user_id)]
+        if not check_user_budget(user_id):
+            raise ValueError("budget_exhausted")
         if not check_user_cost_limit(user_id):
             raise ValueError("Cost limit exceeded. Please contact the administrator.")
+    else:
+        if model_list is None: model_list = MODELS
 
     # ── Validate before touching LLM ─────────────────────────
     validate_schedule_input(topic_data)

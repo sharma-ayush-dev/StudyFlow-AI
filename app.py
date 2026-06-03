@@ -67,6 +67,26 @@ app.after_request(log_request)
 
 
 @app.before_request
+def enforce_same_origin():
+    # Only enforce same-origin on state-changing methods (POST, PUT, DELETE, PATCH)
+    if request.method in ['POST', 'PUT', 'DELETE', 'PATCH']:
+        origin = request.headers.get('Origin')
+        referrer = request.referrer
+        host_url = request.host_url
+        
+        if origin:
+            if origin.rstrip('/') != host_url.rstrip('/'):
+                abort(403, description="Cross-origin requests are not allowed.")
+        elif referrer:
+            if not referrer.startswith(host_url):
+                abort(403, description="Cross-origin requests are not allowed.")
+        else:
+            # If neither Origin nor Referer header is present, reject the call.
+            # This protects against automated curl/postman/python script calls.
+            abort(403, description="Same-origin request validation failed.")
+
+
+@app.before_request
 def enforce_complete_profile():
     if current_user.is_authenticated and session.get('incomplete_profile'):
         if request.endpoint:
@@ -82,6 +102,27 @@ def enforce_complete_profile():
         if path.startswith('/static/') or path == '/logout' or path.startswith('/complete-profile'):
             return None
         return redirect(url_for('auth.complete_profile'))
+
+
+@app.before_request
+def ensure_user_membership():
+    if current_user.is_authenticated:
+        from models import UserMembership, MembershipTier
+        m = UserMembership.query.filter_by(user_id=current_user.id).first()
+        if not m:
+            bronze = MembershipTier.query.filter_by(name='Bronze').first()
+            if bronze:
+                m = UserMembership(
+                    user_id=current_user.id,
+                    tier_id=bronze.id,
+                    usage_cost=0.0,
+                    usage_percentage=0.0
+                )
+                db.session.add(m)
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
 
 # Routes moved to Blueprints: auth_bp, pages_bp
@@ -178,20 +219,34 @@ def reset_password():
 @app.route('/contact/submit', methods=['POST'])
 @limiter.limit('3 per hour')
 def contact_submit():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'You must be logged in to send a message.'}), 401
+
     data = request.get_json() or {}
-    msg = ContactMessage(
-        name=_sanitize_field(data.get('name', ''), 100),
-        email=_sanitize_email(data.get('email', '')),
-        subject=_sanitize_field(data.get('subject', ''), 200),
-        message=_sanitize(data.get('message', ''), max_words=500)
-    )
-    if not msg.email:
-        return jsonify({'error': 'Invalid email'}), 400
-    if not msg.message:
+    name = _sanitize_field(data.get('name', ''), 100)
+    email = _sanitize_email(data.get('email', ''))
+    subject = _sanitize_field(data.get('subject', ''), 200)
+    message = _sanitize(data.get('message', ''), max_words=None)[:1000]
+
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    if not email:
+        return jsonify({'error': 'A valid email address is required'}), 400
+    if not subject:
+        return jsonify({'error': 'Subject is required'}), 400
+    if not message:
         return jsonify({'error': 'Message is required'}), 400
 
+    msg = ContactMessage(
+        name=name,
+        email=email,
+        subject=subject,
+        message=message
+    )
     db.session.add(msg)
     db.session.commit()
+    
+    _send_contact_email(name, email, subject, message)
     return jsonify({'message': "Thanks! We'll get back to you within 24 hours."})
 
 

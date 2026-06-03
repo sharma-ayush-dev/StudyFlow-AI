@@ -14,6 +14,7 @@ class User(db.Model, UserMixin):
     username_changed_at = db.Column(db.DateTime, nullable=True)
     session_version = db.Column(db.Integer, default=0, nullable=False)
     course = db.Column(db.String(50), nullable=True)
+    full_name = db.Column(db.String(50), nullable=True)
     upload_count = db.Column(db.Integer, default=0, nullable=False)
     generations_count = db.Column(db.Integer, default=0, nullable=False)
     last_active = db.Column(db.DateTime, nullable=True)
@@ -21,7 +22,21 @@ class User(db.Model, UserMixin):
     output_tokens_used = db.Column(db.Integer, default=0, nullable=False)
     last_model_used = db.Column(db.String(100), nullable=True)
     total_cost = db.Column(db.Float, default=0.0, nullable=False)
-    cost_limit = db.Column(db.Float, default=1000.0, nullable=False)
+    cost_limit = db.Column(db.Float, default=2.0, nullable=False)
+    membership_rel = db.relationship('UserMembership', backref='user', uselist=False, cascade='all, delete-orphan')
+
+    @property
+    def membership(self):
+        from models import UserMembership
+        return UserMembership.query.filter_by(user_id=self.id).first()
+
+    @property
+    def is_membership_exhausted(self):
+        m = self.membership
+        if not m or not m.tier:
+            return False
+        limit = m.custom_budget_limit if (m.custom_budget_limit is not None) else m.tier.budget_limit
+        return (m.usage_cost or 0.0) >= limit
 
     def get_id(self):
         return f"{self.id}:{self.session_version or 0}"
@@ -103,6 +118,8 @@ class ActivityLog(db.Model):
     userid = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     action = db.Column(db.String(50))
     detail = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(256), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
@@ -112,6 +129,8 @@ class RequestLog(db.Model):
     method = db.Column(db.String(10))
     path = db.Column(db.String(255))
     status_code = db.Column(db.Integer)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(256), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
@@ -136,3 +155,42 @@ def load_user(user_id: str):
     if version is not None and (user.session_version or 0) != version:
         return None
     return user
+
+
+class MembershipTier(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    display_price = db.Column(db.Integer, default=0, nullable=False)
+    model_id = db.Column(db.String(100), nullable=False)
+    budget_limit = db.Column(db.Float, default=1.0, nullable=False)
+    speed_label = db.Column(db.String(50), nullable=False)
+    tutor_quality_label = db.Column(db.String(50), nullable=False)
+    display_order = db.Column(db.Integer, default=0, nullable=False)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+
+class UserMembership(db.Model):
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    tier_id = db.Column(db.Integer, db.ForeignKey('membership_tier.id'), nullable=False)
+    usage_cost = db.Column(db.Float, default=0.0, nullable=False)
+    usage_percentage = db.Column(db.Float, default=0.0, nullable=False)
+    upgraded_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+    total_amount_paid = db.Column(db.Float, default=0.0, nullable=False)
+    custom_budget_limit = db.Column(db.Float, nullable=True)
+    bronze_exhausted_before = db.Column(db.Boolean, default=False, nullable=False)
+
+    tier = db.relationship('MembershipTier', backref=db.backref('memberships', lazy=True))
+
+
+class UsageLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    endpoint = db.Column(db.String(255), nullable=False)
+    model_used = db.Column(db.String(100), nullable=False)
+    input_tokens = db.Column(db.Integer, default=0, nullable=False)
+    output_tokens = db.Column(db.Integer, default=0, nullable=False)
+    total_tokens = db.Column(db.Integer, default=0, nullable=False)
+    request_cost = db.Column(db.Float, default=0.0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)

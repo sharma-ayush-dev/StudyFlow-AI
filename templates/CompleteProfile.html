@@ -82,14 +82,20 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="auth-label">Full Name <span class="auth-hint">(required)</span></label>
+                    <input id="fullName" class="auth-input" type="text" placeholder="John Doe" required maxlength="50">
+                    <div class="input-desc">Letters and spaces only (max 50 chars).</div>
+                </div>
+
+                <div class="form-group">
                     <label class="auth-label">Choose Username <span class="auth-hint">(required)</span></label>
                     <input id="username" class="auth-input" type="text" placeholder="e.g. alex_study" required autocomplete="username">
                     <div class="input-desc">Letters, numbers, underscores, and hyphens only (min 3 chars).</div>
                 </div>
 
                 <div class="form-group">
-                    <label class="auth-label">Course / Degree <span class="auth-hint">(optional)</span></label>
-                    <input id="course" class="auth-input" type="text" placeholder="e.g. B.Tech Computer Science" maxlength="50">
+                    <label class="auth-label">Course / Degree <span class="auth-hint">(required)</span></label>
+                    <input id="course" class="auth-input" type="text" placeholder="e.g. B.Tech Computer Science" maxlength="50" required>
                     <div class="input-desc">Maximum 50 characters.</div>
                 </div>
 
@@ -101,16 +107,34 @@
     <script>
         async function submitProfile(event) {
             event.preventDefault();
+            const fullNameInput = document.getElementById('fullName');
             const usernameInput = document.getElementById('username');
             const courseInput = document.getElementById('course');
             const errorBox = document.getElementById('errorBox');
             const submitBtn = document.getElementById('submitBtn');
 
+            const fullName = fullNameInput.value.trim();
             const username = usernameInput.value.trim();
             const course = courseInput.value.trim();
 
+            if (!fullName) {
+                showError('Full name is required.');
+                return;
+            }
+            if (fullName.length > 50) {
+                showError('Full name must be 50 characters or fewer.');
+                return;
+            }
+            if (!/^[A-Za-z\s]+$/.test(fullName)) {
+                showError('Full name must contain only letters and spaces.');
+                return;
+            }
             if (!username) {
                 showError('Username is required.');
+                return;
+            }
+            if (!course) {
+                showError('Course is required.');
                 return;
             }
             if (username.length < 3) {
@@ -130,7 +154,7 @@
                 const res = await fetch('/complete-profile/submit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, course })
+                    body: JSON.stringify({ full_name: fullName, username, course })
                 });
                 const data = await res.json();
                 if (!res.ok) {

@@ -165,14 +165,21 @@ document.getElementById('loginPassword')?.addEventListener('keydown', e => {
 // ── REGISTER ──────────────────────────────────────
 const registerSubmit = document.getElementById('registerSubmit');
 registerSubmit?.addEventListener('click', () => {
+    const fullName = document.getElementById('regFullName').value.trim();
     const username = document.getElementById('regUsername').value.trim();
     const email    = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
     const confirm  = document.getElementById('regConfirm').value;
     const course   = document.getElementById('regCourse').value.trim();
 
-    if (!username || !email || !password || !confirm) {
+    if (!fullName || !username || !email || !password || !confirm || !course) {
         showError(registerError, 'Please fill in all required fields.'); return; }
+    if (fullName.length > 50) {
+        showError(registerError, 'Full name must be 50 characters or fewer.'); return; }
+    if (!/^[A-Za-z\s]+$/.test(fullName)) {
+        showError(registerError, 'Full name must contain only letters and spaces.'); return; }
+    if (username.length < 3) {
+        showError(registerError, 'Username must be at least 3 characters.'); return; }
     if (password.length < 8) {
         showError(registerError, 'Password must be at least 8 characters.'); return; }
     if (password !== confirm) {
@@ -180,7 +187,7 @@ registerSubmit?.addEventListener('click', () => {
     if (course.length > 50) {
         showError(registerError, 'Course name must be 50 characters or fewer.'); return; }
 
-    authFetch('/register', {username, email, password, course},
+    authFetch('/register', {full_name: fullName, username, email, password, course},
               registerError, registerSubmit, 'Create Account');
 });
 document.getElementById('regConfirm')?.addEventListener('keydown', e => {

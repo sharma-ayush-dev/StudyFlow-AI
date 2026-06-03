@@ -544,3 +544,37 @@ window.StudyFlowLoader = StudyFlowLoader;
 window.StudyFlowError = StudyFlowError;
 window.StudyFlowToast = StudyFlowToast;
 window.StudyFlowChatError = StudyFlowChatError;
+
+// Global fetch interceptor to catch budget exhaustion (status 402) and trigger the upgrade modal
+(function() {
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            const response = await originalFetch(...args);
+            if (response.status === 402) {
+                if (typeof showUpgradeModal === 'function') {
+                    showUpgradeModal();
+                }
+            } else {
+                // Check if response contains budget_exhausted error payload
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const clone = response.clone();
+                    try {
+                        const data = await clone.json();
+                        if (data && (data.error === 'budget_exhausted' || (typeof data.error === 'string' && data.error.includes('budget_exhausted')))) {
+                            if (typeof showUpgradeModal === 'function') {
+                                showUpgradeModal();
+                            }
+                        }
+                    } catch (e) {
+                        // ignore JSON parse error
+                    }
+                }
+            }
+            return response;
+        } catch (error) {
+            throw error;
+        }
+    };
+})();

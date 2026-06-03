@@ -161,7 +161,7 @@
         <div class="info-cards">
             <div class="info-card">
                 <h3>Email</h3>
-                <span>support@studyflow.ai</span>
+                <span>support@studyflowai.app</span>
             </div>
             <div class="info-card">
                 <h3>Response</h3>
@@ -179,23 +179,25 @@
     </div>
 
     <div class="contact-form-area">
+        {% if current_user.is_authenticated %}
         <div class="form-group">
             <label class="form-label">Full Name</label>
-            <input type="text" class="form-input" id="contactName" placeholder="Your Name">
+            <input type="text" class="form-input" id="contactName" placeholder="Your Name" maxlength="100" 
+                   value="{{ current_user.full_name if current_user.is_authenticated and current_user.full_name else '' }}" required>
         </div>
         <div class="form-group">
             <label class="form-label">Email Address</label>
             <input type="email" class="form-input" id="contactEmail"
                    placeholder="you@example.com"
-                   value="{{ current_user.email if current_user.is_authenticated else '' }}">
+                   value="{{ current_user.email if current_user.is_authenticated else '' }}" maxlength="120" required>
         </div>
         <div class="form-group">
             <label class="form-label">Subject</label>
-            <input type="text" class="form-input" id="contactSubject" placeholder="How can we help?">
+            <input type="text" class="form-input" id="contactSubject" placeholder="How can we help?" maxlength="200" required>
         </div>
         <div class="form-group">
-            <label class="form-label">Message</label>
-            <textarea class="form-textarea" id="contactMessage" placeholder="Your message…"></textarea>
+            <label class="form-label">Message <span style="font-size: 11px; color: #888;">(Max 1000 characters)</span></label>
+            <textarea class="form-textarea" id="contactMessage" placeholder="Your message…" maxlength="1000" required></textarea>
         </div>
 
         <button class="btn-primary" id="contactSubmitBtn" style="width:100%;font-size:16px;padding:14px;">
@@ -203,6 +205,18 @@
         </button>
 
         <div class="form-feedback" id="contactFeedback"></div>
+        {% else %}
+        <div style="text-align: center; padding: 40px 10px;">
+            <div style="font-size: 50px; margin-bottom: 24px; filter: drop-shadow(0 0 10px rgba(159,85,255,0.3));">🔒</div>
+            <h2 style="color: white; font-size: 24px; margin-bottom: 12px; font-weight: 600;">Sign in to contact support</h2>
+            <p style="color: #a0a0a5; font-size: 15px; line-height: 1.5; margin-bottom: 30px; max-width: 320px; margin-left: auto; margin-right: auto;">
+                Please log in or create a StudyFlow account to send messages to our support team.
+            </p>
+            <button class="btn-primary" onclick="openAuth('login')" style="padding: 12px 32px; font-size: 15px; border-radius: 30px; box-shadow: 0 4px 15px rgba(123,47,247,0.4);">
+                Log In / Register
+            </button>
+        </div>
+        {% endif %}
     </div>
 </main>
 
@@ -218,51 +232,67 @@
 </div>
 
 <script>
-document.getElementById('contactSubmitBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('contactSubmitBtn');
-    const fb  = document.getElementById('contactFeedback');
+const submitBtn = document.getElementById('contactSubmitBtn');
+if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+        const btn = document.getElementById('contactSubmitBtn');
+        const fb  = document.getElementById('contactFeedback');
 
-    const name    = document.getElementById('contactName').value.trim();
-    const email   = document.getElementById('contactEmail').value.trim();
-    const subject = document.getElementById('contactSubject').value.trim();
-    const message = document.getElementById('contactMessage').value.trim();
+        const name    = document.getElementById('contactName').value.trim();
+        const email   = document.getElementById('contactEmail').value.trim();
+        const subject = document.getElementById('contactSubject').value.trim();
+        const message = document.getElementById('contactMessage').value.trim();
 
-    if (!name || !email || !message) {
-        fb.textContent = 'Please fill in Name, Email, and Message.';
-        fb.className   = 'form-feedback error';
-        return;
-    }
-
-    btn.disabled    = true;
-    btn.textContent = 'Sending…';
-
-    try {
-        const res  = await fetch('/contact/submit', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ name, email, subject, message })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            fb.textContent = '✓ ' + data.message;
-            fb.className   = 'form-feedback success';
-            // Clear form
-            ['contactName','contactSubject','contactMessage'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-        } else {
-            fb.textContent = data.error || 'Something went wrong. Please try again.';
+        if (!name || !email || !subject || !message) {
+            fb.textContent = 'Please fill in all fields (Name, Email, Subject, and Message).';
             fb.className   = 'form-feedback error';
+            return;
         }
-    } catch (err) {
-        fb.textContent = 'Network error. Please check your connection.';
-        fb.className   = 'form-feedback error';
-    } finally {
-        btn.disabled    = false;
-        btn.textContent = 'Send Message';
-    }
-});
+
+        if (subject.length > 200) {
+            fb.textContent = 'Subject must be 200 characters or fewer.';
+            fb.className   = 'form-feedback error';
+            return;
+        }
+
+        if (message.length > 1000) {
+            fb.textContent = 'Message must be 1000 characters or fewer.';
+            fb.className   = 'form-feedback error';
+            return;
+        }
+
+        btn.disabled    = true;
+        btn.textContent = 'Sending…';
+
+        try {
+            const res  = await fetch('/contact/submit', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ name, email, subject, message })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                fb.textContent = '✓ ' + data.message;
+                fb.className   = 'form-feedback success';
+                // Clear form
+                ['contactName','contactSubject','contactMessage'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+            } else {
+                fb.textContent = data.error || 'Something went wrong. Please try again.';
+                fb.className   = 'form-feedback error';
+            }
+        } catch (err) {
+            fb.textContent = 'Network error. Please check your connection.';
+            fb.className   = 'form-feedback error';
+        } finally {
+            btn.disabled    = false;
+            btn.textContent = 'Send Message';
+        }
+    });
+}
 </script>
 
 {% include '_footer.html' %}

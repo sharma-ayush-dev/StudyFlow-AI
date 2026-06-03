@@ -4,7 +4,7 @@ import datetime
 import json
 
 from extensions import db, RATE_LIMIT_DEFAULTS, DEFAULT_WORD_LIMIT, DEFAULT_SCHED_PREF_LIMIT
-from models import User, ActivityLog, RequestLog, StudyData, Chat
+from models import User, ActivityLog, RequestLog, StudyData, Chat, MembershipTier, UserMembership, UsageLog
 from helpers import *
 from schedule_planner import MODELS as SCHED_MODELS
 from text_extractor import VISION_MODELS
@@ -29,6 +29,7 @@ def admin_dashboard():
         daily_logs=daily_logs,
         test_today=_get_setting('test_today'),
         real_today=datetime.date.today().strftime('%d-%m-%Y'),
+        default_cost_limit=get_default_cost_limit(),
         current_limits={k: (_get_setting(k) or v) for k, v in RATE_LIMIT_DEFAULTS.items()},
         default_limits=RATE_LIMIT_DEFAULTS,
         max_tokens=get_max_tokens(),
@@ -164,7 +165,9 @@ def admin_api_logs_activity():
             'timestamp': log.timestamp.strftime('%d %b %H:%M:%S'),
             'username': username or 'Guest',
             'action': log.action,
-            'detail': detail_text
+            'detail': detail_text,
+            'ip_address': log.ip_address or '—',
+            'user_agent': log.user_agent or '—'
         })
         
     return jsonify({
@@ -201,7 +204,9 @@ def admin_api_logs_requests():
             'username': username or 'Guest',
             'method': log.method,
             'path': log.path,
-            'status_code': log.status_code
+            'status_code': log.status_code,
+            'ip_address': log.ip_address or '—',
+            'user_agent': log.user_agent or '—'
         })
         
     return jsonify({
@@ -219,9 +224,9 @@ def admin_list_users():
     users = User.query.order_by(User.created_at.desc()).all()
     return jsonify([{
         'id': u.id, 'username': u.username, 'email': u.email,
+        'full_name': u.full_name or '',
         'course': u.course or '', 'is_admin': u.is_admin,
         'created_at': u.created_at.strftime('%d %b %Y %H:%M'),
-        'password_hash': u.password_hash,
         'upload_count': u.upload_count or 0,
         'generations_count': u.generations_count or 0,
         'last_active': u.last_active.strftime('%d %b %H:%M') if u.last_active else 'Never',
@@ -229,7 +234,13 @@ def admin_list_users():
         'output_tokens_used': u.output_tokens_used or 0,
         'last_model_used': u.last_model_used or 'None',
         'total_cost': round(u.total_cost or 0.0, 4),
-        'cost_limit': round(u.cost_limit or 10.0, 2)
+        'membership_tier_id': u.membership.tier_id if u.membership else None,
+        'membership_tier_name': u.membership.tier.name if (u.membership and u.membership.tier) else 'Bronze',
+        'membership_usage_cost': round(u.membership.usage_cost or 0.0, 4) if u.membership else 0.0,
+        'membership_usage_percentage': round(u.membership.usage_percentage or 0.0, 2) if u.membership else 0.0,
+        'membership_budget_limit': round(u.membership.custom_budget_limit if (u.membership and u.membership.custom_budget_limit is not None) else (u.membership.tier.budget_limit if (u.membership and u.membership.tier) else 1.0), 2),
+        'membership_total_amount_paid': round(u.membership.total_amount_paid or 0.0, 2) if u.membership else 0.0,
+        'net_profit_loss': round((u.membership.total_amount_paid or 0.0) - (u.total_cost or 0.0), 4) if u.membership else round(-(u.total_cost or 0.0), 4)
     } for u in users])
 
 
@@ -278,6 +289,46 @@ def admin_update_user(uid):
             return jsonify({'error': 'Invalid cost limit'}), 400
     if data.get('reset_cost'):
         user.total_cost = 0.0
+
+    if 'membership_tier_id' in data:
+        try:
+            tid = int(data['membership_tier_id'])
+            t = MembershipTier.query.get(tid)
+            if t:
+                um = UserMembership.query.filter_by(user_id=uid).first()
+                if not um:
+                    um = UserMembership(user_id=uid, tier_id=t.id, usage_cost=0.0, usage_percentage=0.0)
+                    db.session.add(um)
+                else:
+                    um.tier_id = t.id
+                    if t.budget_limit > 0:
+                        um.usage_percentage = min(100.0, (um.usage_cost / t.budget_limit) * 100.0)
+                    else:
+                        um.usage_percentage = 100.0
+                um.upgraded_at = datetime.datetime.utcnow()
+        except (ValueError, TypeError):
+            pass
+
+    if data.get('reset_membership_usage'):
+        um = UserMembership.query.filter_by(user_id=uid).first()
+        if um:
+            um.usage_cost = 0.0
+            um.usage_percentage = 0.0
+
+    if 'membership_usage_adjust' in data:
+        try:
+            adjust = float(data['membership_usage_adjust'])
+            um = UserMembership.query.filter_by(user_id=uid).first()
+            if um:
+                t = MembershipTier.query.get(um.tier_id)
+                um.usage_cost = max(0.0, (um.usage_cost or 0.0) + adjust)
+                if t and t.budget_limit > 0:
+                    um.usage_percentage = min(100.0, (um.usage_cost / t.budget_limit) * 100.0)
+                else:
+                    um.usage_percentage = 100.0
+        except (ValueError, TypeError):
+            pass
+
     db.session.commit()
     return jsonify({'message': 'User updated'})
 
@@ -390,4 +441,135 @@ def admin_settings(action):
                 pass
         save_model_costs(cleaned)
         return jsonify({'message': 'Model costs updated successfully'})
+    if ep == 'set_default_cost_limit':
+        try:
+            val = float(data.get('limit', 2.0))
+            if val < 0: raise ValueError
+        except:
+            return jsonify({'error': 'Must be a non-negative number'}), 400
+        _set_setting('default_cost_limit', str(val))
+        db.session.query(User).update({User.cost_limit: val})
+        db.session.commit()
+        return jsonify({'message': f'Default cost limit updated to ₹{val:.2f} for all users.'})
     abort(404)
+
+
+@admin_bp.route('/admin/api/tiers', methods=['GET'])
+@login_required
+def admin_list_tiers():
+    if not current_user.is_admin: abort(403)
+    tiers = MembershipTier.query.order_by(MembershipTier.display_order).all()
+    return jsonify([{
+        'id': t.id,
+        'name': t.name,
+        'display_price': t.display_price,
+        'model_id': t.model_id,
+        'budget_limit': t.budget_limit,
+        'speed_label': t.speed_label,
+        'tutor_quality_label': t.tutor_quality_label,
+        'display_order': t.display_order,
+        'active': t.active
+    } for t in tiers])
+
+
+@admin_bp.route('/admin/api/tiers/create', methods=['POST'])
+@login_required
+def admin_create_tier():
+    if not current_user.is_admin: abort(403)
+    data = request.get_json() or {}
+    name = _sanitize_field(data.get('name', ''), 50)
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    if MembershipTier.query.filter_by(name=name).first():
+        return jsonify({'error': 'Tier name already exists'}), 409
+
+    try:
+        t = MembershipTier(
+            name=name,
+            display_price=int(data.get('display_price', 0)),
+            model_id=_sanitize_field(data.get('model_id', 'mistralai/mistral-nemo'), 100),
+            budget_limit=float(data.get('budget_limit', 1.0)),
+            speed_label=_sanitize_field(data.get('speed_label', 'Standard'), 50),
+            tutor_quality_label=_sanitize_field(data.get('tutor_quality_label', 'Standard'), 50),
+            display_order=int(data.get('display_order', 0)),
+            active=bool(data.get('active', True))
+        )
+        db.session.add(t)
+        db.session.commit()
+        return jsonify({'message': 'Tier created successfully', 'id': t.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+
+@admin_bp.route('/admin/api/tiers/<int:tier_id>/update', methods=['POST'])
+@login_required
+def admin_update_tier(tier_id):
+    if not current_user.is_admin: abort(403)
+    t = MembershipTier.query.get_or_404(tier_id)
+    data = request.get_json() or {}
+
+    if 'name' in data:
+        name = _sanitize_field(data['name'], 50)
+        if name:
+            ex = MembershipTier.query.filter_by(name=name).first()
+            if ex and ex.id != tier_id:
+                return jsonify({'error': 'Tier name already exists'}), 409
+            t.name = name
+
+    if 'display_price' in data:
+        try: t.display_price = int(data['display_price'])
+        except (ValueError, TypeError): pass
+
+    if 'model_id' in data:
+        t.model_id = _sanitize_field(data['model_id'], 100)
+
+    if 'budget_limit' in data:
+        try: t.budget_limit = float(data['budget_limit'])
+        except (ValueError, TypeError): pass
+
+    if 'speed_label' in data:
+        t.speed_label = _sanitize_field(data['speed_label'], 50)
+
+    if 'tutor_quality_label' in data:
+        t.tutor_quality_label = _sanitize_field(data['tutor_quality_label'], 50)
+
+    if 'display_order' in data:
+        try: t.display_order = int(data['display_order'])
+        except (ValueError, TypeError): pass
+
+    if 'active' in data:
+        t.active = bool(data['active'])
+
+    t.updated_at = datetime.datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Tier updated successfully'})
+
+
+@admin_bp.route('/admin/api/tiers/<int:tier_id>', methods=['DELETE'])
+@login_required
+def admin_delete_tier(tier_id):
+    if not current_user.is_admin: abort(403)
+    t = MembershipTier.query.get_or_404(tier_id)
+    if t.name == 'Bronze':
+        return jsonify({'error': 'Cannot delete the default Bronze tier'}), 400
+    db.session.delete(t)
+    db.session.commit()
+    return jsonify({'message': f'Tier {tier_id} deleted successfully'})
+
+
+@admin_bp.route('/admin/api/users/<int:uid>/usage_logs', methods=['GET'])
+@login_required
+def admin_user_usage_logs(uid):
+    if not current_user.is_admin: abort(403)
+    logs = UsageLog.query.filter_by(user_id=uid).order_by(UsageLog.created_at.desc()).all()
+    return jsonify([{
+        'id': l.id,
+        'endpoint': l.endpoint,
+        'model_used': l.model_used,
+        'input_tokens': l.input_tokens,
+        'output_tokens': l.output_tokens,
+        'total_tokens': l.total_tokens,
+        'request_cost': round(l.request_cost, 4),
+        'created_at': l.created_at.strftime('%d %b %H:%M:%S')
+    } for l in logs])
