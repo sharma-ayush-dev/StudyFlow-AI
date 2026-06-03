@@ -57,6 +57,16 @@ def progress_page():
     topic_status = json.loads(user.topic_status) if user.topic_status else {}
     past_schedule = {d: s for d, s in schedule.items()
                      if _safe_parse_dmy(d) and _safe_parse_dmy(d) <= today_date}
+
+    # Ensure Exam_dates are always present (may only exist in extracted_json)
+    if user.extracted_json:
+        extracted = json.loads(user.extracted_json)
+        extracted_dates = extracted.get('Exam_dates', {})
+        if extracted_dates:
+            topic_status.setdefault('Exam_dates', {})
+            for subj, date_val in extracted_dates.items():
+                topic_status['Exam_dates'].setdefault(subj, date_val)
+
     return render_template('Progress.html',
         today_str=today_str, past_schedule=past_schedule,
         full_schedule=schedule, topic_status=topic_status,

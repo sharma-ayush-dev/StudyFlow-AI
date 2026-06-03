@@ -90,7 +90,12 @@ function calculateSubjectProgress(subjectName) {
 function renderHoursPanel() {
     const list = document.getElementById('hoursList');
     list.innerHTML = '';
-    const dates = Object.keys(state.study_days);
+    
+    // Sort dates chronologically
+    const dates = Object.keys(state.study_days).sort((a, b) => {
+        return parseDMY(a) - parseDMY(b);
+    });
+
     if (!dates.length) {
         list.innerHTML = '<p style="color:#555;font-size:13px;padding:10px;">No study days — add an exam date.</p>';
         return;
@@ -100,8 +105,19 @@ function renderHoursPanel() {
         row.className = 'date-row';
         row.dataset.date = date;
 
-        const label = document.createElement('span');
-        label.textContent = date;
+        const label = document.createElement('div');
+        label.className = 'date-label-multiline';
+        
+        const parsedDate = parseDMY(date);
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        const dayOfWeek = dayNames[parsedDate.getDay()];
+        const day = parsedDate.getDate();
+        const month = monthNames[parsedDate.getMonth()];
+        const yearStr = parsedDate.getFullYear().toString().substring(2);
+        
+        label.innerHTML = `<div class="date-day-name">${dayOfWeek}</div><div class="date-full-val">${day} ${month} '${yearStr}</div>`;
 
         // Stepper widget
         const stepper = document.createElement('div');
