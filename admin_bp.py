@@ -4,7 +4,7 @@ import datetime
 import json
 
 from extensions import db, RATE_LIMIT_DEFAULTS, DEFAULT_WORD_LIMIT, DEFAULT_SCHED_PREF_LIMIT
-from models import User, ActivityLog, RequestLog, StudyData, Chat, MembershipTier, UserMembership, UsageLog
+from models import User, ActivityLog, RequestLog, StudyData, Chat, MembershipTier, UserMembership, UsageLog, Payment, WebhookLog
 from helpers import *
 from schedule_planner import MODELS as SCHED_MODELS
 from text_extractor import VISION_MODELS
@@ -300,9 +300,13 @@ def admin_update_user(uid):
                     um = UserMembership(user_id=uid, tier_id=t.id, usage_cost=0.0, usage_percentage=0.0)
                     db.session.add(um)
                 else:
-                    um.tier_id = t.id
-                    if t.budget_limit > 0:
-                        um.usage_percentage = min(100.0, (um.usage_cost / t.budget_limit) * 100.0)
+                    if um.tier_id != t.id:
+                        um.tier_id = t.id
+                        um.custom_budget_limit = None
+                    
+                    effective_limit = um.custom_budget_limit if um.custom_budget_limit is not None else t.budget_limit
+                    if effective_limit > 0:
+                        um.usage_percentage = min(100.0, (um.usage_cost / effective_limit) * 100.0)
                     else:
                         um.usage_percentage = 100.0
                 um.upgraded_at = datetime.datetime.utcnow()
@@ -558,18 +562,280 @@ def admin_delete_tier(tier_id):
     return jsonify({'message': f'Tier {tier_id} deleted successfully'})
 
 
-@admin_bp.route('/admin/api/users/<int:uid>/usage_logs', methods=['GET'])
+@admin_bp.route('/admin/api/payments/stats', methods=['GET'])
 @login_required
-def admin_user_usage_logs(uid):
+def admin_payments_stats():
     if not current_user.is_admin: abort(403)
-    logs = UsageLog.query.filter_by(user_id=uid).order_by(UsageLog.created_at.desc()).all()
-    return jsonify([{
-        'id': l.id,
-        'endpoint': l.endpoint,
-        'model_used': l.model_used,
-        'input_tokens': l.input_tokens,
-        'output_tokens': l.output_tokens,
-        'total_tokens': l.total_tokens,
-        'request_cost': round(l.request_cost, 4),
-        'created_at': l.created_at.strftime('%d %b %H:%M:%S')
-    } for l in logs])
+    
+    total_payments = Payment.query.count()
+    successful_payments = Payment.query.filter_by(status='paid').count()
+    failed_payments = Payment.query.filter_by(status='failed').count()
+    refunded_payments = Payment.query.filter_by(status='refunded').count()
+    
+    # Calculate total revenue (sum of paid amounts)
+    revenue_row = db.session.query(db.func.sum(Payment.amount)).filter_by(status='paid').first()
+    total_revenue = float(revenue_row[0] or 0.0)
+    
+    return jsonify({
+        'total_revenue': round(total_revenue, 2),
+        'total_payments': total_payments,
+        'successful_payments': successful_payments,
+        'failed_payments': failed_payments,
+        'refunded_payments': refunded_payments
+    })
+
+
+@admin_bp.route('/admin/api/payments', methods=['GET'])
+@login_required
+def admin_payments_list():
+    if not current_user.is_admin: abort(403)
+    
+    search = request.args.get('search', '').strip()
+    status = request.args.get('status', '').strip()
+    membership = request.args.get('membership', '').strip()
+    start_date_str = request.args.get('start_date', '').strip()
+    end_date_str = request.args.get('end_date', '').strip()
+    
+    limit = max(10, min(100, int(request.args.get('limit', 20))))
+    page = max(1, int(request.args.get('page', 1)))
+    
+    query = db.session.query(Payment).join(User, User.id == Payment.user_id)
+    
+    # Filters
+    if search:
+        # Search by username, email, payment_id, order_id
+        query = query.filter(db.or_(
+            User.username.like(f"%{search}%"),
+            User.email.like(f"%{search}%"),
+            Payment.razorpay_payment_id.like(f"%{search}%"),
+            Payment.razorpay_order_id.like(f"%{search}%")
+        ))
+        
+    if status:
+        query = query.filter(Payment.status == status)
+        
+    if membership:
+        query = query.filter(Payment.membership_tier == membership)
+        
+    if start_date_str:
+        try:
+            start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d')
+            query = query.filter(Payment.created_at >= start_date)
+        except ValueError:
+            pass
+            
+    if end_date_str:
+        try:
+            end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d') + datetime.timedelta(days=1)
+            query = query.filter(Payment.created_at < end_date)
+        except ValueError:
+            pass
+            
+    # Ordering
+    query = query.order_by(Payment.created_at.desc())
+    
+    # Pagination
+    total = query.count()
+    pages = (total + limit - 1) // limit
+    offset = (page - 1) * limit
+    payments = query.offset(offset).limit(limit).all()
+    
+    return jsonify({
+        'payments': [{
+            'id': p.id,
+            'user': {
+                'id': p.user.id,
+                'username': p.user.username,
+                'email': p.user.email
+            },
+            'membership_tier': p.membership_tier,
+            'amount': round(p.amount, 2),
+            'status': p.status,
+            'razorpay_payment_id': p.razorpay_payment_id or '—',
+            'razorpay_order_id': p.razorpay_order_id,
+            'created_at': p.created_at.strftime('%d %b %Y %H:%M')
+        } for p in payments],
+        'total': total,
+        'pages': pages,
+        'current_page': page
+    })
+
+
+@admin_bp.route('/admin/api/payments/<int:payment_id>', methods=['GET'])
+@login_required
+def admin_payment_detail(payment_id):
+    if not current_user.is_admin: abort(403)
+    
+    p = Payment.query.get_or_404(payment_id)
+    webhooks = WebhookLog.query.filter_by(payment_id=p.id).order_by(WebhookLog.created_at.desc()).all()
+    
+    return jsonify({
+        'id': p.id,
+        'user': {
+            'id': p.user.id,
+            'username': p.user.username,
+            'email': p.user.email,
+            'full_name': p.user.full_name or '—'
+        },
+        'membership_tier': p.membership_tier,
+        'amount': round(p.amount, 2),
+        'currency': p.currency,
+        'status': p.status,
+        'razorpay_order_id': p.razorpay_order_id,
+        'razorpay_payment_id': p.razorpay_payment_id or '—',
+        'razorpay_signature': p.razorpay_signature or '—',
+        'refund_id': p.refund_id or '—',
+        'failure_reason': p.failure_reason or '—',
+        'created_at': p.created_at.strftime('%d %b %Y %H:%M:%S'),
+        'updated_at': p.updated_at.strftime('%d %b %Y %H:%M:%S'),
+        'webhooks': [{
+            'id': w.id,
+            'event_type': w.event_type,
+            'payload': json.loads(w.payload) if w.payload else {},
+            'created_at': w.created_at.strftime('%d %b %Y %H:%M:%S')
+        } for w in webhooks]
+    })
+
+
+@admin_bp.route('/admin/api/payments/<int:payment_id>/refund', methods=['POST'])
+@login_required
+def admin_payment_refund(payment_id):
+    if not current_user.is_admin: abort(403)
+    
+    p = Payment.query.get_or_404(payment_id)
+    if p.status != 'paid':
+        return jsonify({'error': 'Only paid transactions can be refunded.'}), 400
+        
+    if not p.razorpay_payment_id or p.razorpay_payment_id == '—':
+        return jsonify({'error': 'No valid Razorpay payment ID found to refund.'}), 400
+        
+    from razor import gateway
+    try:
+        # Request refund from Razorpay
+        refund = gateway.refund_payment(p.razorpay_payment_id)
+        refund_id = refund.get('id')
+    except Exception as e:
+        return jsonify({'error': f'Razorpay refund API failed: {str(e)}'}), 500
+        
+    try:
+        # Update payment status in database
+        p.status = 'refunded'
+        p.refund_id = refund_id
+        
+        # Reset the user's membership to default Bronze
+        user = User.query.get(p.user_id)
+        bronze_tier = MembershipTier.query.filter_by(name='Bronze').first()
+        
+        if user and bronze_tier:
+            membership = UserMembership.query.filter_by(user_id=user.id).first()
+            if membership:
+                membership.tier_id = bronze_tier.id
+                membership.usage_cost = 0.0
+                membership.usage_percentage = 0.0
+                membership.custom_budget_limit = None
+                
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update database: {str(e)}'}), 500
+        
+    _log_activity('refund_processed', {
+        'payment_id': p.razorpay_payment_id,
+        'refund_id': refund_id,
+        'amount': p.amount,
+        'tier': p.membership_tier
+    }, user_id=p.user_id)
+    
+    # Send refund confirmation email
+    try:
+        from helpers import send_refund_email
+        send_refund_email(p.user.email, p.user.username, p.membership_tier, p.amount, refund_id)
+    except Exception as e:
+        print(f"[ERROR] Failed to send refund email: {e}")
+        
+    return jsonify({
+        'message': 'Refund processed successfully and user membership downgraded.',
+        'refund_id': refund_id
+    })
+
+
+@admin_bp.route('/admin/api/payments/export', methods=['GET'])
+@login_required
+def admin_payments_export():
+    if not current_user.is_admin: abort(403)
+    
+    import io
+    import csv
+    from flask import Response
+    
+    search = request.args.get('search', '').strip()
+    status = request.args.get('status', '').strip()
+    membership = request.args.get('membership', '').strip()
+    start_date_str = request.args.get('start_date', '').strip()
+    end_date_str = request.args.get('end_date', '').strip()
+    
+    query = db.session.query(Payment).join(User, User.id == Payment.user_id)
+    
+    # Apply filters
+    if search:
+        query = query.filter(db.or_(
+            User.username.like(f"%{search}%"),
+            User.email.like(f"%{search}%"),
+            Payment.razorpay_payment_id.like(f"%{search}%"),
+            Payment.razorpay_order_id.like(f"%{search}%")
+        ))
+    if status:
+        query = query.filter(Payment.status == status)
+    if membership:
+        query = query.filter(Payment.membership_tier == membership)
+    if start_date_str:
+        try:
+            start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d')
+            query = query.filter(Payment.created_at >= start_date)
+        except ValueError:
+            pass
+    if end_date_str:
+        try:
+            end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d') + datetime.timedelta(days=1)
+            query = query.filter(Payment.created_at < end_date)
+        except ValueError:
+            pass
+            
+    payments = query.order_by(Payment.created_at.desc()).all()
+    
+    # Generate CSV in memory
+    dest = io.StringIO()
+    writer = csv.writer(dest)
+    
+    # Write header
+    writer.writerow([
+        'Payment ID', 'Username', 'User Email', 'Membership Tier', 
+        'Amount (INR)', 'Status', 'Razorpay Payment ID', 
+        'Razorpay Order ID', 'Refund ID', 'Failure Reason', 'Date'
+    ])
+    
+    # Write rows
+    for p in payments:
+        writer.writerow([
+            p.id,
+            p.user.username,
+            p.user.email,
+            p.membership_tier,
+            p.amount,
+            p.status,
+            p.razorpay_payment_id or '—',
+            p.razorpay_order_id,
+            p.refund_id or '—',
+            p.failure_reason or '—',
+            p.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+        
+    output = dest.getvalue()
+    dest.close()
+    
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=payments_export.csv"}
+    )
+

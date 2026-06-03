@@ -194,3 +194,34 @@ class UsageLog(db.Model):
     total_tokens = db.Column(db.Integer, default=0, nullable=False)
     request_cost = db.Column(db.Float, default=0.0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    membership_tier = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    currency = db.Column(db.String(10), default='INR')
+    status = db.Column(db.String(20), default='pending')  # pending, paid, failed, refunded
+    razorpay_order_id = db.Column(db.String(100), nullable=False, unique=True)
+    razorpay_payment_id = db.Column(db.String(100), nullable=True)
+    razorpay_signature = db.Column(db.String(256), nullable=True)
+    refund_id = db.Column(db.String(100), nullable=True)
+    failure_reason = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    # Relationship
+    user = db.relationship('User', backref=db.backref('payments', lazy=True))
+
+
+class WebhookLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payment.id'), nullable=True)
+    event_type = db.Column(db.String(100), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    # Relationship
+    payment = db.relationship('Payment', backref=db.backref('webhooks', lazy=True))
+

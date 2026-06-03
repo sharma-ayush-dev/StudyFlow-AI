@@ -29,7 +29,8 @@ __all__ = [
     '_create_otp', '_verify_otp', '_create_login_otp', '_verify_login_otp', 'log_request', '_job_create', '_job_set', '_job_get',
     'get_sched_model_list', 'get_extract_model_list', 'get_teacher_model_list',
     'get_model_costs', 'save_model_costs', 'track_llm_call', 'check_user_cost_limit', 'get_default_cost_limit',
-    'check_user_budget', 'get_user_assigned_model'
+    'check_user_budget', 'get_user_assigned_model',
+    'send_payment_success_email', 'send_payment_failed_email', 'send_refund_email'
 ]
 
 
@@ -388,7 +389,7 @@ def _render_error(code, title, message):
     return render_template('error.html', code=code, title=title, message=message), code
 
 
-def _log_activity(action: str, detail: dict = None):
+def _log_activity(action: str, detail: dict = None, user_id: int = None):
     try:
         from flask import has_request_context, request
         ip = None
@@ -396,8 +397,16 @@ def _log_activity(action: str, detail: dict = None):
         if has_request_context():
             ip = request.remote_addr
             ua = request.user_agent.string
+        
+        uid = user_id
+        if uid is None:
+            try:
+                uid = current_user.id if current_user.is_authenticated else None
+            except:
+                uid = None
+
         db.session.add(ActivityLog(
-            userid = current_user.id if current_user.is_authenticated else None,
+            userid = uid,
             action = action,
             detail = json.dumps(detail) if detail else None,
             ip_address = ip,
@@ -406,6 +415,7 @@ def _log_activity(action: str, detail: dict = None):
         db.session.commit()
     except:
         db.session.rollback()
+
 
 
 def _extract_meta(schedule: dict) -> tuple:
@@ -1218,3 +1228,436 @@ def send_membership_email(email: str, username: str, tier_name: str):
 
     import threading
     threading.Thread(target=send_bg, daemon=True).start()
+
+
+def send_payment_success_email(email: str, username: str, tier_name: str, amount: float, payment_id: str, order_id: str):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    if not resend_api_key:
+        print("[PAYMENT SUCCESS EMAIL] RESEND_API_KEY not configured. Skipping email delivery.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = 'subscriptions@studyflowai.app'
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI')
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Payment Successful - StudyFlow-AI</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(123, 47, 247, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    }}
+                    .logo {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        margin-bottom: 24px;
+                        text-align: center;
+                    }}
+                    h1 {{
+                        font-size: 24px;
+                        color: #50dc8c;
+                        margin-bottom: 20px;
+                        text-align: center;
+                    }}
+                    p {{
+                        font-size: 16px;
+                        color: #b4b4c6;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    }}
+                    .details-box {{
+                        background-color: rgba(255, 255, 255, 0.02);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 24px;
+                    }}
+                    .detail-row {{
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 10px;
+                        font-size: 14px;
+                    }}
+                    .detail-row:last-child {{
+                        margin-bottom: 0;
+                    }}
+                    .detail-label {{
+                        color: #888888;
+                    }}
+                    .detail-value {{
+                        color: #ffffff;
+                        font-weight: bold;
+                    }}
+                    .footer {{
+                        font-size: 12px;
+                        color: #555566;
+                        text-align: center;
+                        margin-top: 30px;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05);
+                        padding-top: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="logo">StudyFlow</div>
+                        <h1>Payment Successful!</h1>
+                        <p>Hello {username},</p>
+                        <p>Thank you for your purchase. Your payment was verified successfully, and your premium membership is now active!</p>
+                        
+                        <div class="details-box">
+                            <div class="detail-row">
+                                <span class="detail-label">Membership Tier:</span>
+                                <span class="detail-value" style="color: #bf9bff;">{tier_name}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Amount Paid:</span>
+                                <span class="detail-value">₹{amount:.2f}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Payment ID:</span>
+                                <span class="detail-value" style="font-family: monospace;">{payment_id}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Order ID:</span>
+                                <span class="detail-value" style="font-family: monospace;">{order_id}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value" style="color: #50dc8c;">Activated</span>
+                            </div>
+                        </div>
+
+                        <p>Your upgraded token limits and increased AI quality are ready to use. Keep learning without limits!</p>
+                        
+                        <div class="footer">
+                            &copy; 2026 StudyFlow-AI. All rights reserved.
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            resend.Emails.send({
+                "from": f"{from_name} <{from_email}>",
+                "to": [email],
+                "subject": f"Payment Verified: StudyFlow {tier_name} Activated!",
+                "html": html_content
+            })
+            print(f"[PAYMENT SUCCESS EMAIL] Sent successfully to {email}")
+        except Exception as e:
+            print(f"[ERROR] send_payment_success_email: {e}")
+
+    import threading
+    threading.Thread(target=send_bg, daemon=True).start()
+
+
+def send_payment_failed_email(email: str, username: str, tier_name: str, failure_reason: str, payment_id: str = None):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    if not resend_api_key:
+        print("[PAYMENT FAILED EMAIL] RESEND_API_KEY not configured. Skipping email delivery.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = 'subscriptions@studyflowai.app'
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI')
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Payment Failed - StudyFlow-AI</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(220, 50, 50, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    }}
+                    .logo {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        margin-bottom: 24px;
+                        text-align: center;
+                    }}
+                    h1 {{
+                        font-size: 24px;
+                        color: #ff7c7c;
+                        margin-bottom: 20px;
+                        text-align: center;
+                    }}
+                    p {{
+                        font-size: 16px;
+                        color: #b4b4c6;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    }}
+                    .details-box {{
+                        background-color: rgba(255, 255, 255, 0.02);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 24px;
+                    }}
+                    .detail-row {{
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 10px;
+                        font-size: 14px;
+                    }}
+                    .detail-row:last-child {{
+                        margin-bottom: 0;
+                    }}
+                    .detail-label {{
+                        color: #888888;
+                    }}
+                    .detail-value {{
+                        color: #ffffff;
+                        font-weight: bold;
+                    }}
+                    .footer {{
+                        font-size: 12px;
+                        color: #555566;
+                        text-align: center;
+                        margin-top: 30px;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05);
+                        padding-top: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="logo">StudyFlow</div>
+                        <h1>Payment Attempt Failed</h1>
+                        <p>Hello {username},</p>
+                        <p>We're writing to let you know that your payment attempt for the <strong>{tier_name}</strong> membership was unsuccessful.</p>
+                        
+                        <div class="details-box">
+                            <div class="detail-row">
+                                <span class="detail-label">Attempted Tier:</span>
+                                <span class="detail-value">{tier_name}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Failure Reason:</span>
+                                <span class="detail-value" style="color: #ff7c7c;">{failure_reason or 'Transaction failed or signature verification failed.'}</span>
+                            </div>
+                            {f'''<div class="detail-row">
+                                <span class="detail-label">Payment ID:</span>
+                                <span class="detail-value" style="font-family: monospace;">{payment_id}</span>
+                            </div>''' if payment_id else ''}
+                        </div>
+
+                        <p>No funds were captured for this attempt (or if they were, they will be automatically refunded by Razorpay). You can try purchasing the plan again from your dashboard.</p>
+                        
+                        <div class="footer">
+                            &copy; 2026 StudyFlow-AI. All rights reserved.
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            resend.Emails.send({
+                "from": f"{from_name} <{from_email}>",
+                "to": [email],
+                "subject": f"Payment Failed: StudyFlow {tier_name} Upgrade",
+                "html": html_content
+            })
+            print(f"[PAYMENT FAILED EMAIL] Sent successfully to {email}")
+        except Exception as e:
+            print(f"[ERROR] send_payment_failed_email: {e}")
+
+    import threading
+    threading.Thread(target=send_bg, daemon=True).start()
+
+
+def send_refund_email(email: str, username: str, tier_name: str, amount: float, refund_id: str):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    if not resend_api_key:
+        print("[REFUND EMAIL] RESEND_API_KEY not configured. Skipping email delivery.")
+        return
+
+    def send_bg():
+        import resend
+        try:
+            resend.api_key = resend_api_key
+            from_email = 'subscriptions@studyflowai.app'
+            from_name = os.environ.get('SMTP_FROM_NAME', 'StudyFlow-AI')
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Refund Confirmed - StudyFlow-AI</title>
+                <style>
+                    body {{
+                        background-color: #050505;
+                        color: #ffffff;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 40px 20px;
+                    }}
+                    .card {{
+                        background-color: #0c0c15;
+                        border: 1px solid rgba(159, 85, 255, 0.3);
+                        border-radius: 20px;
+                        padding: 40px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                    }}
+                    .logo {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        letter-spacing: 2px;
+                        color: #ffffff;
+                        margin-bottom: 24px;
+                        text-align: center;
+                    }}
+                    h1 {{
+                        font-size: 24px;
+                        color: #bf9bff;
+                        margin-bottom: 20px;
+                        text-align: center;
+                    }}
+                    p {{
+                        font-size: 16px;
+                        color: #b4b4c6;
+                        line-height: 1.6;
+                        margin-bottom: 24px;
+                    }}
+                    .details-box {{
+                        background-color: rgba(255, 255, 255, 0.02);
+                        border: 1px solid rgba(255, 255, 255, 0.05);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 24px;
+                    }}
+                    .detail-row {{
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 10px;
+                        font-size: 14px;
+                    }}
+                    .detail-row:last-child {{
+                        margin-bottom: 0;
+                    }}
+                    .detail-label {{
+                        color: #888888;
+                    }}
+                    .detail-value {{
+                        color: #ffffff;
+                        font-weight: bold;
+                    }}
+                    .footer {{
+                        font-size: 12px;
+                        color: #555566;
+                        text-align: center;
+                        margin-top: 30px;
+                        border-top: 1px solid rgba(255, 255, 255, 0.05);
+                        padding-top: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="card">
+                        <div class="logo">StudyFlow</div>
+                        <h1>Refund Processed</h1>
+                        <p>Hello {username},</p>
+                        <p>This is to confirm that a refund of <strong>₹{amount:.2f}</strong> has been successfully processed for your <strong>{tier_name}</strong> membership upgrade.</p>
+                        
+                        <div class="details-box">
+                            <div class="detail-row">
+                                <span class="detail-label">Membership Tier:</span>
+                                <span class="detail-value">{tier_name}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Refunded Amount:</span>
+                                <span class="detail-value">₹{amount:.2f}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Refund ID:</span>
+                                <span class="detail-value" style="font-family: monospace;">{refund_id}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Membership Status:</span>
+                                <span class="detail-value" style="color: #ff7c7c;">Downgraded to Bronze</span>
+                            </div>
+                        </div>
+
+                        <p>The refunded amount will reflect in your original payment method within 5-7 business days, depending on your bank.</p>
+                        
+                        <div class="footer">
+                            &copy; 2026 StudyFlow-AI. All rights reserved.
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            resend.Emails.send({
+                "from": f"{from_name} <{from_email}>",
+                "to": [email],
+                "subject": f"Refund Processed: StudyFlow {tier_name}",
+                "html": html_content
+            })
+            print(f"[REFUND EMAIL] Sent successfully to {email}")
+        except Exception as e:
+            print(f"[ERROR] send_refund_email: {e}")
+
+    import threading
+    threading.Thread(target=send_bg, daemon=True).start()
+

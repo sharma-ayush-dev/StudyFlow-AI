@@ -1,4 +1,5 @@
 <!-- UPGRADE MODAL — Included globally via _navbar.html -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <div id="upgradeModalOverlay" class="auth-overlay hidden" style="z-index: 10000; display: flex; align-items: center; justify-content: center;">
     <div class="auth-modal" style="max-width: 650px; width: calc(100% - 32px); padding: 40px; background: radial-gradient(circle at 50% 0%, rgba(123, 47, 247, 0.15), transparent 40%), #121220; border: 1px solid rgba(123, 47, 247, 0.2); border-radius: 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.6); position: relative; animation: sfSlideUp 0.4s ease-out;">
         
@@ -142,20 +143,47 @@
 <!-- CONGRATULATIONS SUCCESS MODAL -->
 <div id="successModalOverlay" class="auth-overlay hidden" style="z-index: 10010; display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 8, 16, 0.8); backdrop-filter: blur(8px);">
     <div class="auth-modal" style="max-width: 480px; width: calc(100% - 32px); padding: 40px; background: radial-gradient(circle at 50% 0%, rgba(80, 220, 140, 0.15), transparent 40%), #0c0c15; border: 1px solid rgba(80, 220, 140, 0.25); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); position: relative; text-align: center; box-sizing: border-box; margin: 20px; animation: sfSlideUp 0.4s ease-out;">
+        
+        <button class="auth-close" onclick="closeSuccessModal()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: #a0aec0; font-size: 20px; cursor: pointer; transition: color 0.2s;">✕</button>
+
         <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(80, 220, 140, 0.15); display: flex; align-items: center; justify-content: center; color: #50dc8c; font-size: 36px; margin: 0 auto 24px; box-shadow: 0 0 16px rgba(80, 220, 140, 0.4);">
             🎉
         </div>
         
-        <h3 style="margin: 0 0 8px; font-family: 'Outfit', sans-serif; font-size: 26px; color: #ffffff; font-weight: 800;">Congratulations!</h3>
-        <p id="successModalSub" style="margin: 0 0 16px; color: #50dc8c; font-size: 16px; font-weight: 600;">Your Upgrade was Successful</p>
+        <h3 style="margin: 0 0 8px; font-family: 'Outfit', sans-serif; font-size: 26px; color: #ffffff; font-weight: 800;">Payment Successful</h3>
+        <p id="successModalSub" style="margin: 0 0 16px; color: #50dc8c; font-size: 16px; font-weight: 600;">Membership Activated</p>
         
-        <p id="successModalDesc" style="margin: 0 0 24px; color: #b4b4c6; font-size: 15px; line-height: 1.6; text-align: left; padding: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px;"></p>
+        <div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px; text-align: left; padding: 18px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                <span style="color:#888;">Membership Name:</span>
+                <strong id="success-tier-name" style="color:#bf9bff; font-weight:600;">—</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                <span style="color:#888;">Payment ID:</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span id="success-payment-id" style="font-family:monospace; color:#eee;">—</span>
+                    <button id="btnCopyPaymentId" style="background:rgba(123, 47, 247, 0.2); border:1px solid rgba(123, 47, 247, 0.4); padding:2px 8px; border-radius:6px; font-size:10px; color:#bf9bff; cursor:pointer; font-weight:600; transition:all 0.2s;" onclick="copySuccessPaymentId()">Copy</button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                <span style="color:#888;">Order ID:</span>
+                <strong id="success-order-id" style="font-family:monospace; color:#eee; font-weight:normal;">—</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px;">
+                <span style="color:#888;">Amount Paid:</span>
+                <strong id="success-amount-paid" style="color:#50dc8c; font-weight:700;">₹0.00</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color:#888;">Date & Time:</span>
+                <strong id="success-date" style="color:#eee; font-weight:normal;">—</strong>
+            </div>
+        </div>
         
         <p style="margin: 0 0 24px; color: #94a3b8; font-size: 13px;">
             📧 A confirmation email has been sent to your registered address.
         </p>
 
-        <button onclick="closeSuccessModal()" style="background: linear-gradient(135deg, #50dc8c, #10b981); border: none; color: #ffffff; padding: 12px 32px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-size: 15px; width: 100%; box-shadow: 0 4px 15px rgba(80, 220, 140, 0.3);">Start Learning</button>
+        <button onclick="closeSuccessModal()" style="background: linear-gradient(135deg, #50dc8c, #10b981); border: none; color: #ffffff; padding: 12px 32px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-size: 15px; width: 100%; box-shadow: 0 4px 15px rgba(80, 220, 140, 0.3);">Continue</button>
     </div>
 </div>
 
@@ -243,16 +271,42 @@
         pendingPurchaseTierName = null;
     }
 
-    function showSuccessModal(tierName, description) {
+    function showSuccessModal(tierName, data) {
         // Hide standard upgrade modal if open
         hideUpgradeModal();
         
         const modal = document.getElementById('successModalOverlay');
         if (modal) {
-            document.getElementById('successModalSub').textContent = `Your Upgrade to ${tierName} was Successful`;
-            document.getElementById('successModalDesc').textContent = description;
+            document.getElementById('success-tier-name').textContent = tierName;
+            document.getElementById('success-payment-id').textContent = data.payment_id || '—';
+            document.getElementById('success-order-id').textContent = data.order_id || '—';
+            document.getElementById('success-amount-paid').textContent = '₹' + parseFloat(data.amount || 0).toFixed(2);
+            document.getElementById('success-date').textContent = data.date || '—';
+            
             modal.style.display = 'flex';
             modal.classList.remove('hidden');
+        }
+    }
+
+    function copySuccessPaymentId() {
+        const paymentId = document.getElementById('success-payment-id').textContent;
+        if (paymentId && paymentId !== '—') {
+            navigator.clipboard.writeText(paymentId).then(() => {
+                const btn = document.getElementById('btnCopyPaymentId');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = 'rgba(80, 220, 140, 0.2)';
+                btn.style.borderColor = 'rgba(80, 220, 140, 0.4)';
+                btn.style.color = '#50dc8c';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = 'rgba(123, 47, 247, 0.2)';
+                    btn.style.borderColor = 'rgba(123, 47, 247, 0.4)';
+                    btn.style.color = '#bf9bff';
+                }, 2000);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+            });
         }
     }
 
@@ -303,15 +357,66 @@
         })
         .then(response => {
             if (response.status === 200) {
-                return response.json().then(data => {
-                    showSuccessModal(tierName, data.message || `Congratulations! You are now a ${tierName} member.`);
+                return response.json().then(orderData => {
+                    // Open Razorpay Checkout overlay
+                    var options = {
+                        "key": orderData.key_id,
+                        "amount": orderData.amount, // in paise
+                        "currency": orderData.currency,
+                        "name": "StudyFlow-AI",
+                        "description": tierName + " Membership Purchase",
+                        "order_id": orderData.order_id,
+                        "handler": function (response) {
+                            // Hit backend verification
+                            verifyPayment(
+                                response.razorpay_order_id,
+                                response.razorpay_payment_id,
+                                response.razorpay_signature,
+                                tierName
+                            );
+                        },
+                        "prefill": {
+                            "name": orderData.user.username,
+                            "email": orderData.user.email
+                        },
+                        "theme": {
+                            "color": "#7b2ff7" // Matches StudyFlow dark theme
+                        },
+                        "modal": {
+                            "ondismiss": function() {
+                                console.log("Checkout closed by user.");
+                            }
+                        }
+                    };
+                    var rzp1 = new Razorpay(options);
+                    rzp1.on('payment.failed', function (response) {
+                        // Notify backend of payment failure to update status and send failed email
+                        fetch('/subscriptions/fail', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                razorpay_order_id: orderData.order_id,
+                                razorpay_payment_id: response.error.metadata.payment_id || null,
+                                error_description: response.error.description || "The payment transaction was unsuccessful."
+                            })
+                        }).catch(err => console.error("Failed to notify backend of payment failure:", err));
+
+                        showErrorModalOverlay(
+                            "Payment Failed",
+                            response.error.description || "The payment transaction was unsuccessful.",
+                            "Reference ID: " + (response.error.metadata.payment_id || "None") + ". You can attempt to retry the transaction."
+                        );
+                    });
+                    rzp1.open();
                 });
             } else {
                 return response.json().then(data => {
                     showErrorModalOverlay(
-                        "Failed to activate subscription plan.",
-                        data.error || "The server rejected the upgrade request.",
-                        "Please check your account, refresh the page, and try again. Contact support if the issue persists."
+                        "Order Creation Failed",
+                        data.error || "The server failed to create a payment order.",
+                        "Please check your account, refresh the page, and try again."
                     );
                 }).catch(() => {
                     showErrorModalOverlay(
@@ -326,8 +431,51 @@
             console.error(err);
             showErrorModalOverlay(
                 "Network connection failure.",
-                err.message || "Failed to fetch resource.",
+                err.message || "Failed to contact payment server.",
                 "Ensure your device is connected to the internet, and verify that the local server is running."
+            );
+        });
+    }
+
+    function verifyPayment(orderId, paymentId, signature, tierName) {
+        fetch('/subscriptions/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                razorpay_order_id: orderId,
+                razorpay_payment_id: paymentId,
+                razorpay_signature: signature
+            })
+        })
+        .then(response => {
+            if (response.status === 200) {
+                return response.json().then(data => {
+                    showSuccessModal(tierName, data);
+                });
+            } else {
+                return response.json().then(data => {
+                    showErrorModalOverlay(
+                        "Payment Verification Failed",
+                        data.error || "The server rejected the payment verification signature.",
+                        "Your transaction might have succeeded, but membership failed to activate. Please contact support with Payment ID: " + paymentId
+                    );
+                }).catch(() => {
+                    showErrorModalOverlay(
+                        "Verification Error",
+                        "The server returned an error during verification. Check your logs.",
+                        "Contact support if your account isn't upgraded soon. Payment ID: " + paymentId
+                    );
+                });
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showErrorModalOverlay(
+                "Network Error during Verification",
+                err.message || "Failed to reach the server to verify signature.",
+                "Do not close this page. Check your internet connection. Payment ID: " + paymentId
             );
         });
     }
@@ -352,4 +500,5 @@
     window.upgradePurchase = function(tierId, tierName) {
         initiatePurchase(tierId, tierName);
     };
+    window.copySuccessPaymentId = copySuccessPaymentId;
 </script>
