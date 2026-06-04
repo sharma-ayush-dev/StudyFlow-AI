@@ -21,7 +21,14 @@ let chatFontSize = 16;
 function applyFontSize(size) {
     chatFontSize = Math.max(13, Math.min(24, size));
     document.documentElement.style.setProperty('--chat-font-size', `${chatFontSize}px`);
-    document.getElementById('fontSizeDisplay').textContent = `${chatFontSize}px`;
+    const decBtn = document.getElementById('fontDecBtn');
+    const incBtn = document.getElementById('fontIncBtn');
+    if (decBtn && incBtn) {
+        decBtn.classList.remove('active');
+        incBtn.classList.remove('active');
+        if (chatFontSize < 16) decBtn.classList.add('active');
+        else if (chatFontSize > 16) incBtn.classList.add('active');
+    }
 }
 
 document.getElementById('fontIncBtn')?.addEventListener('click', () => applyFontSize(chatFontSize + 1));
@@ -210,6 +217,41 @@ function triggerMathRender(el) {
 
 
 // ══════════════════════════════════════════════
+// SCROLL PROGRESS & FADE OBSERVER
+// ══════════════════════════════════════════════
+
+messagesEl.addEventListener('scroll', () => {
+    const progressBar = document.getElementById('readingProgressBar');
+    if (!progressBar) return;
+    const scrollTop = messagesEl.scrollTop;
+    const scrollHeight = messagesEl.scrollHeight - messagesEl.clientHeight;
+    if (scrollHeight <= 0) {
+        progressBar.style.width = '0%';
+        return;
+    }
+    const progress = (scrollTop / scrollHeight) * 100;
+    progressBar.style.width = `${progress}%`;
+});
+
+const fadeObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            fadeObserver.unobserve(entry.target);
+        }
+    });
+}, { threshold: 0.1 });
+
+function observeFadeElements(bubble) {
+    const paragraphs = bubble.querySelectorAll('p, h1, h2, h3, h4, pre, .answer-block, ul, ol');
+    paragraphs.forEach(p => {
+        p.classList.add('fade-in-section');
+        fadeObserver.observe(p);
+    });
+}
+
+
+// ══════════════════════════════════════════════
 // APPEND MESSAGE (non-streaming)
 // ══════════════════════════════════════════════
 
@@ -233,6 +275,7 @@ function appendMessage(role, content, isQuiz = false, timestamp = null, msgId = 
     if (role === 'assistant') {
         bubble.appendChild(buildBubbleContent(content, isQuiz));
         triggerMathRender(bubble);
+        observeFadeElements(bubble);
     } else {
         bubble.textContent = content;
     }
@@ -487,6 +530,7 @@ async function streamResponse(url, isQuiz = false) {
                     bubble.innerHTML = '';
                     bubble.appendChild(buildBubbleContent(fullText, isQuizDone));
                     triggerMathRender(bubble);
+                    observeFadeElements(bubble);
 
                     // Add action buttons
                     const ts = document.createElement('div');
@@ -761,6 +805,7 @@ async function streamResponseWithBody(url, body, isQuiz) {
                     bubble.innerHTML = '';
                     bubble.appendChild(buildBubbleContent(fullText, isQuizDone));
                     triggerMathRender(bubble);
+                    observeFadeElements(bubble);
 
                     const ts = document.createElement('div');
                     ts.className = 'msg-timestamp';
@@ -883,3 +928,22 @@ inputEl.addEventListener('input', () => {
 applyFontSize(16);
 loadHistory();
 inputEl.focus();
+
+// Sidebar toggle
+const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
+const sidebarWrapper = document.getElementById('sidebarWrapper');
+const studyLayout = document.querySelector('.study-layout');
+
+function collapseSidebar() {
+    if (sidebarWrapper) sidebarWrapper.classList.add('collapsed');
+    if (studyLayout) studyLayout.classList.add('sidebar-collapsed');
+}
+
+function expandSidebar() {
+    if (sidebarWrapper) sidebarWrapper.classList.remove('collapsed');
+    if (studyLayout) studyLayout.classList.remove('sidebar-collapsed');
+}
+
+if (sidebarToggleBtn) sidebarToggleBtn.addEventListener('click', collapseSidebar);
+if (sidebarExpandBtn) sidebarExpandBtn.addEventListener('click', expandSidebar);

@@ -23,29 +23,77 @@
             text-align: center;
         }
 
+        /* ── 1. HERO TEXT ── */
         .pricing-header {
             margin-bottom: 60px;
-            animation: sfSlideUp 0.6s ease-out;
         }
 
         .pricing-header h1 {
             font-family: 'Outfit', sans-serif;
             font-size: 48px;
             font-weight: 800;
+            margin: 0 0 16px;
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        /* Word stagger entrance */
+        .hero-word {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(16px);
             background: linear-gradient(135deg, #ffffff, #bf9bff 60%, #7b2ff7);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            margin: 0 0 16px;
+            animation: wordReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .hero-word:nth-child(1) { animation-delay: 0ms; }
+        .hero-word:nth-child(2) { animation-delay: 80ms; }
+        .hero-word:nth-child(3) { animation-delay: 160ms; }
+
+        @keyframes wordReveal {
+            to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Shimmer gradient on "Plan" */
+        .hero-shimmer-word {
+            background: linear-gradient(
+                90deg,
+                #9f55ff 0%,
+                #d8b4fe 25%,
+                #ffffff 50%,
+                #d8b4fe 75%,
+                #9f55ff 100%
+            );
+            background-size: 250% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: wordReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                       shimmerText 4s ease-in-out infinite 0.6s;
+        }
+
+        @keyframes shimmerText {
+            0%   { background-position: 100% 50%; }
+            100% { background-position: -100% 50%; }
+        }
+
+        /* Subtitle fade-in */
         .pricing-header p {
             font-size: 18px;
             color: #8f8fbf;
             max-width: 600px;
             margin: 0 auto;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: wordReveal 0.5s ease forwards;
+            animation-delay: 250ms;
         }
 
+        /* ── 2 & 3. PRICING GRID + CARDS ── */
         .pricing-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -63,16 +111,125 @@
             flex-direction: column;
             position: relative;
             overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             backdrop-filter: blur(12px);
+            /* Entrance animation */
+            opacity: 0;
+            transform: translateY(40px);
+            animation: cardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            /* Hover transition */
+            transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
         }
 
+        /* Card entrance stagger */
+        .tier-card:nth-child(1) { animation-delay: 200ms; }
+        .tier-card:nth-child(2) { animation-delay: 320ms; }
+        .tier-card:nth-child(3) { animation-delay: 440ms; }
+
+        @keyframes cardEntrance {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Idle shimmer sweep pseudo-element ── */
+        .tier-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent 30%,
+                rgba(255, 255, 255, 0.045) 50%,
+                transparent 70%
+            );
+            transform: translateX(-100%);
+            pointer-events: none;
+            z-index: 1;
+            animation: idleShimmer 3.5s ease-in-out infinite;
+        }
+        .tier-card:nth-child(1)::before { animation-delay: 0s;   animation-duration: 3.5s; animation-iteration-count: infinite; animation-name: idleShimmerLoop; }
+        .tier-card:nth-child(2)::before { animation-delay: 2.2s; animation-duration: 3.5s; animation-iteration-count: infinite; animation-name: idleShimmerLoop; }
+        .tier-card:nth-child(3)::before { animation-delay: 4.4s; animation-duration: 3.5s; animation-iteration-count: infinite; animation-name: idleShimmerLoop; }
+
+        @keyframes idleShimmerLoop {
+            0%, 50%  { transform: translateX(-100%); }
+            100%     { transform: translateX(200%); }
+        }
+
+        /* ── Hover shimmer (one-shot, via ::after) ── */
+        .tier-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent 25%,
+                rgba(255, 255, 255, 0.08) 45%,
+                rgba(255, 255, 255, 0.12) 50%,
+                rgba(255, 255, 255, 0.08) 55%,
+                transparent 75%
+            );
+            transform: translateX(-100%);
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0;
+        }
+
+        .tier-card:hover::after {
+            animation: hoverShimmer 0.6s ease-out forwards;
+        }
+
+        @keyframes hoverShimmer {
+            0%   { transform: translateX(-100%); opacity: 1; }
+            100% { transform: translateX(200%);  opacity: 0; }
+        }
+
+        /* ── 4. CARD HOVER STATES — tier-specific ── */
         .tier-card:hover {
-            transform: translateY(-8px);
-            border-color: rgba(159, 85, 255, 0.3);
-            box-shadow: 0 20px 40px rgba(123, 47, 247, 0.15);
+            transform: translateY(-6px);
         }
 
+        .tier-card.bronze-card:hover {
+            border-color: rgba(180, 120, 40, 0.4);
+            box-shadow: 0 0 24px rgba(180, 120, 40, 0.35);
+        }
+
+        .tier-card.platinum-card:hover {
+            border-color: rgba(160, 200, 255, 0.35);
+            box-shadow: 0 0 24px rgba(160, 200, 255, 0.3);
+        }
+
+        .tier-card.diamond-card:hover {
+            border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 0 28px rgba(139, 92, 246, 0.5);
+        }
+
+        /* Feature highlight on hover — driven by JS adding .feature-highlight */
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+            color: #c5c5d0;
+            margin-bottom: 16px;
+            transition: filter 0.3s ease, color 0.3s ease;
+        }
+
+        .feature-item.feature-highlight {
+            filter: brightness(1.5);
+            color: #e8e0f0;
+        }
+
+        .feature-item svg {
+            color: #bf9bff;
+            flex-shrink: 0;
+        }
+
+        /* ── Current tier badge ── */
         .tier-card.current-tier {
             border-color: rgba(80, 220, 140, 0.4);
             box-shadow: 0 10px 30px rgba(80, 220, 140, 0.05);
@@ -91,6 +248,38 @@
             border: 1px solid rgba(80, 220, 140, 0.3);
         }
 
+        /* ── 5. DIAMOND CARD — Active Plan badge breathing + ambient glow ── */
+        .diamond-card.current-tier .tier-badge {
+            animation: badgeBreathe 2.5s ease-in-out infinite;
+        }
+
+        @keyframes badgeBreathe {
+            0%, 100% { border-color: rgba(80, 220, 140, 0.25); box-shadow: 0 0 6px rgba(80, 220, 140, 0.15); }
+            50%      { border-color: rgba(80, 220, 140, 0.7);  box-shadow: 0 0 16px rgba(80, 220, 140, 0.4); }
+        }
+
+        .tier-card.diamond-card {
+            background: radial-gradient(circle at 100% 0%, rgba(159, 85, 255, 0.18), transparent 50%), rgba(18, 18, 32, 0.7);
+            border-color: rgba(159, 85, 255, 0.15);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.18);
+        }
+
+        /* Stars twinkle */
+        .tier-stars .twinkle-star {
+            display: inline-block;
+            animation: starTwinkle 2.4s ease-in-out infinite;
+        }
+        .tier-stars .twinkle-star:nth-child(1) { animation-delay: 0ms; }
+        .tier-stars .twinkle-star:nth-child(2) { animation-delay: 300ms; }
+        .tier-stars .twinkle-star:nth-child(3) { animation-delay: 600ms; }
+
+        @keyframes starTwinkle {
+            0%, 100% { opacity: 0.55; transform: scale(1); }
+            40%      { opacity: 1;    transform: scale(1.25); }
+            60%      { opacity: 1;    transform: scale(1.25); }
+        }
+
+        /* ── Card tier backgrounds ── */
         .tier-card.bronze-card {
             background: radial-gradient(circle at 100% 0%, rgba(139, 115, 85, 0.08), transparent 50%), rgba(18, 18, 32, 0.6);
         }
@@ -99,11 +288,7 @@
             background: radial-gradient(circle at 100% 0%, rgba(85, 170, 255, 0.12), transparent 50%), rgba(18, 18, 32, 0.65);
         }
 
-        .tier-card.diamond-card {
-            background: radial-gradient(circle at 100% 0%, rgba(159, 85, 255, 0.18), transparent 50%), rgba(18, 18, 32, 0.7);
-            border-color: rgba(159, 85, 255, 0.15);
-        }
-
+        /* ── Other existing styles preserved ── */
         .tier-name {
             font-family: 'Outfit', sans-serif;
             font-size: 28px;
@@ -144,20 +329,6 @@
             margin: 0 0 40px;
             text-align: left;
             flex-grow: 1;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 15px;
-            color: #c5c5d0;
-            margin-bottom: 16px;
-        }
-
-        .feature-item svg {
-            color: #bf9bff;
-            flex-shrink: 0;
         }
 
         .tier-action-btn {
@@ -215,7 +386,11 @@
 
     <div class="pricing-section">
         <div class="pricing-header">
-            <h1>Choose Your Plan</h1>
+            <h1>
+                <span class="hero-word">Choose</span>
+                <span class="hero-word">Your</span>
+                <span class="hero-word hero-shimmer-word">Plan</span>
+            </h1>
             <p>Unlock more token budget, better tutor quality, and faster response speeds with our premium membership plans.</p>
         </div>
 
@@ -232,7 +407,7 @@
                     {% if tier.name == 'Platinum' %}
                     ⭐
                     {% elif tier.name == 'Diamond' %}
-                    ⭐⭐⭐
+                    <span class="twinkle-star">⭐</span><span class="twinkle-star">⭐</span><span class="twinkle-star">⭐</span>
                     {% endif %}
                 </div>
 
@@ -331,6 +506,28 @@
                 console.error("Global initiatePurchase function not found.");
             }
         }
+
+        /* ── Feature-item sequential highlight on card hover ── */
+        document.querySelectorAll('.tier-card').forEach(card => {
+            let highlightTimers = [];
+
+            card.addEventListener('mouseenter', () => {
+                const items = card.querySelectorAll('.feature-item');
+                items.forEach((item, i) => {
+                    const tOn = setTimeout(() => item.classList.add('feature-highlight'), i * 40);
+                    const tOff = setTimeout(() => item.classList.remove('feature-highlight'), i * 40 + 400);
+                    highlightTimers.push(tOn, tOff);
+                });
+            });
+
+            card.addEventListener('mouseleave', () => {
+                highlightTimers.forEach(t => clearTimeout(t));
+                highlightTimers = [];
+                card.querySelectorAll('.feature-item').forEach(item => {
+                    item.classList.remove('feature-highlight');
+                });
+            });
+        });
     </script>
 </body>
 </html>

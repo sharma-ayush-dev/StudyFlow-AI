@@ -39,21 +39,77 @@
         z-index: 5;
     }
 
+    /* ── Premium Crown Memberships Link ── */
     .nav-memberships-glow {
-        color: #d8b4fe !important;
-        font-weight: 700;
-        text-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
-        animation: pulse-glow 2s infinite alternate;
+        color: #fff8e7 !important;
+        font-weight: 500;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .nav-crown-icon {
+        width: 17px;
+        height: 17px;
+        flex-shrink: 0;
+        animation: crownFloat 2.5s ease-in-out infinite, crownGlow 2.5s ease-in-out infinite;
         position: relative;
     }
-    
-    @keyframes pulse-glow {
-        0% {
-            text-shadow: 0 0 4px rgba(168, 85, 247, 0.4);
-        }
-        100% {
-            text-shadow: 0 0 12px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.4);
-        }
+
+    /* Crown SVG gradient fill — applied via inline SVG defs */
+    .nav-crown-icon .crown-body {
+        fill: url(#crownGoldGradient);
+    }
+
+    /* ── 1. Idle float ── */
+    @keyframes crownFloat {
+        0%, 100% { transform: translateY(0px); }
+        50%      { transform: translateY(-3px); }
+    }
+
+    /* ── 2. Golden glow pulse ── */
+    @keyframes crownGlow {
+        0%, 100% { filter: drop-shadow(0 0 3px rgba(245, 180, 0, 0.4)); }
+        50%      { filter: drop-shadow(0 0 8px rgba(245, 180, 0, 0.85)); }
+    }
+
+    /* ── 3. Hover shimmer sweep ── */
+    .nav-crown-shimmer {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        border-radius: 2px;
+    }
+
+    .nav-crown-shimmer::after {
+        content: '';
+        position: absolute;
+        top: -20%;
+        left: -100%;
+        width: 60%;
+        height: 140%;
+        background: linear-gradient(
+            105deg,
+            transparent 30%,
+            rgba(255, 240, 180, 0.55) 45%,
+            rgba(255, 255, 255, 0.7) 50%,
+            rgba(255, 240, 180, 0.55) 55%,
+            transparent 70%
+        );
+        transform: skewX(-18deg);
+        transition: none;
+        opacity: 0;
+    }
+
+    .nav-memberships-glow:hover .nav-crown-shimmer::after {
+        animation: shimmerSweep 0.7s ease-out forwards;
+    }
+
+    @keyframes shimmerSweep {
+        0%   { left: -100%; opacity: 1; }
+        100% { left: 160%;  opacity: 0; }
     }
 
     .avatar-star-badge-diamond {
@@ -163,6 +219,21 @@
         </a>
         <a href="{{ url_for('pages.subscriptions_page') }}"
            class="nav-memberships-glow {{ 'nav-active' if request.endpoint == 'subscriptions_page' else '' }}">
+            <span class="nav-crown-icon" style="position:relative;display:inline-block;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" fill="none">
+                    <defs>
+                        <linearGradient id="crownGoldGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#f5c518"/>
+                            <stop offset="100%" stop-color="#c8960c"/>
+                        </linearGradient>
+                    </defs>
+                    <path class="crown-body" d="M2 17l2-9 4.5 4L12 4l3.5 8L20 8l2 9H2z"
+                          stroke="#c8960c" stroke-width="1" stroke-linejoin="round"/>
+                    <rect class="crown-body" x="2" y="17" width="20" height="3" rx="1"
+                          stroke="#c8960c" stroke-width="1"/>
+                </svg>
+                <span class="nav-crown-shimmer"></span>
+            </span>
             Memberships
         </a>
     </div>
