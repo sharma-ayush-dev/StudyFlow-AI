@@ -194,6 +194,36 @@
         border-radius: inherit;
         transition: width 0.3s ease;
     }
+
+    /* Force hamburger styles inline to bypass CSS caching */
+    @media (max-width: 1024px) {
+        #navHamburgerBtn {
+            display: flex !important;
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        .nav-links, .nav-user, .nav-login-btn {
+            display: none !important;
+        }
+        .main-nav {
+            width: calc(100% - 32px) !important;
+            max-width: none !important;
+            margin: 0 16px 40px 16px !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            box-sizing: border-box !important;
+        }
+    }
+    @media (min-width: 1025px) {
+        #navHamburgerBtn {
+            display: none !important;
+        }
+    }
 </style>
 
 <nav class="main-nav">
@@ -335,6 +365,76 @@
         Login
     </button>
     {% endif %}
+
+    <!-- Hamburger Menu (Mobile Only) -->
+    <button class="nav-hamburger" id="navHamburgerBtn" title="Menu" style="color: white; z-index: 2000; outline: none;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <!-- Mobile Side Drawer -->
+    <div class="nav-mobile-drawer" id="navMobileDrawer">
+        <button class="drawer-close-btn" id="drawerCloseBtn" title="Close Menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <div class="drawer-links">
+            {% if current_user.is_authenticated %}
+                <div class="drawer-section">
+                    <div class="drawer-section-title">Main</div>
+                    <a href="{{ url_for('upload_page') }}" class="{{ 'active' if request.endpoint == 'upload_page' else '' }}">Upload</a>
+                    <a href="{{ url_for('status_page') }}" class="{{ 'active' if request.endpoint == 'status_page' else '' }}">Topics</a>
+                    <a href="{{ url_for('schedule_page') }}" class="{{ 'active' if request.endpoint == 'schedule_page' else '' }}">Schedule</a>
+                    <a href="{{ url_for('progress_page') }}" class="{{ 'active' if request.endpoint == 'progress_page' else '' }}">Progress</a>
+                </div>
+                
+                <div class="drawer-section">
+                    <div class="drawer-section-title">Premium</div>
+                    <a href="{{ url_for('pages.subscriptions_page') }}" class="nav-memberships-glow {{ 'active' if request.endpoint == 'subscriptions_page' else '' }}">
+                        <span class="nav-crown-icon" style="position:relative;display:inline-block;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17" fill="none">
+                                <path class="crown-body" d="M2 17l2-9 4.5 4L12 4l3.5 8L20 8l2 9H2z" stroke="#c8960c" stroke-width="1" stroke-linejoin="round"/>
+                                <rect class="crown-body" x="2" y="17" width="20" height="3" rx="1" stroke="#c8960c" stroke-width="1"/>
+                            </svg>
+                            <span class="nav-crown-shimmer"></span>
+                        </span>
+                        Memberships
+                    </a>
+                </div>
+
+                <div class="drawer-section">
+                    <div class="drawer-section-title">Account</div>
+                    <a href="#" class="profile-link">Profile</a>
+                    <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint == 'settings_page' else '' }}">Account Settings</a>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}">Admin Panel</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">More</div>
+                <a href="{{ url_for('privacy') }}" class="{{ 'active' if request.endpoint == 'privacy' else '' }}">Privacy Policy</a>
+                <a href="{{ url_for('terms') }}" class="{{ 'active' if request.endpoint == 'terms' else '' }}">Terms of Service</a>
+                <a href="{{ url_for('contact') }}" class="{{ 'active' if request.endpoint == 'contact' else '' }}">Contact</a>
+            </div>
+
+            {% if current_user.is_authenticated %}
+                <div class="drawer-section" style="margin-top: auto; padding-top: 20px;">
+                    <a href="{{ url_for('logout') }}" class="drawer-logout">Logout</a>
+                </div>
+            {% else %}
+                <div class="drawer-section" style="margin-top: auto; padding-top: 50px;">
+                    <button class="btn-primary" id="drawerLoginBtn" style="width: 100%; padding: 12px; font-size: 16px;">Login</button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 </nav>
 
 {% if current_user.is_authenticated %}
@@ -345,17 +445,49 @@
 (function() {
     const btn = document.getElementById('navProfileBtn');
     const dropdown = document.getElementById('profileDropdown');
-    if (!btn || !dropdown) return;
+    if (btn && dropdown) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+        });
 
-    btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
-    });
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+                dropdown.classList.remove('open');
+            }
+        });
+    }
 
-    document.addEventListener('click', function(e) {
-        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-            dropdown.classList.remove('open');
-        }
-    });
+    const hamburgerBtn = document.getElementById('navHamburgerBtn');
+    const mobileDrawer = document.getElementById('navMobileDrawer');
+    const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+
+    if (hamburgerBtn && mobileDrawer && drawerCloseBtn) {
+        hamburgerBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            mobileDrawer.classList.add('drawer-open');
+        });
+
+        drawerCloseBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            mobileDrawer.classList.remove('drawer-open');
+        });
+
+        // Close on click outside
+        document.addEventListener('click', function(e) {
+            if (mobileDrawer.classList.contains('drawer-open') && !mobileDrawer.contains(e.target)) {
+                mobileDrawer.classList.remove('drawer-open');
+            }
+        });
+    }
+
+    const drawerLoginBtn = document.getElementById('drawerLoginBtn');
+    if (drawerLoginBtn) {
+        drawerLoginBtn.addEventListener('click', function(e) {
+            const mainAuthBtn = document.getElementById('openAuthBtn');
+            if (mainAuthBtn) mainAuthBtn.click();
+            if (mobileDrawer) mobileDrawer.classList.remove('drawer-open');
+        });
+    }
 })();
 </script>
