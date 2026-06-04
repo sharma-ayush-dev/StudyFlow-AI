@@ -228,8 +228,15 @@
     <h3>Reset Password</h3>
     <p>Enter the 6-digit OTP sent to your email, then choose a new password.</p>
     <div class="field-group">
-        <label class="field-label">OTP code</label>
-        <input id="otpCode" class="field-input" type="text" placeholder="######" maxlength="6" style="letter-spacing: 2px; text-align: center; font-size: 16px; font-weight: bold;">
+        <label class="field-label" style="display: block; text-align: center; margin-bottom: 8px;">OTP code</label>
+        <div class="otp-digits-container" id="settingsOtpContainer">
+            <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+            <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+            <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+            <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+            <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+            <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+        </div>
     </div>
     <div class="field-group">
         <label class="field-label">New password</label>
@@ -305,36 +312,153 @@ document.getElementById('sendOtpBtn').addEventListener('click', async () => {
     btn.disabled = true; btn.textContent = 'Sending…';
     const [ok, d] = await post('/forgot_password', { email: userEmail });
     btn.disabled = false; btn.textContent = 'Send OTP';
-    fb('otpSendFb', ok ? d.message : d.error, !ok);
-    if (ok) document.getElementById('otpOverlay').classList.remove('hidden');
+    if (!ok) fb('otpSendFb', d.error, true);
+    if (ok) {
+        document.getElementById('otpOverlay').classList.remove('hidden');
+        setTimeout(() => {
+            document.querySelector('#settingsOtpContainer .otp-digit')?.focus();
+        }, 50);
+    }
 });
 
 // ── VERIFY OTP & RESET ──
 document.getElementById('verifyOtpBtn').addEventListener('click', async () => {
-    const code    = document.getElementById('otpCode').value.trim();
+    const container = document.getElementById('settingsOtpContainer');
+    const code    = getOtpCode(container);
     const newPw   = document.getElementById('otpNewPw').value;
     const confirm = document.getElementById('otpConfirmPw').value;
-    if (!code)              { fb('otpModalFb', 'Enter the OTP code.', true); return; }
-    if (newPw.length < 8)   { fb('otpModalFb', 'Password must be at least 8 characters.', true); return; }
-    if (newPw !== confirm)  { fb('otpModalFb', 'Passwords do not match.', true); return; }
+    if (!code || code.length < 6) { fb('otpModalFb', 'Enter the 6-digit OTP code.', true); applyOtpStyle(container, false); return; }
+    if (newPw.length < 8)   { fb('otpModalFb', 'Password must be at least 8 characters.', true); applyOtpStyle(container, false); return; }
+    if (newPw !== confirm)  { fb('otpModalFb', 'Passwords do not match.', true); applyOtpStyle(container, false); return; }
 
     // Step 1: verify OTP
     const [okV, dV] = await post('/verify_reset_otp', { email: userEmail, otp: code });
-    if (!okV) { fb('otpModalFb', dV.error, true); return; }
+    if (!okV) { 
+        fb('otpModalFb', dV.error, true); 
+        applyOtpStyle(container, false);
+        return; 
+    }
     resetToken = dV.token;
 
     // Step 2: reset password
     const [okR, dR] = await post('/reset_password',
         { email: userEmail, token: resetToken, password: newPw });
-    if (!okR) { fb('otpModalFb', dR.error, true); return; }
+    if (!okR) { 
+        fb('otpModalFb', dR.error, true); 
+        applyOtpStyle(container, false);
+        return; 
+    }
 
-    document.getElementById('otpOverlay').classList.add('hidden');
-    fb('otpSendFb', '✓ Password reset successfully!', false);
+    applyOtpStyle(container, true);
+    setTimeout(() => {
+        document.getElementById('otpOverlay').classList.add('hidden');
+        fb('otpSendFb', '✓ Password reset successfully!', false);
+        // Clear inputs
+        container.querySelectorAll('.otp-digit').forEach(input => input.value = '');
+        resetOtpStyles(container);
+        document.getElementById('otpNewPw').value = '';
+        document.getElementById('otpConfirmPw').value = '';
+    }, 600);
 });
 
 document.getElementById('cancelOtpBtn').addEventListener('click', () => {
     document.getElementById('otpOverlay').classList.add('hidden');
+    const container = document.getElementById('settingsOtpContainer');
+    if (container) {
+        container.querySelectorAll('.otp-digit').forEach(input => input.value = '');
+        resetOtpStyles(container);
+    }
+    document.getElementById('otpNewPw').value = '';
+    document.getElementById('otpConfirmPw').value = '';
 });
+
+// ── OTP HELPER FUNCTIONS ──
+function getOtpCode(container) {
+    if (!container) return '';
+    const inputs = container.querySelectorAll('.otp-digit');
+    let code = '';
+    inputs.forEach(input => code += input.value.trim());
+    return code;
+}
+
+function resetOtpStyles(container) {
+    if (!container) return;
+    const inputs = container.querySelectorAll('.otp-digit');
+    inputs.forEach(input => {
+        input.classList.remove('success', 'error');
+    });
+}
+
+function applyOtpStyle(container, isSuccess) {
+    if (!container) return;
+    const inputs = container.querySelectorAll('.otp-digit');
+    inputs.forEach(input => {
+        input.classList.remove('success', 'error');
+        input.classList.add(isSuccess ? 'success' : 'error');
+    });
+}
+
+function initOtpInputs(containerId, submitBtnId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const inputs = container.querySelectorAll('.otp-digit');
+    const submitBtn = document.getElementById(submitBtnId);
+
+    inputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            const val = e.target.value;
+            e.target.value = val.replace(/[^0-9]/g, '');
+            if (e.target.value.length > 0) {
+                if (index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            }
+            resetOtpStyles(container);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            resetOtpStyles(container);
+            if (e.key === 'Backspace') {
+                if (input.value === '') {
+                    if (index > 0) {
+                        inputs[index - 1].focus();
+                        inputs[index - 1].value = '';
+                    }
+                } else {
+                    input.value = '';
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft') {
+                if (index > 0) inputs[index - 1].focus();
+            } else if (e.key === 'ArrowRight') {
+                if (index < inputs.length - 1) inputs[index + 1].focus();
+            } else if (e.key === 'Enter') {
+                submitBtn?.click();
+            }
+        });
+
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            resetOtpStyles(container);
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text').trim();
+            if (/^\d{6}$/.test(pastedData)) {
+                for (let i = 0; i < inputs.length; i++) {
+                    inputs[i].value = pastedData[i];
+                }
+                inputs[inputs.length - 1].focus();
+            } else if (/^\d+$/.test(pastedData)) {
+                let fillLen = Math.min(pastedData.length, inputs.length - index);
+                for (let i = 0; i < fillLen; i++) {
+                    inputs[index + i].value = pastedData[i];
+                }
+                inputs[Math.min(index + fillLen, inputs.length - 1)].focus();
+            }
+        });
+    });
+}
+
+// Initialize settings OTP inputs
+initOtpInputs('settingsOtpContainer', 'verifyOtpBtn');
 </script>
 
 {% include '_footer.html' %}

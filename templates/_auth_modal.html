@@ -56,8 +56,15 @@
             </div>
 
             <div id="otpVerifySection" class="hidden" style="margin-top: 15px;">
-                <label class="auth-label">Enter 6-Digit OTP</label>
-                <input id="otpCode" class="auth-input" type="text" placeholder="######" maxlength="6" style="letter-spacing: 4px; text-align: center; font-size: 18px; font-weight: bold;">
+                <label class="auth-label" style="display: block; text-align: center; margin-bottom: 8px;">Enter 6-Digit OTP</label>
+                <div class="otp-digits-container" id="loginOtpContainer">
+                    <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                    <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                    <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                    <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                    <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                    <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                </div>
                 <button type="button" id="verifyOtpSubmit" class="auth-btn" style="width: 100%; margin-top: 15px;">Verify & Log In</button>
             </div>
         </div>
