@@ -21,56 +21,104 @@
 
     <!-- Google Fonts — better reading experience -->
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 </head>
 
 <body>
+    
+    <style>
+        body { background: #111118; }
+        .main-nav { 
+            background: rgba(17, 17, 24, 0.8); 
+            border-color: rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+    </style>
 
     {% include '_navbar.html' %}
 
     <div class="study-layout">
 
+        <!-- ═══ AMBIENT BACKGROUND ═══ -->
+        <div class="ambient-blobs">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+        </div>
+
         <!-- ═══ LEFT SIDEBAR ═══ -->
-        <aside class="study-sidebar">
+        <div class="sidebar-wrapper" id="sidebarWrapper">
+            <aside class="study-sidebar">
 
-            <div class="sidebar-subject">{{ subject }}</div>
-            <h2 class="sidebar-topic">{{ topic }}</h2>
-
-            {% if hours %}
-            <div class="sidebar-pill">⏱ {{ hours }}h allocated today</div>
-            {% endif %}
-
-            {% if subtopics %}
-            <div class="sidebar-section-title">Today's subtopics</div>
-            <ul class="subtopic-list">
-                {% for s in subtopics %}
-                <li class="subtopic-item" id="sub-{{ loop.index0 }}">{{ s }}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-
-            <div style="flex:1;"></div>
-
-            <!-- Font size controls -->
-            <div class="font-size-controls">
-                <span class="font-size-label">Text size</span>
-                <div class="font-size-btns">
-                    <button class="font-btn" id="fontDecBtn" title="Smaller">A−</button>
-                    <span id="fontSizeDisplay">16px</span>
-                    <button class="font-btn" id="fontIncBtn" title="Larger">A+</button>
+                <!-- Sidebar header with inline toggle -->
+                <div class="sidebar-header">
+                    <div>
+                        <div class="sidebar-subject">{{ subject }}</div>
+                        <h2 class="sidebar-topic">{{ topic }}</h2>
+                    </div>
+                    <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Collapse sidebar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="3" />
+                            <line x1="9" y1="3" x2="9" y2="21" />
+                        </svg>
+                    </button>
                 </div>
-            </div>
 
-            <button class="quiz-btn" id="quizBtn">🎯 Quiz Me</button>
+                {% if hours %}
+                <div class="sidebar-timer">
+                    <svg class="timer-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>{{ hours }}h allocated today</span>
+                </div>
+                {% endif %}
 
-            <a href="{{ url_for('schedule_page') }}" class="back-link">← Back to Schedule</a>
+                <div class="sidebar-section-title">Today's subtopics</div>
+                {% if subtopics %}
+                <ul class="subtopic-list">
+                    {% for s in subtopics %}
+                    <li class="subtopic-item" id="sub-{{ loop.index0 }}" style="animation-delay: {{ loop.index0 * 100 + 100 }}ms">{{ s }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="subtopics-empty">No specific subtopics planned for today.</div>
+                {% endif %}
 
-        </aside>
+                <div style="flex:1;"></div>
+
+                <!-- Font size controls -->
+                <div class="font-size-controls">
+                    <span class="font-size-label">Text size</span>
+                    <div class="font-toggle-group">
+                        <button class="font-toggle-btn" id="fontDecBtn" title="Smaller">A−</button>
+                        <div class="font-toggle-divider"></div>
+                        <button class="font-toggle-btn" id="fontIncBtn" title="Larger">A+</button>
+                    </div>
+                </div>
+
+                <button class="quiz-btn" id="quizBtn">🎯 Quiz Me</button>
+
+                <a href="{{ url_for('schedule_page') }}" class="back-link">← Back to Schedule</a>
+
+            </aside>
+        </div>
+
+        <!-- Expand button — lives outside sidebar-wrapper so it never slides off -->
+        <button class="sidebar-expand-btn" id="sidebarExpandBtn" title="Open sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+                <polyline points="14 9 17 12 14 15" />
+            </svg>
+        </button>
 
 
         <!-- ═══ CHAT PANEL ═══ -->
         <main class="chat-panel">
+            <div class="reading-progress-container">
+                <div class="reading-progress-bar" id="readingProgressBar"></div>
+            </div>
 
             <div class="chat-messages" id="chatMessages">
                 <div class="sf-chat-loading" id="chatLoading">
@@ -91,8 +139,7 @@
 
             <!-- INPUT ROW -->
             <div class="chat-input-row">
-                <textarea id="chatInput" class="chat-textarea" placeholder="Ask a question, or say 'continue'…"
-                    rows="1"></textarea>
+                <textarea id="chatInput" class="chat-textarea" placeholder="Ask a question, or say 'continue'…"></textarea>
                 <button class="send-btn" id="sendBtn">Send</button>
             </div>
 

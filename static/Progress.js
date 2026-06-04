@@ -14,9 +14,24 @@ function formatDateToCustom(dateStr) {
         const dateObj = new Date(year, month - 1, day);
         if (isNaN(dateObj.getTime())) return dateStr;
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthShort = dateObj.toLocaleDateString('en-US', { month: 'short' });
+        const shortYear = String(year).slice(-2);
+        return `${dayName}\n${day} ${monthShort} '${shortYear}`;
+    } catch (e) {
+        return dateStr;
+    }
+}
+
+/** Same as formatDateToCustom but returns a single-line string (for non-card uses). */
+function formatDateSingleLine(dateStr) {
+    try {
+        const [day, month, year] = dateStr.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        if (isNaN(dateObj.getTime())) return dateStr;
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
         const monthName = dateObj.toLocaleDateString('en-US', { month: 'long' });
         const shortYear = String(year).slice(-2);
-        return `${dayName} ${day} ${monthName} ${shortYear}`;
+        return `${dayName} ${day} ${monthName} '${shortYear}`;
     } catch (e) {
         return dateStr;
     }
@@ -55,7 +70,20 @@ function renderTopicList() {
         return;
     }
 
-    Object.entries(subjects).forEach(([subjName, topics]) => {
+    const examDates = topicStatus.Exam_dates || {};
+
+    // Sort subjects chronologically by their exam date; no-date subjects go last
+    const dmyToMs = dmy => {
+        if (!dmy) return Infinity;
+        const [d, m, y] = dmy.split('-').map(Number);
+        return new Date(y, m - 1, d).getTime();
+    };
+    const sortedSubjects = Object.keys(subjects).sort(
+        (a, b) => dmyToMs(examDates[a]) - dmyToMs(examDates[b])
+    );
+
+    sortedSubjects.forEach(subjName => {
+        const topics = subjects[subjName];
 
         const block = document.createElement('div');
         block.className = 'subject-block';
@@ -244,14 +272,45 @@ function renderRegenerationControls() {
 
     const days = topicStatus.study_days || {};
     hoursList.innerHTML = '';
-    Object.entries(days).forEach(([date, value]) => {
-        const row = document.createElement('label');
+
+    // Sort dates chronologically (DD-MM-YYYY → actual Date)
+    const sortedDates = Object.keys(days).sort((a, b) => {
+        const toMs = s => { const [d, m, y] = s.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
+        return toMs(a) - toMs(b);
+    });
+
+    sortedDates.forEach(date => {
+        const value = days[date];
+        const row = document.createElement('div');
         row.className = 'regen-hour-row';
         row.dataset.date = date;
 
-        const dateEl = document.createElement('span');
+        // Two-line date label
+        const dateEl = document.createElement('div');
         dateEl.className = 'regen-hour-date';
-        dateEl.textContent = formatDateToCustom(date);
+        const [d, m, y] = date.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+        const monthShort = dateObj.toLocaleDateString('en-US', { month: 'short' });
+        const shortYear = String(y).slice(-2);
+        const lineDay = document.createElement('span');
+        lineDay.className = 'regen-hour-date-weekday';
+        lineDay.textContent = dayName;
+        const lineDate = document.createElement('span');
+        lineDate.className = 'regen-hour-date-short';
+        lineDate.textContent = `${d} ${monthShort} '${shortYear}`;
+        dateEl.appendChild(lineDay);
+        dateEl.appendChild(lineDate);
+
+        // Stepper widget
+        const stepper = document.createElement('div');
+        stepper.className = 'regen-hours-stepper';
+
+        const minusBtn = document.createElement('button');
+        minusBtn.type = 'button';
+        minusBtn.className = 'regen-step-btn';
+        minusBtn.textContent = '\u2212';
+        minusBtn.setAttribute('aria-label', `Decrease hours for ${date}`);
 
         const input = document.createElement('input');
         input.className = 'regen-hour-input';
@@ -262,8 +321,32 @@ function renderRegenerationControls() {
         input.value = value && value !== 'none' ? value : '0';
         input.setAttribute('aria-label', `Study hours for ${date}`);
 
+        const plusBtn = document.createElement('button');
+        plusBtn.type = 'button';
+        plusBtn.className = 'regen-step-btn';
+        plusBtn.textContent = '+';
+        plusBtn.setAttribute('aria-label', `Increase hours for ${date}`);
+
+        minusBtn.addEventListener('click', () => {
+            const v = Math.max(0, parseInt(input.value || 0) - 1);
+            input.value = v;
+        });
+        plusBtn.addEventListener('click', () => {
+            const v = Math.min(24, parseInt(input.value || 0) + 1);
+            input.value = v;
+        });
+        input.addEventListener('input', () => {
+            let v = parseInt(input.value);
+            if (isNaN(v)) v = 0;
+            input.value = Math.max(0, Math.min(24, v));
+        });
+
+        stepper.appendChild(minusBtn);
+        stepper.appendChild(input);
+        stepper.appendChild(plusBtn);
+
         row.appendChild(dateEl);
-        row.appendChild(input);
+        row.appendChild(stepper);
         hoursList.appendChild(row);
     });
 
@@ -271,15 +354,41 @@ function renderRegenerationControls() {
         hoursList.innerHTML = '<p style="color:#777;font-size:13px;">No study days are available yet.</p>';
     }
 
+    // Wire up the preset-row stepper (weekday hours input)
+    const weekdayMinus = document.getElementById('weekdayMinus');
+    const weekdayPlus  = document.getElementById('weekdayPlus');
+    const weekdayInput = document.getElementById('weekdayHoursInput');
+    if (weekdayInput) {
+        if (weekdayMinus) weekdayMinus.addEventListener('click', () => {
+            weekdayInput.value = Math.max(0, parseInt(weekdayInput.value || 0) - 1);
+        });
+        if (weekdayPlus) weekdayPlus.addEventListener('click', () => {
+            weekdayInput.value = Math.min(24, parseInt(weekdayInput.value || 0) + 1);
+        });
+        weekdayInput.addEventListener('input', () => {
+            let v = parseInt(weekdayInput.value);
+            if (isNaN(v)) v = 0;
+            weekdayInput.value = Math.max(0, Math.min(24, v));
+        });
+    }
+
     document.getElementById('applyHoursPreset')?.addEventListener('click', () => {
-        const valInput = document.getElementById('weekdayHoursInput');
-        const hVal = valInput ? valInput.value : '3';
+        const hVal = weekdayInput ? String(Math.max(0, Math.min(24, parseInt(weekdayInput.value || '3', 10)))) : '3';
+        let changed = 0;
         document.querySelectorAll('.regen-hour-row').forEach(row => {
             const [day, month, year] = row.dataset.date.split('-').map(Number);
             const weekday = new Date(year, month - 1, day).getDay();
-            row.querySelector('input').value = weekday === 0 ? '1' : hVal;
+            // Only Mon (1) → Fri (5); leave Sat (6) and Sun (0) untouched
+            if (weekday >= 1 && weekday <= 5) {
+                row.querySelector('input').value = hVal;
+                changed++;
+            }
         });
-        StudyFlowToast.info('Study hours updated. You can fine-tune any day.');
+        if (changed > 0) {
+            StudyFlowToast.info(`Set ${changed} weekday${changed !== 1 ? 's' : ''} to ${hVal}h. Fine-tune any day.`);
+        } else {
+            StudyFlowToast.info('No weekdays found in this range.');
+        }
     });
 }
 
@@ -563,7 +672,23 @@ function renderScheduleInto(containerId, scheduleData) {
 
         const dateTitle = document.createElement('div');
         dateTitle.className = 'cmp-date-title';
-        dateTitle.textContent = formatDateToCustom(date);
+        try {
+            const [day, month, year] = date.split('-').map(Number);
+            const dateObj = new Date(year, month - 1, day);
+            if (!isNaN(dateObj.getTime())) {
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                const monthShort = dateObj.toLocaleDateString('en-US', { month: 'short' });
+                dateTitle.innerHTML = `
+                    <span class="cmp-date-dayname">${dayName}</span>
+                    <span class="cmp-date-divider">·</span>
+                    <span class="cmp-date-number">${day} ${monthShort}</span>
+                `;
+            } else {
+                dateTitle.textContent = date;
+            }
+        } catch (e) {
+            dateTitle.textContent = date;
+        }
         dateBlock.appendChild(dateTitle);
 
         Object.entries(scheduleData[date]).forEach(([subj, topics]) => {
@@ -604,6 +729,14 @@ function renderScheduleInto(containerId, scheduleData) {
 function renderComparison(oldSched, newSched) {
     renderScheduleInto('oldScheduleContent', oldSched);
     renderScheduleInto('newScheduleContent', newSched);
+    
+    const oldCard = document.getElementById('currentScheduleCard');
+    const newCard = document.getElementById('newScheduleCard');
+    if (oldCard && newCard) {
+        oldCard.classList.remove('selected');
+        newCard.classList.add('selected');
+    }
+
     document.getElementById('comparisonSection').classList.remove('hidden');
     document.getElementById('progressWrapper').style.display = 'none';
     document.getElementById('progressActions').style.display = 'none';
@@ -642,6 +775,22 @@ document.getElementById('keepNewBtn').addEventListener('click', () => handleKeep
 document.addEventListener('click', () => {
     document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('active'));
 });
+
+// Card selection handlers
+const oldCard = document.getElementById('currentScheduleCard');
+const newCard = document.getElementById('newScheduleCard');
+if (oldCard && newCard) {
+    oldCard.addEventListener('click', (e) => {
+        if (e.target.closest('.keep-btn')) return;
+        oldCard.classList.add('selected');
+        newCard.classList.remove('selected');
+    });
+    newCard.addEventListener('click', (e) => {
+        if (e.target.closest('.keep-btn')) return;
+        newCard.classList.add('selected');
+        oldCard.classList.remove('selected');
+    });
+}
 
 renderTopicList();
 renderRegenerationControls();

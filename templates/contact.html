@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,16 +17,20 @@
             font-weight: 500;
             transition: 0.3s ease;
         }
+
         .back-home-link:hover {
             color: #9f55ff;
         }
+
         .back-home-link svg {
             margin-right: 8px;
             transition: 0.3s ease;
         }
+
         .back-home-link:hover svg {
             color: #7b2ff7;
         }
+
         .contact-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -36,10 +41,15 @@
             position: relative;
             z-index: 1;
         }
+
         body {
             background-color: transparent !important;
         }
-        .contact-info { flex: 1; }
+
+        .contact-info {
+            flex: 1;
+        }
+
         .contact-info h1 {
             font-size: 52px;
             font-weight: 700;
@@ -57,17 +67,20 @@
             margin-bottom: 40px;
             line-height: 1.6;
         }
-        .contact-info .badge, 
-        .contact-info h1, 
+
+        .contact-info .badge,
+        .contact-info h1,
         .contact-info p {
             animation: fadeIn 0.8s ease-out both;
         }
+
         .info-cards {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             animation: fadeIn 0.8s ease-out 0.2s both;
         }
+
         .info-card {
             background: rgba(12, 12, 18, 0.8);
             backdrop-filter: blur(20px);
@@ -76,6 +89,7 @@
             padding: 24px;
             border-radius: 16px;
         }
+
         .info-card h3 {
             color: #9f55ff;
             font-size: 14px;
@@ -83,14 +97,29 @@
             text-transform: uppercase;
             margin-bottom: 10px;
         }
+
         .info-card span {
             color: white;
             font-size: 16px;
 
         }
-        .info-card:hover { border-color: rgba(123,47,247,0.3); }
-        .info-card h3 { color: #9f55ff; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-        .info-card span { color: white; font-size: 15px; }
+
+        .info-card:hover {
+            border-color: rgba(123, 47, 247, 0.3);
+        }
+
+        .info-card h3 {
+            color: #9f55ff;
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .info-card span {
+            color: white;
+            font-size: 15px;
+        }
 
         .contact-form-area {
             flex: 1;
@@ -101,29 +130,175 @@
             padding: 48px;
 
             border-radius: 24px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
             animation: fadeIn 0.8s ease-out 0.3s both;
         }
-        .form-group { margin-bottom: 20px; }
-        .form-label { display: block; color: #888; font-size: 13px; margin-bottom: 8px; }
-        .form-input, .form-textarea {
+
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .form-label .required-asterisk {
+            color: #EF4444;
+            margin-left: 3px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-input,
+        .form-textarea {
             width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             padding: 13px 16px;
             color: white;
             font-size: 15px;
             font-family: 'Inter', sans-serif;
-            transition: 0.2s;
+            transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
             box-sizing: border-box;
         }
-        .form-input:focus, .form-textarea:focus {
+
+        .form-input:focus,
+        .form-textarea:focus {
             outline: none;
-            border-color: rgba(123,47,247,0.5);
-            background: rgba(123,47,247,0.04);
+            border-color: rgba(123, 47, 247, 0.6);
+            background: rgba(123, 47, 247, 0.04);
+            box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15), 0 0 20px rgba(123, 47, 247, 0.08);
         }
-        .form-textarea { height: 140px; resize: none; }
+
+        .form-input.invalid,
+        .form-textarea.invalid {
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .form-input.invalid:focus,
+        .form-textarea.invalid:focus {
+            border-color: rgba(239, 68, 68, 0.6);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12), 0 0 20px rgba(239, 68, 68, 0.06);
+        }
+
+        .form-textarea {
+            height: 140px;
+            resize: none;
+            overflow-y: auto;
+
+            /* ── Firefox scrollbar ── */
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+            transition: border-color 0.3s ease, background 0.3s ease,
+                box-shadow 0.3s ease, scrollbar-color 0.2s ease;
+        }
+
+        .form-textarea:hover {
+            scrollbar-color: rgba(123, 47, 247, 0.45) rgba(255, 255, 255, 0.04);
+        }
+
+        .form-textarea:focus {
+            scrollbar-color: rgba(159, 85, 255, 0.55) rgba(123, 47, 247, 0.06);
+        }
+
+        /* ── Webkit / Blink scrollbar (Chrome, Edge, Safari, Brave) ── */
+        .form-textarea::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .form-textarea::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 8px;
+            margin: 6px 0;
+            transition: background 0.2s ease;
+        }
+
+        .form-textarea::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 8px;
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        /* Show thumb on hover */
+        .form-textarea:hover::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #7b2ff7 0%, #9f55ff 100%);
+            box-shadow: 0 0 6px rgba(123, 47, 247, 0.3);
+        }
+
+        .form-textarea:hover::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .form-textarea:hover::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #8c46ff 0%, #b37fff 100%);
+            box-shadow: 0 0 10px rgba(159, 85, 255, 0.4);
+        }
+
+        /* Glow on focus */
+        .form-textarea:focus::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #9f55ff 0%, #b37fff 100%);
+            box-shadow: 0 0 8px rgba(159, 85, 255, 0.45);
+        }
+
+        .form-textarea:focus::-webkit-scrollbar-track {
+            background: rgba(123, 47, 247, 0.05);
+        }
+
+
+        /* ── Inline Validation Messages ── */
+        .field-error {
+            display: block;
+            color: #EF4444;
+            font-size: 12px;
+            margin-top: 6px;
+            padding-left: 2px;
+            opacity: 0;
+            transform: translateY(-4px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: none;
+            height: 0;
+            overflow: hidden;
+        }
+
+        .field-error.visible {
+            opacity: 1;
+            transform: translateY(0);
+            height: auto;
+            margin-top: 6px;
+        }
+
+        /* ── Character Counters ── */
+        .char-counter {
+            display: block;
+            text-align: right;
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+            font-variant-numeric: tabular-nums;
+            transition: color 0.3s ease;
+        }
+
+        .char-counter.warning {
+            color: #F59E0B;
+        }
+
+        .char-counter.danger {
+            color: #EF4444;
+        }
+
+        /* ── Submit button disabled state ── */
+        .btn-primary:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: saturate(0.5);
+            transform: none !important;
+        }
+
         .form-feedback {
             margin-top: 14px;
             padding: 12px 16px;
@@ -131,171 +306,297 @@
             font-size: 14px;
             display: none;
         }
+
         .form-feedback.success {
-            background: rgba(76,217,138,0.1);
-            border: 1px solid rgba(76,217,138,0.3);
+            background: rgba(76, 217, 138, 0.1);
+            border: 1px solid rgba(76, 217, 138, 0.3);
             color: #4cd98a;
             display: block;
         }
+
         .form-feedback.error {
-            background: rgba(220,50,50,0.1);
-            border: 1px solid rgba(220,50,50,0.3);
+            background: rgba(220, 50, 50, 0.1);
+            border: 1px solid rgba(220, 50, 50, 0.3);
             color: #ff7c7c;
             display: block;
         }
+
         @media (max-width: 992px) {
-            .contact-container { flex-direction: column; padding-top: 60px; }
-            .contact-info h1 { font-size: 38px; }
+            .contact-container {
+                flex-direction: column;
+                padding-top: 60px;
+            }
+
+            .contact-info h1 {
+                font-size: 38px;
+            }
         }
     </style>
 </head>
+
 <body>
-{% include '_ambient_bg.html' %}
-{% include '_navbar.html' %}
+    {% include '_ambient_bg.html' %}
+    {% include '_navbar.html' %}
 
-<main class="contact-container">
-    <div class="contact-info">
-        <div class="badge">Get in Touch</div>
-        <h1>Have questions? We're here to help.</h1>
-        <p>Whether you need support, have a feature suggestion, or just want to say hello — we'd love to hear from you.</p>
-        <div class="info-cards">
-            <div class="info-card">
-                <h3>Email</h3>
-                <span>support@studyflowai.app</span>
+    <main class="contact-container">
+        <div class="contact-info">
+            <div class="badge">Get in Touch</div>
+            <h1>Have questions? We're here to help.</h1>
+            <p>Whether you need support, have a feature suggestion, or just want to say hello — we'd love to hear from
+                you.</p>
+            <div class="info-cards">
+                <div class="info-card">
+                    <h3>Email</h3>
+                    <span>support@studyflowai.app</span>
+                </div>
+                <div class="info-card">
+                    <h3>Response</h3>
+                    <span>Within 24 hours</span>
+                </div>
+                <div class="info-card">
+                    <h3>Follow</h3>
+                    <span>@studyflow_ai</span>
+                </div>
+                <div class="info-card">
+                    <h3>Status</h3>
+                    <span>All systems normal</span>
+                </div>
             </div>
-            <div class="info-card">
-                <h3>Response</h3>
-                <span>Within 24 hours</span>
-            </div>
-            <div class="info-card">
-                <h3>Follow</h3>
-                <span>@studyflow_ai</span>
-            </div>
-            <div class="info-card">
-                <h3>Status</h3>
-                <span>All systems normal</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="contact-form-area">
-        {% if current_user.is_authenticated %}
-        <div class="form-group">
-            <label class="form-label">Full Name</label>
-            <input type="text" class="form-input" id="contactName" placeholder="Your Name" maxlength="100" 
-                   value="{{ current_user.full_name if current_user.is_authenticated and current_user.full_name else '' }}" required>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Email Address</label>
-            <input type="email" class="form-input" id="contactEmail"
-                   placeholder="you@example.com"
-                   value="{{ current_user.email if current_user.is_authenticated else '' }}" maxlength="120" required>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Subject</label>
-            <input type="text" class="form-input" id="contactSubject" placeholder="How can we help?" maxlength="200" required>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Message <span style="font-size: 11px; color: #888;">(Max 1000 characters)</span></label>
-            <textarea class="form-textarea" id="contactMessage" placeholder="Your message…" maxlength="1000" required></textarea>
         </div>
 
-        <button class="btn-primary" id="contactSubmitBtn" style="width:100%;font-size:16px;padding:14px;">
-            Send Message
-        </button>
+        <div class="contact-form-area">
+            {% if current_user.is_authenticated %}
+            <div class="form-group">
+                <label class="form-label" for="contactName">Full Name<span class="required-asterisk"
+                        aria-hidden="true">*</span></label>
+                <input type="text" class="form-input" id="contactName" placeholder="Your Name" maxlength="100"
+                    value="{{ current_user.full_name if current_user.is_authenticated and current_user.full_name else '' }}"
+                    required aria-required="true">
+                <span class="field-error" id="contactNameError" role="alert"></span>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="contactEmail">Email Address<span class="required-asterisk"
+                        aria-hidden="true">*</span></label>
+                <input type="email" class="form-input" id="contactEmail" placeholder="you@example.com"
+                    value="{{ current_user.email if current_user.is_authenticated else '' }}" maxlength="120" required
+                    aria-required="true">
+                <span class="field-error" id="contactEmailError" role="alert"></span>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="contactSubject">Subject<span class="required-asterisk"
+                        aria-hidden="true">*</span></label>
+                <input type="text" class="form-input" id="contactSubject" placeholder="How can we help?" maxlength="200"
+                    required aria-required="true">
+                <span class="field-error" id="contactSubjectError" role="alert"></span>
+                <span class="char-counter" id="subjectCounter" aria-live="polite">0 / 200</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="contactMessage">Message<span class="required-asterisk"
+                        aria-hidden="true">*</span></label>
+                <textarea class="form-textarea" id="contactMessage" placeholder="Your message…" maxlength="1000"
+                    required aria-required="true"></textarea>
+                <span class="field-error" id="contactMessageError" role="alert"></span>
+                <span class="char-counter" id="messageCounter" aria-live="polite">0 / 1000</span>
+            </div>
 
-        <div class="form-feedback" id="contactFeedback"></div>
-        {% else %}
-        <div style="text-align: center; padding: 40px 10px;">
-            <div style="font-size: 50px; margin-bottom: 24px; filter: drop-shadow(0 0 10px rgba(159,85,255,0.3));">🔒</div>
-            <h2 style="color: white; font-size: 24px; margin-bottom: 12px; font-weight: 600;">Sign in to contact support</h2>
-            <p style="color: #a0a0a5; font-size: 15px; line-height: 1.5; margin-bottom: 30px; max-width: 320px; margin-left: auto; margin-right: auto;">
-                Please log in or create a StudyFlow account to send messages to our support team.
-            </p>
-            <button class="btn-primary" onclick="openAuth('login')" style="padding: 12px 32px; font-size: 15px; border-radius: 30px; box-shadow: 0 4px 15px rgba(123,47,247,0.4);">
-                Log In / Register
+            <button class="btn-primary" id="contactSubmitBtn" disabled style="width:100%;font-size:16px;padding:14px;">
+                Send Message
             </button>
+
+            <div class="form-feedback" id="contactFeedback"></div>
+            {% else %}
+            <div style="text-align: center; padding: 40px 10px;">
+                <div style="font-size: 50px; margin-bottom: 24px; filter: drop-shadow(0 0 10px rgba(159,85,255,0.3));">
+                    🔒</div>
+                <h2 style="color: white; font-size: 24px; margin-bottom: 12px; font-weight: 600;">Sign in to contact
+                    support</h2>
+                <p
+                    style="color: #a0a0a5; font-size: 15px; line-height: 1.5; margin-bottom: 30px; max-width: 320px; margin-left: auto; margin-right: auto;">
+                    Please log in or create a StudyFlow account to send messages to our support team.
+                </p>
+                <button class="btn-primary" onclick="openAuth('login')"
+                    style="padding: 12px 32px; font-size: 15px; border-radius: 30px; box-shadow: 0 4px 15px rgba(123,47,247,0.4);">
+                    Log In / Register
+                </button>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
+    </main>
+
+    <div style="display:flex;justify-content:center;margin-bottom:80px;">
+        <a href="{{ url_for('landing') }}" class="back-home-link" style="margin-bottom:0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Home
+        </a>
     </div>
-</main>
 
-<div style="display:flex;justify-content:center;margin-bottom:80px;">
-    <a href="{{ url_for('landing') }}" class="back-home-link" style="margin-bottom:0;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        Back to Home
-    </a>
-</div>
+    <script>
+        (function () {
+            /* ── Element references ── */
+            const nameEl = document.getElementById('contactName');
+            const emailEl = document.getElementById('contactEmail');
+            const subjectEl = document.getElementById('contactSubject');
+            const messageEl = document.getElementById('contactMessage');
+            const submitBtn = document.getElementById('contactSubmitBtn');
+            const fb = document.getElementById('contactFeedback');
 
-<script>
-const submitBtn = document.getElementById('contactSubmitBtn');
-if (submitBtn) {
-    submitBtn.addEventListener('click', async () => {
-        const btn = document.getElementById('contactSubmitBtn');
-        const fb  = document.getElementById('contactFeedback');
+            if (!submitBtn) return;
 
-        const name    = document.getElementById('contactName').value.trim();
-        const email   = document.getElementById('contactEmail').value.trim();
-        const subject = document.getElementById('contactSubject').value.trim();
-        const message = document.getElementById('contactMessage').value.trim();
+            const nameErr = document.getElementById('contactNameError');
+            const emailErr = document.getElementById('contactEmailError');
+            const subjectErr = document.getElementById('contactSubjectError');
+            const messageErr = document.getElementById('contactMessageError');
+            const subjectCtr = document.getElementById('subjectCounter');
+            const messageCtr = document.getElementById('messageCounter');
 
-        if (!name || !email || !subject || !message) {
-            fb.textContent = 'Please fill in all fields (Name, Email, Subject, and Message).';
-            fb.className   = 'form-feedback error';
-            return;
-        }
+            const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        if (subject.length > 200) {
-            fb.textContent = 'Subject must be 200 characters or fewer.';
-            fb.className   = 'form-feedback error';
-            return;
-        }
-
-        if (message.length > 1000) {
-            fb.textContent = 'Message must be 1000 characters or fewer.';
-            fb.className   = 'form-feedback error';
-            return;
-        }
-
-        btn.disabled    = true;
-        btn.textContent = 'Sending…';
-
-        try {
-            const res  = await fetch('/contact/submit', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ name, email, subject, message })
-            });
-            const data = await res.json();
-
-            if (res.ok) {
-                fb.textContent = '✓ ' + data.message;
-                fb.className   = 'form-feedback success';
-                // Clear form
-                ['contactName','contactSubject','contactMessage'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.value = '';
-                });
-            } else {
-                fb.textContent = data.error || 'Something went wrong. Please try again.';
-                fb.className   = 'form-feedback error';
+            /* ── Helpers ── */
+            function showError(input, errEl, msg) {
+                input.classList.add('invalid');
+                errEl.textContent = msg;
+                errEl.classList.add('visible');
             }
-        } catch (err) {
-            fb.textContent = 'Network error. Please check your connection.';
-            fb.className   = 'form-feedback error';
-        } finally {
-            btn.disabled    = false;
-            btn.textContent = 'Send Message';
-        }
-    });
-}
-</script>
+            function clearError(input, errEl) {
+                input.classList.remove('invalid');
+                errEl.textContent = '';
+                errEl.classList.remove('visible');
+            }
 
-{% include '_footer.html' %}
-{% include '_auth_modal.html' %}
+            /* ── Character counter updater ── */
+            function updateCounter(counterEl, current, max) {
+                counterEl.textContent = current + ' / ' + max;
+                counterEl.classList.remove('warning', 'danger');
+                if (current >= max) {
+                    counterEl.classList.add('danger');
+                } else if (current >= max * 0.8) {
+                    counterEl.classList.add('warning');
+                }
+            }
+
+            /* ── Form state checker — enables/disables submit ── */
+            function checkFormState() {
+                const allFilled = nameEl.value.trim() !== ''
+                    && emailEl.value.trim() !== ''
+                    && subjectEl.value.trim() !== ''
+                    && messageEl.value.trim() !== '';
+                submitBtn.disabled = !allFilled;
+            }
+
+            /* ── Live character counters ── */
+            subjectEl.addEventListener('input', () => {
+                updateCounter(subjectCtr, subjectEl.value.length, 200);
+                if (subjectEl.value.trim()) clearError(subjectEl, subjectErr);
+                checkFormState();
+            });
+            messageEl.addEventListener('input', () => {
+                updateCounter(messageCtr, messageEl.value.length, 1000);
+                if (messageEl.value.trim()) clearError(messageEl, messageErr);
+                checkFormState();
+            });
+
+            /* ── Live validation on input ── */
+            nameEl.addEventListener('input', () => {
+                if (nameEl.value.trim()) clearError(nameEl, nameErr);
+                checkFormState();
+            });
+            emailEl.addEventListener('input', () => {
+                const v = emailEl.value.trim();
+                if (v && EMAIL_RE.test(v)) clearError(emailEl, emailErr);
+                checkFormState();
+            });
+
+            /* ── Blur validation ── */
+            nameEl.addEventListener('blur', () => {
+                if (!nameEl.value.trim()) showError(nameEl, nameErr, 'Full Name is required.');
+            });
+            emailEl.addEventListener('blur', () => {
+                const v = emailEl.value.trim();
+                if (!v) showError(emailEl, emailErr, 'Email Address is required.');
+                else if (!EMAIL_RE.test(v)) showError(emailEl, emailErr, 'Please enter a valid email address.');
+            });
+            subjectEl.addEventListener('blur', () => {
+                if (!subjectEl.value.trim()) showError(subjectEl, subjectErr, 'Subject is required.');
+            });
+            messageEl.addEventListener('blur', () => {
+                if (!messageEl.value.trim()) showError(messageEl, messageErr, 'Message is required.');
+            });
+
+            /* ── Initialise counters & form state on load ── */
+            updateCounter(subjectCtr, subjectEl.value.length, 200);
+            updateCounter(messageCtr, messageEl.value.length, 1000);
+            checkFormState();
+
+            /* ── Submit handler ── */
+            submitBtn.addEventListener('click', async () => {
+                /* Clear previous global feedback */
+                fb.className = 'form-feedback';
+                fb.textContent = '';
+
+                const name = nameEl.value.trim();
+                const email = emailEl.value.trim();
+                const subject = subjectEl.value.trim();
+                const message = messageEl.value.trim();
+
+                /* Inline validation */
+                let hasError = false;
+
+                if (!name) { showError(nameEl, nameErr, 'Full Name is required.'); hasError = true; }
+                if (!email) { showError(emailEl, emailErr, 'Email Address is required.'); hasError = true; }
+                else if (!EMAIL_RE.test(email)) { showError(emailEl, emailErr, 'Please enter a valid email address.'); hasError = true; }
+                if (!subject) { showError(subjectEl, subjectErr, 'Subject is required.'); hasError = true; }
+                if (!message) { showError(messageEl, messageErr, 'Message is required.'); hasError = true; }
+
+                if (hasError) return;
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending…';
+
+                try {
+                    const res = await fetch('/contact/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, subject, message })
+                    });
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        fb.textContent = '✓ ' + data.message;
+                        fb.className = 'form-feedback success';
+                        /* Clear form & reset counters */
+                        ['contactName', 'contactSubject', 'contactMessage'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.value = '';
+                        });
+                        [nameErr, emailErr, subjectErr, messageErr].forEach(e => {
+                            e.textContent = '';
+                            e.classList.remove('visible');
+                        });
+                        [nameEl, emailEl, subjectEl, messageEl].forEach(e => e.classList.remove('invalid'));
+                        updateCounter(subjectCtr, 0, 200);
+                        updateCounter(messageCtr, 0, 1000);
+                        checkFormState();
+                    } else {
+                        fb.textContent = data.error || 'Something went wrong. Please try again.';
+                        fb.className = 'form-feedback error';
+                    }
+                } catch (err) {
+                    fb.textContent = 'Network error. Please check your connection.';
+                    fb.className = 'form-feedback error';
+                } finally {
+                    submitBtn.textContent = 'Send Message';
+                    checkFormState();
+                }
+            });
+        })();
+    </script>
+
+    {% include '_footer.html' %}
+    {% include '_auth_modal.html' %}
 </body>
+
 </html>

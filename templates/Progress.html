@@ -47,10 +47,14 @@
             </div>
             <div class="regen-hours-header">
                 <span>Available study time</span>
-                <div class="preset-controls" style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; color: #b9b9c8;">Set weekdays to:</span>
-                    <input type="number" id="weekdayHoursInput" min="0" max="24" value="3" style="width: 54px; padding: 8px 10px; text-align: center; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(12, 12, 22, 0.88); color: #f5f5ff; outline: none; font: 500 13px 'Inter', sans-serif;">
-                    <button type="button" id="applyHoursPreset">Apply</button>
+                <div class="preset-controls">
+                    <span class="preset-label">Set Mon–Fri to:</span>
+                    <div class="preset-stepper" id="weekdayStepperWidget">
+                        <button type="button" class="regen-step-btn" id="weekdayMinus" aria-label="Decrease">−</button>
+                        <input type="number" id="weekdayHoursInput" class="regen-hour-input" min="0" max="24" value="3" aria-label="Hours for weekdays">
+                        <button type="button" class="regen-step-btn" id="weekdayPlus" aria-label="Increase">+</button>
+                    </div>
+                    <button type="button" id="applyHoursPreset" class="preset-apply-btn">Apply</button>
                 </div>
             </div>
             <div class="regen-hours-list" id="regenHoursList"></div>
@@ -69,18 +73,30 @@
 
     <div id="comparisonSection" class="hidden">
         <h2 class="comparison-title">Which schedule do you want to keep?</h2>
-        <p class="comparison-sub">Old on the left, new on the right.</p>
+        <p class="comparison-sub">Compare the changes and select the plan that fits your goals.</p>
         <div class="comparison-grid">
-            <div class="comparison-card">
+            <div class="comparison-card" id="currentScheduleCard">
                 <div class="comparison-card-header">
-                    <span class="comparison-label old-label">Current Schedule</span>
+                    <div class="comparison-header-title-area">
+                        <svg class="comparison-header-icon current-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <div class="comparison-label-text">
+                            <span class="comparison-label-title">Current Plan</span>
+                            <span class="comparison-label-subtitle">Active Schedule</span>
+                        </div>
+                    </div>
                     <button class="keep-btn keep-old-btn" id="keepOldBtn">Keep This</button>
                 </div>
                 <div class="comparison-scroll" id="oldScheduleContent"></div>
             </div>
-            <div class="comparison-card">
+            <div class="comparison-card" id="newScheduleCard">
                 <div class="comparison-card-header">
-                    <span class="comparison-label new-label">New Schedule</span>
+                    <div class="comparison-header-title-area">
+                        <svg class="comparison-header-icon new-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                        <div class="comparison-label-text">
+                            <span class="comparison-label-title">Regenerated Plan</span>
+                            <span class="comparison-label-subtitle">Proposed Schedule</span>
+                        </div>
+                    </div>
                     <button class="keep-btn keep-new-btn" id="keepNewBtn">Keep This</button>
                 </div>
                 <div class="comparison-scroll" id="newScheduleContent"></div>
