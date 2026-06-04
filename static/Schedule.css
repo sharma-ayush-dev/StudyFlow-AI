@@ -1,19 +1,36 @@
-.title{
-    text-align:center;
+.title {
+    text-align: center;
     font-size: 38px;
     font-weight: 700;
-    margin: 40px 0 30px; /* Increased bottom margin for more breathing room */
+    margin: 40px 0 30px;
+    /* Increased bottom margin for more breathing room */
     letter-spacing: -0.5px;
-    animation: fadeIn 0.8s ease-out; /* Smooth entrance */
-    will-change: opacity, transform; /* Hardware acceleration for smooth animation */
+    animation: fadeIn 0.8s ease-out;
+    /* Smooth entrance */
+    will-change: opacity, transform;
+    /* Hardware acceleration for smooth animation */
 }
 
-.schedule-container{
-    width: 100%;
-    max-width: 900px;
+.schedule-page-container {
+    max-width: 860px;
     margin: 0 auto;
-    padding: 40px 20px 100px;
-    min-height: 60vh; /* Buffer to prevent page collapse while fetching data */
+    padding: 0 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .schedule-page-container {
+        padding: 0 1rem;
+        max-width: 100%;
+    }
+}
+
+.schedule-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 20px 0 100px;
+    min-height: 60vh;
+    /* Buffer to prevent page collapse while fetching data */
 }
 
 /* ── EMPTY STATE ── */
@@ -57,15 +74,19 @@
 
 
 /* ── DATE BLOCK (CARDS) ── */
-.date-block{
-    border-radius:24px;
-    padding:32px;
-    margin-bottom:32px;
-    background:#0c0c15;
+.date-block {
+    border-radius: 24px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 32px;
+    background: #0c0c15;
     border: 1px solid #1a1a1a;
     transition: 0.3s ease;
-    animation: fadeIn 1s ease-out both; /* Fade in cards */
-    will-change: opacity, transform; /* Hardware acceleration */
+    animation: fadeIn 1s ease-out both;
+    /* Fade in cards */
+    will-change: opacity, transform;
+    /* Hardware acceleration */
+    height: auto;
+    min-height: auto;
 }
 
 .date-block:hover {
@@ -73,62 +94,72 @@
     box-shadow: 0 0 30px rgba(123, 47, 247, 0.08);
 }
 
-.date-title{
-    font-size:24px;
+.date-title {
+    font-size: 24px;
     font-weight: 700;
-    margin-bottom:24px;
+    margin-bottom: 12px;
     color: #fff;
     border-left: 4px solid #7b2ff7;
     padding-left: 16px;
 }
 
 /* ── SUBJECT ── */
-.subject-block{
-    margin-bottom:24px;
-    padding: 20px;
+.subject-block {
+    margin-bottom: 16px;
+    padding: 0.75rem 1rem;
     background: rgba(255, 255, 255, 0.02);
     border-radius: 16px;
+    height: auto;
+    min-height: auto;
 }
 
-.subject-name{
-    font-size:18px;
+.subject-block:last-child {
+    margin-bottom: 0;
+}
+
+.subject-name {
+    font-size: 18px;
     font-weight: 600;
-    margin-bottom:14px;
+    margin-bottom: 8px;
     color: #9f55ff;
 }
 
 /* ── TOPIC ROWS ── */
-.topic-row{
-    display:flex;
-    justify-content:space-between;
-    padding:12px 0;
-    border-bottom:1px solid rgba(255,255,255,0.05);
+.topic-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .topic-row:last-child {
     border-bottom: none;
 }
 
-.topic-name{
-    color:#ccc;
+.topic-name {
+    color: #ccc;
     font-size: 15px;
 }
 
-.duration{
-    color:#a873ff;
-    font-weight:600;
+.duration {
+    color: #a873ff;
+    font-weight: 600;
     font-size: 15px;
+    flex-shrink: 0;
+    margin-right: 8px;
 }
 
 /* ── STUDY BUTTON ── */
 .study-btn {
     background: linear-gradient(135deg, #7b2ff7, #9f55ff);
     border: none;
-    border-radius: 14px;
-    padding: 8px 20px;
+    border-radius: 999px;
+    padding: 7px 18px;
     color: #ffffff;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
+    min-width: 100px;
+    flex-shrink: 0;
     letter-spacing: 0.5px;
     white-space: nowrap;
     cursor: pointer;
@@ -152,15 +183,16 @@
 
 /* ── SUBTOPICS DROPDOWN ANIMATIONS ── */
 .subtopics-toggle {
-    font-size: 11px;
-    color: #7b2ff7;
+    font-size: 12px;
+    color: #6b7280;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 4px;
     user-select: none;
     transition: color 0.2s;
-    font-weight: 600;
+    font-weight: normal;
+    margin-top: 4px;
 }
 
 .subtopics-toggle:hover {
@@ -191,4 +223,36 @@
     opacity: 1;
     margin-top: 6px;
     margin-bottom: 6px;
+}
+
+.study-btn::after {
+    content: '' !important;
+    position: absolute !important;
+    top: -5px !important;
+    bottom: -5px !important;
+    left: -10px !important;
+    right: -10px !important;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — MOBILE (max-width: 768px)
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .schedule-container {
+        padding: 20px 0 60px !important;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — SMALL MOBILE (max-width: 480px)
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+    .schedule-container {
+        padding: 10px 0 40px !important;
+    }
+
+    .date-block {
+        padding: 0.625rem 0.75rem !important;
+        margin-bottom: 0.875rem !important;
+    }
 }

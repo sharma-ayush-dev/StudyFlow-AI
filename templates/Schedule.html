@@ -1,23 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>StudyFlow Schedule</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='Schedule.css') }}">
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyFlow Schedule</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Schedule.css') }}?v={{ range(1, 10000) | random }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-{% include '_ambient_bg.html' %}
+    {% include '_ambient_bg.html' %}
 
-{% include '_navbar.html' %}
-<h1 class="title">Your Study Plan</h1>
-<div id="scheduleContainer" class="schedule-container"></div>
-<script src="{{ url_for('static', filename='ScheduleView.js') }}"></script>
+    {% include '_navbar.html' %}
 
-{% include '_footer.html' %}
+    <div class="schedule-page-container">
+        <h1 class="title">Your Study Plan</h1>
+        <div id="scheduleContainer" class="schedule-container"></div>
+    </div>
 
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}?v={{ range(1, 10000) | random }}"></script>
+    <script src="{{ url_for('static', filename='ScheduleView.js') }}?v={{ range(1, 10000) | random }}"></script>
+
+    {% include '_footer.html' %}
 </body>
 </html>

@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyFlow — Study: {{ topic }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='Study.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Study.css') }}?v={{ range(1, 10000) | random }}">
 
     <!-- KaTeX for mathematical formulas -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -44,6 +44,30 @@
         <div class="ambient-blobs">
             <div class="blob blob-1"></div>
             <div class="blob blob-2"></div>
+        </div>
+
+        <!-- ═══ MOBILE STUDY HEADER ═══ -->
+        <div class="study-mobile-header">
+            <div class="mobile-header-info">
+                <div class="mobile-header-subject">{{ subject }}</div>
+                <h1 class="mobile-header-topic">{{ topic }}</h1>
+                {% if hours %}
+                <div class="mobile-header-timer">
+                    <svg class="timer-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>{{ hours }}h allocated today</span>
+                </div>
+                {% endif %}
+            </div>
+            <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" title="Open study menu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                    <polyline points="14 9 17 12 14 15" />
+                </svg>
+            </button>
         </div>
 
         <!-- ═══ LEFT SIDEBAR ═══ -->
@@ -171,8 +195,8 @@
         }
         window.renderMathInDocument = renderMathInDocument;
     </script>
-    <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
-    <script src="{{ url_for('static', filename='Study.js') }}"></script>
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}?v={{ range(1, 10000) | random }}"></script>
+    <script src="{{ url_for('static', filename='Study.js') }}?v={{ range(1, 10000) | random }}"></script>
 
 </body>
 

@@ -3,10 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Topics Status</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Status.css') }}?v={{ range(1, 10000) | random }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- Flatpickr for premium date picker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -35,7 +36,7 @@
             <div style="text-align:center;padding:40px;color:#777;">Loading…</div>
         </div>
 
-        <div class="card hours-card" style="display: flex; flex-direction: column; height: 600px; box-sizing: border-box;">
+        <div class="card hours-card" style="display: flex; flex-direction: column; box-sizing: border-box;">
             <div class="hours-list" id="hoursList" style="flex: 1; overflow-y: auto; margin-bottom: 20px; padding-right: 4px;"></div>
             <div class="preferences-section" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 20px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -60,7 +61,7 @@
     <script>
         window.INITIAL_DATA = {{ data | tojson | safe }};
     </script>
-    <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script src="{{ url_for('static', filename='Status.js') }}?v={{ range(1, 1000) | random }}"></script>
 
 

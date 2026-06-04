@@ -947,3 +947,43 @@ function expandSidebar() {
 
 if (sidebarToggleBtn) sidebarToggleBtn.addEventListener('click', collapseSidebar);
 if (sidebarExpandBtn) sidebarExpandBtn.addEventListener('click', expandSidebar);
+
+// Mobile responsive sidebar & behavior additions
+const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+if (mobileSidebarToggle) {
+    mobileSidebarToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (sidebarWrapper && sidebarWrapper.classList.contains('collapsed')) {
+            expandSidebar();
+        } else {
+            collapseSidebar();
+        }
+    });
+}
+
+// Close sidebar on mobile when tapping the backdrop overlay (clicking sidebarWrapper wrapper directly)
+if (sidebarWrapper) {
+    sidebarWrapper.addEventListener('click', (e) => {
+        if (e.target === sidebarWrapper && window.innerWidth <= 768) {
+            collapseSidebar();
+        }
+    });
+}
+
+// Initial check: if loaded on mobile, start with the sidebar collapsed
+if (window.innerWidth <= 768) {
+    collapseSidebar();
+}
+
+// Auto-scroll chat area to bottom when input is focused on mobile to prevent virtual keyboard obstruction
+if (inputEl) {
+    inputEl.addEventListener('focus', () => {
+        if (window.innerWidth <= 768) {
+            setTimeout(() => {
+                if (messagesEl) {
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                }
+            }, 150);
+        }
+    });
+}

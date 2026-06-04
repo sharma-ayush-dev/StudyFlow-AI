@@ -1319,3 +1319,273 @@
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
 }
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (MOBILE & TABLET)
+   ========================================================================== */
+
+/* ── DEFAULT STYLES FOR MOBILE TOP BAR ── */
+.study-mobile-header {
+    display: none;
+}
+
+/* ── TABLET BREAKPOINT (769px - 1024px) ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .study-layout {
+        padding: 16px 20px 20px;
+        gap: 20px;
+    }
+
+    .study-sidebar {
+        width: 240px;
+        min-width: 200px;
+        padding: 20px 16px;
+    }
+    
+    .sidebar-wrapper.collapsed {
+        margin-left: calc(-240px - 20px);
+    }
+    
+    .sidebar-expand-btn {
+        left: 32px;
+        top: 48px;
+    }
+}
+
+/* ── MOBILE BREAKPOINT (<= 768px) ── */
+@media (max-width: 768px) {
+    .study-layout {
+        flex-direction: column;
+        padding: 0;
+        gap: 0;
+        height: calc(100vh - 70px);
+        height: calc(100dvh - 70px);
+        overflow: hidden;
+    }
+
+    /* Hide desktop expand button */
+    .sidebar-expand-btn {
+        display: none !important;
+    }
+
+    /* Mobile compact top bar */
+    .study-mobile-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        background: #161921;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        z-index: 100;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .mobile-header-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .mobile-header-subject {
+        font-family: 'Inter', sans-serif;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #a78bfa;
+        font-weight: 600;
+    }
+
+    .mobile-header-topic {
+        font-family: 'Syne', sans-serif;
+        font-size: 16px;
+        font-weight: 700;
+        color: #f0f0f5;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-header-timer {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #c4b5fd;
+        font-weight: 500;
+        margin-top: 2px;
+    }
+
+    .mobile-sidebar-toggle {
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        color: #8b8fa8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: 0.2s;
+        flex-shrink: 0;
+    }
+
+    .mobile-sidebar-toggle:active {
+        background: rgba(123, 47, 247, 0.15);
+        border-color: rgba(123, 47, 247, 0.3);
+        color: #e8eaf0;
+    }
+
+    /* Sidebar Drawer Layout on Mobile */
+    .sidebar-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        z-index: 2000;
+        pointer-events: none;
+        transition: none;
+        margin-left: 0 !important;
+    }
+
+    /* Semi-transparent Backdrop overlay */
+    .sidebar-wrapper::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(8, 8, 16, 0.7);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        opacity: 0;
+        transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        pointer-events: none;
+    }
+
+    .sidebar-wrapper:not(.collapsed)::before {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Sidebar Drawer container */
+    .study-sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 82vw;
+        max-width: 290px;
+        height: 100%;
+        border-radius: 0 24px 24px 0 !important;
+        border-left: none !important;
+        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.6);
+        pointer-events: auto;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        z-index: 2010;
+        box-sizing: border-box;
+    }
+
+    .sidebar-wrapper:not(.collapsed) .study-sidebar {
+        transform: translateX(0);
+    }
+
+    /* Touch-friendly Font Size Controls */
+    .font-toggle-btn {
+        min-height: 44px;
+        line-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Right chat panel */
+    .chat-panel {
+        width: 100%;
+        height: calc(100% - 69px); /* Subtract compact top bar height */
+        flex: 1;
+        align-items: stretch;
+    }
+
+    .chat-messages {
+        padding: 16px 12px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Chat bubble spacing */
+    .msg-wrapper.user-msg {
+        max-width: 90%;
+    }
+
+    .msg-wrapper.assistant-msg {
+        max-width: 94%;
+    }
+
+    .msg-bubble {
+        padding: 12px 16px;
+        max-width: 100%;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Code blocks scrolling & wrapping */
+    .assistant-msg .msg-bubble pre {
+        max-width: 100%;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .assistant-msg .msg-bubble pre code {
+        max-width: 100%;
+        white-space: pre;
+        overflow-x: auto;
+    }
+
+    /* Make mathematical formulas scrollable horizontally */
+    .assistant-msg .msg-bubble .katex-display {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    /* Wrap next up hint & inline codes */
+    .next-up-hint {
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .assistant-msg .msg-bubble code:not(.hljs) {
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    /* Bottom input bar floating above keyboard */
+    .chat-input-row {
+        width: calc(100% - 24px);
+        margin: 0 auto 12px;
+        padding: 8px 12px;
+        border-radius: 20px;
+        gap: 8px;
+        box-sizing: border-box;
+    }
+
+    .chat-textarea {
+        padding: 8px 4px;
+        font-size: 14px;
+        min-height: 38px;
+    }
+
+    .send-btn {
+        padding: 10px 18px;
+        min-height: 40px;
+        font-size: 14px;
+        border-radius: 12px;
+    }
+}
