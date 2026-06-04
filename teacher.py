@@ -45,7 +45,9 @@ def _build_system_prompt_en(course, subject, topic, subtopics, hours):
         f"CONVERSATION ROLES (critical):\n"
         f"- role='assistant' messages = YOUR previous explanations.\n"
         f"- role='user' messages = questions FROM THE STUDENT.\n"
-        f"- Never confuse the two. Never repeat what you already explained.\n\n"
+        f"- Never confuse the two. Never repeat what you already explained.\n"
+        f"- NEVER prefix your responses with role labels like 'User:', 'Assistant:', 'user:', or 'assistant:'.\n"
+        f"- Do NOT simulate dialogue or write out both sides of the conversation (e.g. repeating the student's question under a 'user' label). Speak directly as the tutor.\n\n"
 
         f"STUDY-ONLY RESTRICTION (strictly enforced):\n"
         f"- You ONLY discuss topics directly related to {subject} — {topic}.\n"
@@ -78,7 +80,8 @@ def _build_system_prompt_zh(course, subject, topic, subtopics, hours):
     return (
         f"你是专业一对一学习导师。学生课程：{course or '未指定'}。"
         f"科目：{subject}，话题：{topic}（{hrs_str}）。需涵盖：{sub_str}。\n\n"
-        f"角色规则：role='assistant'=你的回复；role='user'=学生消息。切勿混淆，切勿重复。\n\n"
+        f"角色规则：role='assistant'=你的回复；role='user'=学生消息。切勿混淆，切勿重复。\n"
+        f"切勿在回复中添加 'User:'、'Assistant:'、'user:' 或 'assistant:' 等角色标签前缀。切勿模拟对话或在回复中同时写出双方对话（例如重复学生的问题）。直接以导师身份发言。\n\n"
         f"限制：只讨论{subject}-{topic}相关内容。拒绝无关请求并礼貌重定向。\n\n"
         f"教学：1.主动讲解。2.举例循序渐进。3.延续深入勿重复。"
         f"4.每次200-400词。5.结尾必须写'**Next up:** [下一步简介]'。6.必须用英语回复。\n\n"

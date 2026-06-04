@@ -4,7 +4,7 @@ import json
 import threading
 
 from extensions import db, cache, limiter
-from models import StudyData, Chat, Message, ContactMessage, AppSettings, ActivityLog
+from models import StudyData, Chat, Message, ContactMessage, AppSettings, ActivityLog, User, UserMembership, MembershipTier, Payment, WebhookLog
 from helpers import *
 from werkzeug.utils import secure_filename
 import os
@@ -406,20 +406,97 @@ def purchase_subscription(tier_id):
                 elif tier.name == 'Bronze':
                     return jsonify({'error': 'You cannot downgrade to the Bronze plan.'}), 400
 
+    # Retrieve gateway
+    from razor import gateway
+    import time
+    
+    receipt_id = f"rcpt_{current_user.id}_{int(time.time())}"
+    
+    try:
+        # Create Razorpay Order
+        order = gateway.create_order(
+            amount_in_inr=float(tier.display_price),
+            user_id=current_user.id,
+            membership_tier=tier.name,
+            receipt_id=receipt_id
+        )
+    except Exception as e:
+        return jsonify({'error': f'Failed to create Razorpay Order: {str(e)}'}), 500
+
+    # Store pending payment record in database
+    try:
+        payment = Payment(
+            user_id=current_user.id,
+            membership_tier=tier.name,
+            amount=float(tier.display_price),
+            currency='INR',
+            status='pending',
+            razorpay_order_id=order['id']
+        )
+        db.session.add(payment)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to record transaction: {str(e)}'}), 500
+
+    _log_activity('payment_order_created', {
+        'order_id': order['id'],
+        'tier': tier.name,
+        'amount': tier.display_price
+    })
+
+    # Return order details to frontend for Checkout popup
+    return jsonify({
+        'key_id': gateway.key_id,
+        'order_id': order['id'],
+        'amount': order['amount'],
+        'currency': order['currency'],
+        'tier_name': tier.name,
+        'user': {
+            'username': current_user.username,
+            'email': current_user.email,
+            'full_name': current_user.full_name or ''
+        }
+    })
+
+
+def activate_user_membership(payment, payment_id, signature):
+    """
+    Helper function to verify status and activate user membership.
+    Must be run inside a try block.
+    """
+    import datetime
+    
+    # Prevent duplicate activations (idempotency check)
+    if payment.status != 'pending':
+        return
+        
+    payment.status = 'paid'
+    payment.razorpay_payment_id = payment_id
+    payment.razorpay_signature = signature
+    payment.updated_at = datetime.datetime.utcnow()
+    
+    user = User.query.get(payment.user_id)
+    if not user:
+        raise ValueError(f"User with ID {payment.user_id} not found.")
+        
+    tier = MembershipTier.query.filter_by(name=payment.membership_tier, active=True).first()
+    if not tier:
+        raise ValueError(f"Membership tier {payment.membership_tier} not found or inactive.")
+        
+    membership = UserMembership.query.filter_by(user_id=user.id).first()
+    old_tier = MembershipTier.query.get(membership.tier_id) if membership else None
+    
     bronze_exhausted = False
     if old_tier and old_tier.name == 'Bronze' and (membership.usage_cost >= old_tier.budget_limit):
         bronze_exhausted = True
-
-    rollover_applied = False
-    message_suffix = ""
-
+        
+    # Calculate limits rollover (Platinum -> Diamond only)
     if old_tier and old_tier.name == 'Platinum' and tier.name == 'Diamond':
         current_limit = membership.custom_budget_limit if (membership.custom_budget_limit is not None) else old_tier.budget_limit
         remaining = current_limit - (membership.usage_cost or 0.0)
         if remaining > 0:
             membership.custom_budget_limit = tier.budget_limit + remaining
-            rollover_applied = True
-            message_suffix = " Your remaining Platinum usage limit has been added to your new Diamond membership! Enjoy the extra usage."
         else:
             membership.custom_budget_limit = None
     else:
@@ -428,12 +505,13 @@ def purchase_subscription(tier_id):
 
     if not membership:
         membership = UserMembership(
-            user_id=current_user.id,
+            user_id=user.id,
             tier_id=tier.id,
             usage_cost=0.0,
             usage_percentage=0.0,
             total_amount_paid=float(tier.display_price),
-            bronze_exhausted_before=bronze_exhausted
+            bronze_exhausted_before=bronze_exhausted,
+            upgraded_at=datetime.datetime.utcnow()
         )
         db.session.add(membership)
     else:
@@ -443,15 +521,301 @@ def purchase_subscription(tier_id):
         membership.total_amount_paid = (membership.total_amount_paid or 0.0) + float(tier.display_price)
         membership.upgraded_at = datetime.datetime.utcnow()
         membership.bronze_exhausted_before = bronze_exhausted
-
+        
     db.session.commit()
-    _log_activity('upgrade', {'tier': tier.name})
-
-    try:
-        from helpers import send_membership_email
-        send_membership_email(current_user.email, current_user.username, tier.name)
-    except Exception as e:
-        print(f"[ERROR] Failed to send membership email: {e}")
     
-    msg = f"Purchase successful.{message_suffix}"
-    return jsonify({'message': msg, 'tier': tier.name})
+    _log_activity('upgrade', {'tier': tier.name}, user_id=user.id)
+    _log_activity('payment_verified', {
+        'payment_id': payment_id,
+        'order_id': payment.razorpay_order_id,
+        'amount': payment.amount,
+        'tier': tier.name
+    }, user_id=user.id)
+    
+    # Send email notifications
+    try:
+        from helpers import send_payment_success_email
+        send_payment_success_email(
+            user.email,
+            user.username,
+            tier.name,
+            payment.amount,
+            payment_id,
+            payment.razorpay_order_id
+        )
+    except Exception as e:
+        print(f"[ERROR] Failed to send payment success email: {e}")
+
+
+@api_bp.route('/subscriptions/verify', methods=['POST'])
+@login_required
+def verify_payment():
+    from razor import gateway
+    import datetime
+    
+    data = request.get_json() or {}
+    order_id = data.get('razorpay_order_id')
+    payment_id = data.get('razorpay_payment_id')
+    signature = data.get('razorpay_signature')
+    
+    if not order_id or not payment_id or not signature:
+        return jsonify({'error': 'Missing payment verification details.'}), 400
+        
+    payment = Payment.query.filter_by(razorpay_order_id=order_id).first()
+    if not payment:
+        return jsonify({'error': 'Payment record not found.'}), 404
+        
+    if payment.status == 'paid':
+        return jsonify({
+            'message': 'Payment already verified and membership activated.',
+            'tier': payment.membership_tier,
+            'payment_id': payment.razorpay_payment_id,
+            'order_id': payment.razorpay_order_id,
+            'amount': payment.amount,
+            'date': payment.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    # Verify signature
+    is_valid = gateway.verify_payment_signature(order_id, payment_id, signature)
+    if not is_valid:
+        try:
+            payment.status = 'failed'
+            payment.razorpay_payment_id = payment_id
+            payment.razorpay_signature = signature
+            payment.failure_reason = 'Signature verification failed'
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            
+        _log_activity('payment_failed', {
+            'order_id': order_id,
+            'payment_id': payment_id,
+            'reason': 'Signature verification failed'
+        })
+        
+        try:
+            from helpers import send_payment_failed_email
+            send_payment_failed_email(
+                current_user.email,
+                current_user.username,
+                payment.membership_tier,
+                'Signature verification failed',
+                payment_id
+            )
+        except Exception as e:
+            print(f"[ERROR] Failed to send failed payment email: {e}")
+            
+        return jsonify({'error': 'Payment verification failed. Invalid signature.'}), 400
+
+    # Signature valid, activate plan
+    try:
+        activate_user_membership(payment, payment_id, signature)
+        return jsonify({
+            'message': 'Payment verified successfully. Membership activated!',
+            'tier': payment.membership_tier,
+            'payment_id': payment_id,
+            'order_id': order_id,
+            'amount': payment.amount,
+            'date': payment.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to activate membership: {str(e)}'}), 500
+
+
+@api_bp.route('/subscriptions/fail', methods=['POST'])
+@login_required
+def fail_payment():
+    import datetime
+    data = request.get_json() or {}
+    order_id = data.get('razorpay_order_id')
+    payment_id = data.get('razorpay_payment_id')
+    error_desc = data.get('error_description', 'Payment failed')
+
+    if not order_id:
+        return jsonify({'error': 'Missing order ID.'}), 400
+
+    payment = Payment.query.filter_by(razorpay_order_id=order_id).first()
+    if not payment:
+        return jsonify({'error': 'Payment record not found.'}), 404
+
+    if payment.status == 'pending':
+        try:
+            payment.status = 'failed'
+            payment.razorpay_payment_id = payment_id
+            payment.failure_reason = error_desc
+            payment.updated_at = datetime.datetime.utcnow()
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to update payment status: {str(e)}'}), 500
+
+        _log_activity('payment_failed', {
+            'order_id': order_id,
+            'payment_id': payment_id,
+            'reason': error_desc
+        })
+
+        try:
+            from helpers import send_payment_failed_email
+            send_payment_failed_email(
+                current_user.email,
+                current_user.username,
+                payment.membership_tier,
+                error_desc,
+                payment_id
+            )
+        except Exception as e:
+            print(f"[ERROR] Failed to send payment failed email: {e}")
+
+        return jsonify({'message': 'Payment failure recorded and email queued.'})
+
+    return jsonify({'message': f'Payment already in status: {payment.status}'})
+
+
+@api_bp.route('/payments/webhook', methods=['POST'])
+def razorpay_webhook():
+    from razor import gateway
+    
+    payload_body = request.data
+    signature = request.headers.get('X-Razorpay-Signature')
+    
+    if not signature:
+        return jsonify({'error': 'Missing signature header'}), 400
+        
+    is_valid = gateway.verify_webhook_signature(payload_body, signature)
+    if not is_valid:
+        return jsonify({'error': 'Invalid webhook signature'}), 400
+        
+    try:
+        event_data = json.loads(payload_body.decode('utf-8'))
+    except Exception as e:
+        return jsonify({'error': f'Invalid JSON payload: {e}'}), 400
+        
+    event_type = event_data.get('event')
+    event_payload = event_data.get('payload', {})
+    
+    # Extract IDs depending on the event structure
+    order_id = None
+    payment_id = None
+    
+    if 'payment' in event_payload:
+        payment_entity = event_payload['payment'].get('entity', {})
+        order_id = payment_entity.get('order_id')
+        payment_id = payment_entity.get('id')
+    elif 'refund' in event_payload:
+        refund_entity = event_payload['refund'].get('entity', {})
+        payment_id = refund_entity.get('payment_id')
+        
+    payment = None
+    if order_id:
+        payment = Payment.query.filter_by(razorpay_order_id=order_id).first()
+    elif payment_id:
+        payment = Payment.query.filter_by(razorpay_payment_id=payment_id).first()
+        
+    # Log webhook event to database
+    try:
+        webhook_log = WebhookLog(
+            payment_id=payment.id if payment else None,
+            event_type=event_type,
+            payload=json.dumps(event_data)
+        )
+        db.session.add(webhook_log)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] Failed to save webhook log: {e}")
+        
+    _log_activity('webhook_received', {
+        'event': event_type,
+        'payment_id': payment_id,
+        'order_id': order_id
+    }, user_id=payment.user_id if payment else None)
+
+    # Process events
+    if event_type == 'payment.captured':
+        if payment:
+            if payment.status == 'pending':
+                try:
+                    activate_user_membership(payment, payment_id, signature or payment.razorpay_signature)
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"[ERROR] Webhook payment.captured failed to activate membership: {e}")
+            else:
+                print(f"[INFO] Webhook payment.captured: Payment {payment.id} already processed (status: {payment.status})")
+        else:
+            print(f"[WARN] Webhook payment.captured: No payment record found for order ID: {order_id}")
+            
+    elif event_type == 'payment.failed':
+        if payment:
+            if payment.status == 'pending':
+                payment_entity = event_payload.get('payment', {}).get('entity', {})
+                error_desc = payment_entity.get('error_description', 'Transaction failed')
+                
+                try:
+                    payment.status = 'failed'
+                    payment.razorpay_payment_id = payment_id
+                    payment.failure_reason = error_desc
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    
+                _log_activity('payment_failed', {
+                    'order_id': order_id,
+                    'payment_id': payment_id,
+                    'reason': error_desc
+                }, user_id=payment.user_id)
+                
+                try:
+                    from helpers import send_payment_failed_email
+                    user = User.query.get(payment.user_id)
+                    if user:
+                        send_payment_failed_email(user.email, user.username, payment.membership_tier, error_desc, payment_id)
+                except Exception as e:
+                    print(f"[ERROR] Failed to send payment failed email: {e}")
+            else:
+                print(f"[INFO] Webhook payment.failed: Payment {payment.id} already processed (status: {payment.status})")
+                
+    elif event_type == 'refund.processed':
+        refund_entity = event_payload.get('refund', {}).get('entity', {})
+        refund_id = refund_entity.get('id')
+        refund_amount = float(refund_entity.get('amount', 0)) / 100.0
+        
+        if payment:
+            try:
+                payment.status = 'refunded'
+                payment.refund_id = refund_id
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                
+            try:
+                user = User.query.get(payment.user_id)
+                bronze_tier = MembershipTier.query.filter_by(name='Bronze').first()
+                if user and bronze_tier:
+                    membership = UserMembership.query.filter_by(user_id=user.id).first()
+                    if membership:
+                        membership.tier_id = bronze_tier.id
+                        membership.usage_cost = 0.0
+                        membership.usage_percentage = 0.0
+                        membership.custom_budget_limit = None
+                        db.session.commit()
+                        
+                        _log_activity('refund_processed', {
+                            'payment_id': payment_id,
+                            'refund_id': refund_id,
+                            'amount': refund_amount,
+                            'tier': payment.membership_tier
+                        }, user_id=user.id)
+                        
+                        try:
+                            from helpers import send_refund_email
+                            send_refund_email(user.email, user.username, payment.membership_tier, refund_amount, refund_id)
+                        except Exception as e:
+                            print(f"[ERROR] Failed to send refund email: {e}")
+            except Exception as e:
+                db.session.rollback()
+                print(f"[ERROR] Webhook refund.processed failed to downgrade membership: {e}")
+                
+    return jsonify({'status': 'ok'}), 200
+

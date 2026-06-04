@@ -76,7 +76,9 @@ sendOtpBtn?.addEventListener('click', async () => {
         otpVerifySection?.classList.remove('hidden');
         sendOtpBtn.textContent = 'Resend OTP';
         sendOtpBtn.disabled = false;
-        alert(data.message || 'OTP sent! Please check your console.');
+        setTimeout(() => {
+            document.querySelector('#loginOtpContainer .otp-digit')?.focus();
+        }, 50);
     } catch (err) {
         showError(loginError, 'Network error. Please try again.');
         sendOtpBtn.disabled = false;
@@ -86,10 +88,12 @@ sendOtpBtn?.addEventListener('click', async () => {
 
 verifyOtpSubmit?.addEventListener('click', async () => {
     const email = document.getElementById('otpEmail').value.trim();
-    const otp = document.getElementById('otpCode').value.trim();
+    const otpContainer = document.getElementById('loginOtpContainer');
+    const otp = getOtpCode(otpContainer);
 
-    if (!email || !otp) {
-        showError(loginError, 'Please enter email and OTP.');
+    if (!email || otp.length < 6) {
+        showError(loginError, 'Please enter email and 6-digit OTP.');
+        applyOtpStyle(otpContainer, false);
         return;
     }
 
@@ -108,19 +112,20 @@ verifyOtpSubmit?.addEventListener('click', async () => {
             showError(loginError, data.error || 'Invalid or expired OTP.');
             verifyOtpSubmit.disabled = false;
             verifyOtpSubmit.textContent = 'Verify & Log In';
+            applyOtpStyle(otpContainer, false);
             return;
         }
 
-        window.location.href = data.redirect || '/';
+        applyOtpStyle(otpContainer, true);
+        setTimeout(() => {
+            window.location.href = data.redirect || '/';
+        }, 600);
     } catch (err) {
         showError(loginError, 'Network error. Please try again.');
         verifyOtpSubmit.disabled = false;
         verifyOtpSubmit.textContent = 'Verify & Log In';
+        applyOtpStyle(otpContainer, false);
     }
-});
-
-document.getElementById('otpCode')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') verifyOtpSubmit?.click();
 });
 
 function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
@@ -193,3 +198,91 @@ registerSubmit?.addEventListener('click', () => {
 document.getElementById('regConfirm')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') registerSubmit?.click();
 });
+
+// ── OTP HELPER FUNCTIONS ──
+function getOtpCode(container) {
+    if (!container) return '';
+    const inputs = container.querySelectorAll('.otp-digit');
+    let code = '';
+    inputs.forEach(input => code += input.value.trim());
+    return code;
+}
+
+function resetOtpStyles(container) {
+    if (!container) return;
+    const inputs = container.querySelectorAll('.otp-digit');
+    inputs.forEach(input => {
+        input.classList.remove('success', 'error');
+    });
+}
+
+function applyOtpStyle(container, isSuccess) {
+    if (!container) return;
+    const inputs = container.querySelectorAll('.otp-digit');
+    inputs.forEach(input => {
+        input.classList.remove('success', 'error');
+        input.classList.add(isSuccess ? 'success' : 'error');
+    });
+}
+
+function initOtpInputs(containerId, submitBtnId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const inputs = container.querySelectorAll('.otp-digit');
+    const submitBtn = document.getElementById(submitBtnId);
+
+    inputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            const val = e.target.value;
+            e.target.value = val.replace(/[^0-9]/g, '');
+            if (e.target.value.length > 0) {
+                if (index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            }
+            resetOtpStyles(container);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            resetOtpStyles(container);
+            if (e.key === 'Backspace') {
+                if (input.value === '') {
+                    if (index > 0) {
+                        inputs[index - 1].focus();
+                        inputs[index - 1].value = '';
+                    }
+                } else {
+                    input.value = '';
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft') {
+                if (index > 0) inputs[index - 1].focus();
+            } else if (e.key === 'ArrowRight') {
+                if (index < inputs.length - 1) inputs[index + 1].focus();
+            } else if (e.key === 'Enter') {
+                submitBtn?.click();
+            }
+        });
+
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            resetOtpStyles(container);
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text').trim();
+            if (/^\d{6}$/.test(pastedData)) {
+                for (let i = 0; i < inputs.length; i++) {
+                    inputs[i].value = pastedData[i];
+                }
+                inputs[inputs.length - 1].focus();
+            } else if (/^\d+$/.test(pastedData)) {
+                let fillLen = Math.min(pastedData.length, inputs.length - index);
+                for (let i = 0; i < fillLen; i++) {
+                    inputs[index + i].value = pastedData[i];
+                }
+                inputs[Math.min(index + fillLen, inputs.length - 1)].focus();
+            }
+        });
+    });
+}
+
+// Initialize OTP inputs for login
+initOtpInputs('loginOtpContainer', 'verifyOtpSubmit');

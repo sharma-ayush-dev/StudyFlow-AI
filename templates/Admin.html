@@ -500,6 +500,7 @@
                     <li class="sidebar-item" id="tab-btn-ai" onclick="switchTab('ai')">🤖 AI & Costs</li>
                     <li class="sidebar-item" id="tab-btn-limits" onclick="switchTab('limits')">⚡ Rate Limits</li>
                     <li class="sidebar-item" id="tab-btn-logs" onclick="switchTab('logs')">📋 System Logs</li>
+                    <li class="sidebar-item" id="tab-btn-payments" onclick="switchTab('payments')">💳 Payments</li>
                 </ul>
             </div>
 
@@ -900,6 +901,114 @@
                     </div>
                 </div>
 
+                <!-- 7. PAYMENTS PANEL -->
+                <div class="admin-panel" id="panel-payments">
+                    <h2 style="margin-top:0;margin-bottom:20px;font-size:22px;color:#bf7fff;">Payment & Transaction History</h2>
+                    
+                    <!-- Stats Grid -->
+                    <div class="stats-grid" style="margin-bottom:30px; justify-content: flex-start;">
+                        <div class="stat-card">
+                            <div class="stat-number" id="pay-stat-revenue">₹0.00</div>
+                            <div class="stat-label">Total Revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="pay-stat-total">0</div>
+                            <div class="stat-label">Total Transactions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="pay-stat-success" style="color: #50dc8c;">0</div>
+                            <div class="stat-label">Successful</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="pay-stat-failed" style="color: #ff7c7c;">0</div>
+                            <div class="stat-label">Failed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="pay-stat-refunded" style="color: #ffc840;">0</div>
+                            <div class="stat-label">Refunded</div>
+                        </div>
+                    </div>
+
+                    <!-- Filters Section -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a; margin-bottom: 24px;">
+                        <div class="section-header" style="cursor: default; background: none;">
+                            <span class="section-title">🔍 Search & Filters</span>
+                        </div>
+                        <div class="section-body open">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label class="admin-label">Search User/IDs</label>
+                                    <input type="text" id="payFilterSearch" class="admin-input" placeholder="e.g. username, email, ID..." oninput="applyPaymentFilters()">
+                                </div>
+                                <div>
+                                    <label class="admin-label">Status</label>
+                                    <select id="payFilterStatus" class="admin-input" onchange="applyPaymentFilters()">
+                                        <option value="">All Statuses</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="paid">Paid</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="refunded">Refunded</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="admin-label">Membership Tier</label>
+                                    <select id="payFilterMembership" class="admin-input" onchange="applyPaymentFilters()">
+                                        <option value="">All Tiers</option>
+                                        <option value="Platinum">Platinum</option>
+                                        <option value="Diamond">Diamond</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="admin-label">Start Date</label>
+                                    <input type="date" id="payFilterStartDate" class="admin-input" onchange="applyPaymentFilters()">
+                                </div>
+                                <div>
+                                    <label class="admin-label">End Date</label>
+                                    <input type="date" id="payFilterEndDate" class="admin-input" onchange="applyPaymentFilters()">
+                                </div>
+                            </div>
+                            <div class="admin-row" style="margin-top:20px; display:flex; justify-content:space-between; width:100%;">
+                                <div style="display:flex; gap:10px;">
+                                    <button class="btn-reset" onclick="clearPaymentFilters()">Clear Filters</button>
+                                </div>
+                                <button class="btn-save" onclick="exportPaymentsCSV()">📥 Export to CSV</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payments Table -->
+                    <div class="admin-section" style="box-shadow: none; border: 1px solid #1a1a1a;">
+                        <div class="section-body open" style="padding:0;">
+                            <div id="paymentsLoading" style="color:#666;font-size:13px; padding: 24px;">Loading transactions…</div>
+                            <table class="admin-table" id="paymentsTable" style="display:none; width:100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>User</th>
+                                        <th>Tier</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Payment ID</th>
+                                        <th>Order ID</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="paymentsBody"></tbody>
+                            </table>
+                            
+                            <!-- Pagination -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding: 14px 20px; border-top: 1px solid #111; margin-top: 0;" id="payPaginationContainer">
+                                <div style="color:#666; font-size:13px;" id="payPaginationInfo">Showing 0 to 0 of 0</div>
+                                <div style="display:flex; gap:6px;">
+                                    <button class="btn-reset" id="btn-pay-prev" onclick="changePaymentPage(-1)" style="padding:6px 14px; font-size:12px;">Previous</button>
+                                    <button class="btn-reset" id="btn-pay-next" onclick="changePaymentPage(1)" style="padding:6px 14px; font-size:12px;">Next</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div><!-- /admin-main -->
         </div><!-- /admin-container -->
 
@@ -974,6 +1083,63 @@
         </div>
     </div>
 
+    <!-- PAYMENT DETAIL MODAL -->
+    <div class="modal-overlay hidden" id="paymentDetailModal">
+        <div class="modal-box" style="max-width: 600px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h3 id="paymentDetailTitle" style="margin:0; color:#bf7fff;">Transaction Details</h3>
+                <button class="modal-close" onclick="closePaymentDetailModal()" style="font-size: 20px; cursor: pointer;">✕</button>
+            </div>
+            
+            <div style="flex: 1; overflow-y: auto; padding-right: 5px;">
+                <h4 style="color:#fff; margin:0 0 10px; font-size:14px; border-bottom:1px solid #222; padding-bottom:4px;">User Information</h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size:13px; margin-bottom:15px; color:#ccc;">
+                    <div>User ID: <strong id="payDetUserUid" style="color:#fff;">—</strong></div>
+                    <div>Username: <strong id="payDetUsername" style="color:#fff;">—</strong></div>
+                    <div style="grid-column: span 2;">Email: <strong id="payDetEmail" style="color:#fff;">—</strong></div>
+                </div>
+
+                <h4 style="color:#fff; margin:0 0 10px; font-size:14px; border-bottom:1px solid #222; padding-bottom:4px;">Payment Parameters</h4>
+                <table class="admin-table" style="margin-bottom:15px; font-size:12px;">
+                    <tbody>
+                        <tr><td>Transaction ID</td><td id="payDetId" style="font-weight:600; color:#fff;">—</td></tr>
+                        <tr><td>Membership Tier</td><td id="payDetTier" style="font-weight:600; color:#bf7fff;">—</td></tr>
+                        <tr><td>Amount / Currency</td><td><span id="payDetAmount" style="font-weight:600; color:#50dc8c;">—</span> <span id="payDetCurrency">INR</span></td></tr>
+                        <tr><td>Status</td><td><span class="activity-pill" id="payDetStatus" style="font-weight:600;">—</span></td></tr>
+                        <tr><td>Order ID</td><td id="payDetOrderId" style="font-family:monospace;">—</td></tr>
+                        <tr><td>Payment ID</td><td id="payDetPaymentId" style="font-family:monospace;">—</td></tr>
+                        <tr><td>Signature</td><td id="payDetSignature" style="font-family:monospace; font-size:10px; word-break:break-all;">—</td></tr>
+                        <tr><td>Refund ID</td><td id="payDetRefundId" style="font-family:monospace;">—</td></tr>
+                        <tr><td>Failure Reason</td><td id="payDetFailureReason" style="color:#ff7c7c;">—</td></tr>
+                        <tr><td>Created At</td><td id="payDetCreatedAt">—</td></tr>
+                        <tr><td>Updated At</td><td id="payDetUpdatedAt">—</td></tr>
+                    </tbody>
+                </table>
+
+                <h4 style="color:#fff; margin:0 0 10px; font-size:14px; border-bottom:1px solid #222; padding-bottom:4px;">Webhook Events Log</h4>
+                <div style="max-height: 180px; overflow-y: auto; border:1px solid #222; border-radius:8px; font-size:11px; margin-bottom:15px;">
+                    <table class="admin-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding:6px 10px;">Time</th>
+                                <th style="padding:6px 10px;">Event Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payDetWebhooksBody">
+                            <tr><td colspan="2" style="text-align:center; color:#666;">No webhook events processed.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #222; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn-danger" id="btnIssueRefund" onclick="triggerRefundFromDetails()" style="display:none; padding:10px 20px;">Issue Refund</button>
+                <button class="btn-reset" onclick="closePaymentDetailModal()" style="padding:10px 20px;">Close</button>
+            </div>
+            <div class="feedback" id="payDetFb" style="margin-top: 8px; text-align: right;"></div>
+        </div>
+    </div>
+
 
     <script>
         // ── DATA FROM SERVER ──────────────────────────────────────
@@ -1012,6 +1178,9 @@
                 loadTiers();
             } else if (tabId === 'logs') {
                 loadLogs(currentLogType, currentLogPage, currentLogLimit);
+            } else if (tabId === 'payments') {
+                loadPaymentsStats();
+                loadPayments(1);
             }
         }
 
@@ -1705,6 +1874,250 @@
         function closeUserLogsModal() {
             document.getElementById('userLogsModal').classList.add('hidden');
         }
+
+        // ── PAYMENTS ──────────────────────────────────────────────
+        let currentPaymentPage = 1;
+        let totalPaymentPages = 1;
+        const currentPaymentLimit = 20;
+
+        async function loadPaymentsStats() {
+            try {
+                const res = await fetch('/admin/api/payments/stats');
+                if (!res.ok) throw new Error();
+                const stats = await res.json();
+                document.getElementById('pay-stat-revenue').textContent = '₹' + parseFloat(stats.total_revenue).toFixed(2);
+                document.getElementById('pay-stat-total').textContent = stats.total_payments;
+                document.getElementById('pay-stat-success').textContent = stats.successful_payments;
+                document.getElementById('pay-stat-failed').textContent = stats.failed_payments;
+                document.getElementById('pay-stat-refunded').textContent = stats.refunded_payments;
+            } catch (e) {
+                console.error("Failed to load payment stats", e);
+            }
+        }
+
+        async function loadPayments(page = 1) {
+            document.getElementById('paymentsLoading').style.display = 'block';
+            document.getElementById('paymentsTable').style.display = 'none';
+            document.getElementById('payPaginationContainer').style.display = 'none';
+            
+            const search = document.getElementById('payFilterSearch').value.trim();
+            const status = document.getElementById('payFilterStatus').value;
+            const membership = document.getElementById('payFilterMembership').value;
+            const startDate = document.getElementById('payFilterStartDate').value;
+            const endDate = document.getElementById('payFilterEndDate').value;
+            
+            try {
+                let url = `/admin/api/payments?page=${page}&limit=${currentPaymentLimit}`;
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+                if (status) url += `&status=${status}`;
+                if (membership) url += `&membership=${membership}`;
+                if (startDate) url += `&start_date=${startDate}`;
+                if (endDate) url += `&end_date=${endDate}`;
+                
+                const res = await fetch(url);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                
+                const tbody = document.getElementById('paymentsBody');
+                tbody.innerHTML = '';
+                
+                document.getElementById('paymentsLoading').style.display = 'none';
+                
+                if (data.payments.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#666;padding:24px;">No transactions found matching the filters.</td></tr>';
+                    document.getElementById('paymentsTable').style.display = 'table';
+                    return;
+                }
+                
+                data.payments.forEach(p => {
+                    const tr = document.createElement('tr');
+                    
+                    let statusStyle = "";
+                    if (p.status === 'paid') statusStyle = "background: rgba(80, 220, 140, 0.15); color: #50dc8c; border: 1px solid rgba(80, 220, 140, 0.3);";
+                    else if (p.status === 'failed') statusStyle = "background: rgba(220, 50, 50, 0.15); color: #ff7c7c; border: 1px solid rgba(220, 50, 50, 0.3);";
+                    else if (p.status === 'refunded') statusStyle = "background: rgba(255, 180, 0, 0.15); color: #ffc840; border: 1px solid rgba(255, 180, 0, 0.3);";
+                    else if (p.status === 'pending') statusStyle = "background: rgba(255, 255, 255, 0.05); color: #aaa; border: 1px solid rgba(255, 255, 255, 0.1);";
+
+                    tr.innerHTML = `
+                        <td>${p.id}</td>
+                        <td>
+                            <div style="font-weight:600;color:#fff;">${p.user.username}</div>
+                            <div style="font-size:11px;color:#666;">${p.user.email}</div>
+                        </td>
+                        <td><strong style="color:#bf7fff;">${p.membership_tier}</strong></td>
+                        <td style="font-weight:600;color:#fff;">₹${p.amount.toFixed(2)}</td>
+                        <td><span class="activity-pill" style="${statusStyle}">${p.status.toUpperCase()}</span></td>
+                        <td style="font-family:monospace;font-size:11px;">${p.razorpay_payment_id}</td>
+                        <td style="font-family:monospace;font-size:11px;">${p.razorpay_order_id}</td>
+                        <td>${p.created_at}</td>
+                        <td>
+                            <button class="btn-save" style="padding:5px 12px;font-size:12px;" onclick="openPaymentDetailModal(${p.id})">Details</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+                document.getElementById('paymentsTable').style.display = 'table';
+                document.getElementById('payPaginationContainer').style.display = 'flex';
+                
+                totalPaymentPages = data.pages || 1;
+                currentPaymentPage = data.current_page || 1;
+                
+                const startIdx = (currentPaymentPage - 1) * currentPaymentLimit + 1;
+                const endIdx = Math.min(currentPaymentPage * currentPaymentLimit, data.total);
+                document.getElementById('payPaginationInfo').textContent = `Showing transactions ${startIdx} to ${endIdx} of ${data.total}`;
+                
+                document.getElementById('btn-pay-prev').disabled = (currentPaymentPage <= 1);
+                document.getElementById('btn-pay-next').disabled = (currentPaymentPage >= totalPaymentPages);
+            } catch (e) {
+                console.error("Failed to load payments list", e);
+                document.getElementById('paymentsLoading').textContent = 'Error loading transactions.';
+            }
+        }
+
+        function changePaymentPage(dir) {
+            const newPage = currentPaymentPage + dir;
+            if (newPage >= 1 && newPage <= totalPaymentPages) {
+                loadPayments(newPage);
+            }
+        }
+
+        let activePaymentFilterTimeout = null;
+        function applyPaymentFilters() {
+            clearTimeout(activePaymentFilterTimeout);
+            activePaymentFilterTimeout = setTimeout(() => {
+                loadPayments(1);
+            }, 300);
+        }
+
+        function clearPaymentFilters() {
+            document.getElementById('payFilterSearch').value = '';
+            document.getElementById('payFilterStatus').value = '';
+            document.getElementById('payFilterMembership').value = '';
+            document.getElementById('payFilterStartDate').value = '';
+            document.getElementById('payFilterEndDate').value = '';
+            loadPayments(1);
+        }
+
+        function exportPaymentsCSV() {
+            const search = document.getElementById('payFilterSearch').value.trim();
+            const status = document.getElementById('payFilterStatus').value;
+            const membership = document.getElementById('payFilterMembership').value;
+            const startDate = document.getElementById('payFilterStartDate').value;
+            const endDate = document.getElementById('payFilterEndDate').value;
+            
+            let url = `/admin/api/payments/export?`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            if (status) url += `&status=${status}`;
+            if (membership) url += `&membership=${membership}`;
+            if (startDate) url += `&start_date=${startDate}`;
+            if (endDate) url += `&end_date=${endDate}`;
+            
+            window.location.href = url;
+        }
+
+        let selectedPaymentForDetailsId = null;
+        async function openPaymentDetailModal(paymentId) {
+            selectedPaymentForDetailsId = paymentId;
+            document.getElementById('payDetFb').textContent = '';
+            
+            try {
+                const res = await fetch(`/admin/api/payments/${paymentId}`);
+                if (!res.ok) throw new Error();
+                const p = await res.json();
+                
+                document.getElementById('payDetUserUid').textContent = p.user.id;
+                document.getElementById('payDetUsername').textContent = p.user.username;
+                document.getElementById('payDetEmail').textContent = p.user.email;
+                
+                document.getElementById('payDetId').textContent = p.id;
+                document.getElementById('payDetTier').textContent = p.membership_tier;
+                document.getElementById('payDetAmount').textContent = '₹' + p.amount.toFixed(2);
+                document.getElementById('payDetCurrency').textContent = p.currency;
+                
+                const statusEl = document.getElementById('payDetStatus');
+                statusEl.textContent = p.status.toUpperCase();
+                let statusStyle = "";
+                if (p.status === 'paid') statusStyle = "background: rgba(80, 220, 140, 0.15); color: #50dc8c; border: 1px solid rgba(80, 220, 140, 0.3);";
+                else if (p.status === 'failed') statusStyle = "background: rgba(220, 50, 50, 0.15); color: #ff7c7c; border: 1px solid rgba(220, 50, 50, 0.3);";
+                else if (p.status === 'refunded') statusStyle = "background: rgba(255, 180, 0, 0.15); color: #ffc840; border: 1px solid rgba(255, 180, 0, 0.3);";
+                else if (p.status === 'pending') statusStyle = "background: rgba(255, 255, 255, 0.05); color: #aaa; border: 1px solid rgba(255, 255, 255, 0.1);";
+                statusEl.style = statusStyle;
+
+                document.getElementById('payDetOrderId').textContent = p.razorpay_order_id;
+                document.getElementById('payDetPaymentId').textContent = p.razorpay_payment_id;
+                document.getElementById('payDetSignature').textContent = p.razorpay_signature;
+                document.getElementById('payDetRefundId').textContent = p.refund_id;
+                document.getElementById('payDetFailureReason').textContent = p.failure_reason;
+                document.getElementById('payDetCreatedAt').textContent = p.created_at;
+                document.getElementById('payDetUpdatedAt').textContent = p.updated_at;
+                
+                const refundBtn = document.getElementById('btnIssueRefund');
+                if (p.status === 'paid') {
+                    refundBtn.style.display = 'block';
+                } else {
+                    refundBtn.style.display = 'none';
+                }
+                
+                const tbody = document.getElementById('payDetWebhooksBody');
+                tbody.innerHTML = '';
+                if (p.webhooks.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#666; padding:10px;">No webhook events processed.</td></tr>';
+                } else {
+                    p.webhooks.forEach(w => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="padding:6px 10px;">${w.created_at}</td>
+                            <td style="padding:6px 10px; font-weight:600; color:#bf7fff;">${w.event_type}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+                
+                document.getElementById('paymentDetailModal').classList.remove('hidden');
+            } catch (e) {
+                alert("Failed to load transaction details.");
+            }
+        }
+
+        function closePaymentDetailModal() {
+            document.getElementById('paymentDetailModal').classList.add('hidden');
+            selectedPaymentForDetailsId = null;
+        }
+
+        async function triggerRefundFromDetails() {
+            if (!selectedPaymentForDetailsId) return;
+            if (!confirm("Are you sure you want to refund this payment? The user's membership will be immediately downgraded to Bronze and their limits will reset.")) return;
+            
+            const btn = document.getElementById('btnIssueRefund');
+            btn.disabled = true;
+            btn.textContent = 'Processing Refund...';
+            
+            try {
+                const res = await fetch(`/admin/api/payments/${selectedPaymentForDetailsId}/refund`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const d = await res.json();
+                
+                if (res.ok) {
+                    fb('payDetFb', '✓ Refund successful!');
+                    setTimeout(() => {
+                        openPaymentDetailModal(selectedPaymentForDetailsId);
+                        loadPayments(currentPaymentPage);
+                        loadPaymentsStats();
+                    }, 1000);
+                } else {
+                    fb('payDetFb', d.error || 'Refund failed.', true);
+                }
+            } catch (e) {
+                fb('payDetFb', 'Network error while requesting refund.', true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Issue Refund';
+            }
+        }
+
 
         // ── INIT ──────────────────────────────────────────────────
         renderModelRows('sched');

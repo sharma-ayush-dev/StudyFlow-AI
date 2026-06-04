@@ -68,8 +68,13 @@ app.after_request(log_request)
 
 @app.before_request
 def enforce_same_origin():
+    # Exempt Razorpay webhooks from same-origin checks since they are sent from Razorpay servers
+    if request.path == '/payments/webhook':
+        return None
+
     # Only enforce same-origin on state-changing methods (POST, PUT, DELETE, PATCH)
     if request.method in ['POST', 'PUT', 'DELETE', 'PATCH']:
+
         origin = request.headers.get('Origin')
         referrer = request.referrer
         host_url = request.host_url

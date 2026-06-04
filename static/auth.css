@@ -660,4 +660,43 @@ body {
 .auth-tab-btn.active {
     background: #7b2ff7;
     color: #fff;
+}
+
+/* OTP Digit Inputs */
+.otp-digits-container {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.otp-digit {
+    width: 44px;
+    height: 44px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    color: white;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.otp-digit:focus {
+    border-color: #7b2ff7;
+    box-shadow: 0 0 10px rgba(123, 47, 247, 0.4);
+}
+
+.otp-digit.success {
+    border-color: #4cd98a !important;
+    box-shadow: 0 0 10px rgba(76, 217, 138, 0.4) !important;
+    background: rgba(76, 217, 138, 0.05) !important;
+}
+
+.otp-digit.error {
+    border-color: #ff7c7c !important;
+    box-shadow: 0 0 10px rgba(255, 124, 124, 0.4) !important;
+    background: rgba(255, 124, 124, 0.05) !important;
 }
