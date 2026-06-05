@@ -1060,3 +1060,604 @@
     border-color: #7b2ff7;
     box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.15);
 }
+
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — MOBILE (max-width: 768px)
+   ═══════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+    /* ── PAGE WRAPPER — prevent horizontal scroll ── */
+    body {
+        overflow-x: hidden;
+    }
+
+    /* ── PAGE TITLE ── */
+    .page-title {
+        font-size: 26px;
+        text-align: center;
+        margin: 24px 0 10px;
+    }
+
+    /* ── EDIT TOOLBAR ── */
+    .edit-toolbar {
+        margin: 0 auto 20px;
+        padding: 0 1rem;
+    }
+
+    .edit-toggle-btn {
+        min-height: 44px;
+        width: 100%;
+        max-width: 320px;
+    }
+
+    .edit-actions {
+        width: 100%;
+        max-width: 320px;
+        justify-content: center;
+    }
+
+    .edit-save-btn,
+    .edit-cancel-btn {
+        min-height: 44px;
+        flex: 1;
+    }
+
+    /* ── DASHBOARD — stack vertically ── */
+    .dashboard {
+        flex-direction: column;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0 1rem 24px;
+        gap: 1.5rem;
+        align-items: stretch;
+    }
+
+    /* ── TOPICS CARD / LEFT PANEL ── */
+    .topics-container-wrapper {
+        flex: none;
+        width: 100%;
+        height: auto;
+        max-height: none;
+        overflow-y: visible;
+        padding-right: 0;
+    }
+
+    .topics-card {
+        flex: none;
+        width: 100%;
+        height: auto;
+        overflow-y: visible;
+    }
+
+    .subject-card {
+        padding: 16px;
+        border-radius: 20px;
+    }
+
+    .subject-card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-bottom: 12px;
+        margin-bottom: 14px;
+    }
+
+    .subject-title-text {
+        font-size: 17px;
+    }
+
+    .subject-progress-wrapper {
+        min-width: 100px;
+        flex-shrink: 0;
+    }
+
+    .subject-meta-row {
+        gap: 8px;
+    }
+
+    /* ── TOPIC ROW ── */
+    .topic-row {
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px 0;
+    }
+
+    .topic-name {
+        font-size: 14px;
+        flex: 1 1 100%;
+    }
+
+    /* ── TOPIC ACCORDION ── */
+    .topic-accordion-header {
+        padding: 12px 14px;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .topic-header-left {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .topic-title-text {
+        font-size: 14px;
+    }
+
+    .topic-accordion-content {
+        padding: 14px 16px;
+    }
+
+    /* ── STATUS SELECT DROPDOWN ── */
+    .custom-select {
+        width: 100%;
+        max-width: 220px;
+        flex-shrink: 0;
+    }
+
+    .select-trigger {
+        padding: 10px 14px;
+        font-size: 13px;
+        min-height: 44px;
+    }
+
+    .option {
+        padding: 12px 14px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* ── EDIT MODE INPUTS ── */
+    .edit-inline-input {
+        min-height: 44px;
+        font-size: 14px;
+    }
+
+    .edit-name-input {
+        font-size: 16px;
+    }
+
+    .edit-topic-input {
+        font-size: 14px;
+        padding: 10px 12px;
+        min-height: 44px;
+    }
+
+    .edit-subtopic-input {
+        font-size: 13px;
+        padding: 8px 12px;
+        min-height: 40px;
+    }
+
+    .edit-date-input {
+        min-height: 44px;
+        max-width: none;
+    }
+
+    .edit-date-row {
+        flex-wrap: wrap;
+    }
+
+    /* ── DELETE BUTTONS — larger tap targets ── */
+    .edit-delete-icon-btn {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        font-size: 18px;
+    }
+
+    .edit-delete-topic-btn {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+    }
+
+    .edit-add-btn {
+        min-height: 44px;
+        padding: 10px 18px;
+    }
+
+    .edit-add-row,
+    .edit-add-subject-row {
+        flex-wrap: wrap;
+    }
+
+    .edit-add-subtopic-row {
+        padding-left: 10px;
+        margin-left: 0;
+    }
+
+    .edit-topics-container {
+        padding-left: 12px;
+        margin-left: 4px;
+    }
+
+    .subtopics-list-wrapper {
+        padding-left: 12px;
+        margin-left: 4px;
+    }
+
+    .subtopic-row {
+        gap: 8px;
+    }
+
+    /* ── HOURS / SCHEDULE PANEL ── */
+    .card.hours-card {
+        flex: none;
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        height: auto;
+        max-height: none;
+        padding: 20px 16px;
+        border-radius: 20px;
+    }
+
+    .hours-list {
+        max-height: 280px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+
+    /* Hide scrollbar on mobile for cleaner look */
+    .hours-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .date-row {
+        padding-left: 0;
+        gap: 8px;
+    }
+
+    /* ── STEPPER BUTTONS — larger tap targets ── */
+    .step-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        font-size: 20px;
+        border-radius: 12px;
+    }
+
+    .hours-stepper {
+        padding: 3px;
+    }
+
+    .date-row input {
+        width: 44px;
+        font-size: 16px;
+    }
+
+    /* ── SCHEDULE PREFERENCE TEXTAREA ── */
+    #statusPreferenceNote {
+        min-height: 100px;
+        width: 100% !important;
+    }
+
+    /* ── GENERATE BUTTON — full width ── */
+    .generate-btn {
+        width: calc(100% - 2rem);
+        max-width: none;
+        margin: 24px 1rem 16px;
+        height: 52px;
+        font-size: 16px;
+        padding: 16px;
+        position: static;
+    }
+
+}
+
+@media (max-width: 1024px) {
+    /* ── FLATPICKR CALENDAR — centered modal overlay on mobile/tablet ── */
+    .flatpickr-calendar {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        animation: none !important; /* Prevent fadeIn animation keyframes from overriding translate transform */
+        width: calc(100vw - 2rem) !important;
+        max-width: 360px !important;
+        z-index: 10000 !important;
+        margin-top: 0 !important;
+        border-radius: 16px !important;
+        box-sizing: border-box !important;
+        padding: 1rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .flatpickr-calendar.arrowTop::before,
+    .flatpickr-calendar.arrowTop::after,
+    .flatpickr-calendar.arrowBottom::before,
+    .flatpickr-calendar.arrowBottom::after {
+        display: none !important;
+    }
+
+    .flatpickr-days {
+        width: 100% !important;
+        display: block !important;
+    }
+
+    .dayContainer {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(7, 1fr) !important;
+        box-sizing: border-box !important;
+        gap: 4px !important;
+    }
+
+    .flatpickr-day {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        max-width: none !important;
+        margin: 0 !important;
+        border-radius: 50% !important;
+        box-sizing: border-box !important;
+        line-height: 1 !important;
+    }
+
+    .flatpickr-innerContainer {
+        width: 100% !important;
+    }
+
+    .flatpickr-rContainer {
+        width: 100% !important;
+    }
+
+    /* Month/Year Header font-size 15px */
+    .flatpickr-month {
+        font-size: 15px !important;
+    }
+
+    /* Prev/Next arrows min 44x44px tap targets */
+    .flatpickr-months .flatpickr-prev-month,
+    .flatpickr-months .flatpickr-next-month {
+        width: 44px !important;
+        height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+    }
+
+    /* Day name headers (Sun Mon Tue...) font-size 11px, centered */
+    .flatpickr-weekday {
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        color: #888 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .flatpickr-weekdays {
+        display: grid !important;
+        grid-template-columns: repeat(7, 1fr) !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+}
+
+@media (max-width: 768px) {
+    /* ── EDIT MODE — subject header layout ── */
+    .subject-card-header .edit-col {
+        margin-right: 0 !important;
+    }
+
+    .edit-field-group {
+        width: 100%;
+    }
+
+    /* ── LOADER / ERROR — responsive ── */
+    #statusLoader {
+        padding: 0 1rem;
+    }
+
+    #statusError {
+        padding: 0 1rem !important;
+    }
+}
+
+
+/* ── CUSTOM CONFIRM MODAL ── */
+.confirm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.confirm-modal-overlay:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.confirm-modal-card {
+    background: rgba(12, 12, 21, 0.95);
+    border: 1px solid #1a1a1a;
+    border-radius: 28px;
+    padding: 32px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 20px;
+    animation: sfSlideUp 0.3s ease-out;
+}
+
+.confirm-modal-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+}
+
+.confirm-modal-subtitle {
+    font-size: 14px;
+    color: #888;
+    margin: 0 0 8px 0;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.confirm-modal-btn {
+    border-radius: 20px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+    text-align: center;
+}
+
+.confirm-modal-btn.btn-keep {
+    background: transparent;
+    border: 1px solid #333;
+    color: #888;
+}
+
+.confirm-modal-btn.btn-keep:hover {
+    border-color: #555;
+    color: white;
+}
+
+.confirm-modal-btn.btn-discard {
+    background: #dc3545;
+    border: 1px solid transparent;
+    color: white;
+}
+
+.confirm-modal-btn.btn-discard:hover {
+    background: #bd2130;
+}
+
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — SMALL MOBILE (max-width: 480px)
+   ═══════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+
+    .page-title {
+        font-size: 22px;
+        margin: 16px 0 8px;
+    }
+
+    /* ── EDIT ACTIONS — stack vertically ── */
+    .edit-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .edit-save-btn,
+    .edit-cancel-btn {
+        width: 100%;
+    }
+
+    /* ── SUBJECT CARD ── */
+    .subject-card {
+        padding: 12px;
+        border-radius: 16px;
+    }
+
+    .subject-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .subject-collapse-toggle {
+        position: absolute;
+        right: 12px;
+        top: 16px;
+    }
+
+    .subject-card-header {
+        position: relative;
+    }
+
+    .subject-progress-wrapper {
+        width: 100%;
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .subject-progress-track {
+        width: 100%;
+    }
+
+    /* ── TOPIC ACCORDION ── */
+    .topic-accordion-header {
+        padding: 10px 12px;
+    }
+
+    .custom-select {
+        max-width: none;
+        width: 100%;
+    }
+
+    /* ── HOURS PANEL ── */
+    .card.hours-card {
+        padding: 16px 12px;
+    }
+
+    .date-row {
+        font-size: 13px;
+    }
+
+    .date-full-val {
+        font-size: 13px;
+    }
+
+    .date-day-name {
+        font-size: 11px;
+    }
+
+    /* ── GENERATE BUTTON ── */
+    .generate-btn {
+        font-size: 15px;
+        height: 48px;
+    }
+
+    /* ── EDIT MODE ── */
+    .edit-date-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .edit-date-label {
+        min-width: auto;
+    }
+
+    .edit-date-input {
+        width: 100%;
+        max-width: none;
+    }
+
+    .edit-add-row .edit-inline-input,
+    .edit-add-subject-row .edit-inline-input {
+        min-width: 0;
+        flex: 1;
+    }
+}

@@ -67,22 +67,22 @@ function renderSchedule(data) {
 
                 const topicRow = document.createElement('div');
                 topicRow.className = 'topic-row';
+                topicRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;';
 
-                // Left: topic name + subtopics
+                // Left: [topic name block above] + [▶ count subtopics below] (display: flex, flex-direction: column)
                 const leftDiv = document.createElement('div');
-                leftDiv.style.flex = '1';
+                leftDiv.style.cssText = 'display:flex;flex-direction:column;flex:1;min-width:0;';
 
-                const topLine = document.createElement('div');
-                topLine.style.cssText = 'display:flex;align-items:center;gap:8px;';
                 const nameEl = document.createElement('span');
                 nameEl.className = 'topic-name';
+                nameEl.style.cssText = 'display:block;font-size:14px;color:#9ca3af;';
                 nameEl.innerText = topicName;
-                topLine.appendChild(nameEl);
+                leftDiv.appendChild(nameEl);
 
                 if (subtopics.length) {
                     const toggle = document.createElement('span');
                     toggle.className = 'subtopics-toggle';
-                    toggle.innerHTML = `<span class="toggle-arrow">▸</span> ${subtopics.length}`;
+                    toggle.innerHTML = `<span class="toggle-arrow">▶</span> ${subtopics.length} subtopics`;
 
                     const subList = document.createElement('ul');
                     subList.className = 'subtopics-list';
@@ -93,21 +93,19 @@ function renderSchedule(data) {
                         subList.appendChild(li);
                     });
 
-                    toggle.addEventListener('click', () => {
+                    toggle.addEventListener('click', (e) => {
+                        e.stopPropagation();
                         toggle.classList.toggle('open');
                         subList.classList.toggle('open');
                     });
 
-                    topLine.appendChild(toggle);
-                    leftDiv.appendChild(topLine);
+                    leftDiv.appendChild(toggle);
                     leftDiv.appendChild(subList);
-                } else {
-                    leftDiv.appendChild(topLine);
                 }
 
-                // Right: hours + Study button
+                // Right: [time] [Study Now button] (display: flex, align-items: center, gap: 8px, flex-shrink: 0)
                 const rightDiv = document.createElement('div');
-                rightDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-shrink:0;';
+                rightDiv.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0;';
 
                 const hoursEl = document.createElement('span');
                 hoursEl.className = 'duration';

@@ -8,10 +8,10 @@
     <title>StudyFlow AI</title>
 
     <!-- Importing your shared StudyFlow authentication and navbar styles -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}?v={{ range(1, 10000) | random }}">
 
     <!-- Landing page specific styles -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='New-landing.css') }}?v={{ range(1, 10000) | random }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 

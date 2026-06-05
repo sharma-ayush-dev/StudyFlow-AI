@@ -249,4 +249,155 @@
     background-color: rgba(255, 77, 77, 0.1);
     transform: scale(1.1);
 }
+
+
+/* ══════════════════════════════════════════
+   MOBILE RESPONSIVE — max-width: 768px
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* Prevent any horizontal scroll */
+    body, html {
+        overflow-x: hidden;
+    }
+
+    /* ── Hero Section ── */
+    .hero {
+        padding: 2rem 1rem 1.5rem;
+        height: auto;
+        min-height: 0;
+    }
+
+    .hero h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+
+    .hero p {
+        font-size: 15px;
+        line-height: 1.5;
+        max-width: 90%;
+        margin: 0 auto 1.5rem auto;
+        text-align: center;
+    }
+
+    /* ── Upload Card ── */
+    .upload-box {
+        width: calc(100% - 2rem);
+        max-width: 100%;
+        padding: 1.25rem;
+        gap: 18px;
+        margin: 0 auto;
+        border-radius: 16px;
+    }
+
+    .upload-box h3 {
+        font-size: 20px;
+        text-align: center;
+    }
+
+    /* ── Drag & Drop Zone ── */
+    .drop-area {
+        width: 100%;
+        min-height: 160px;
+        padding: 28px 16px;
+    }
+
+    .drop-area p {
+        font-size: 15px;
+        text-align: center;
+    }
+
+    /* ── Choose Files Button — large tap target ── */
+    .file-btn {
+        width: 100%;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        padding: 0 20px;
+        border-radius: 12px;
+    }
+
+    .file-name {
+        font-size: 13px;
+        text-align: center;
+        display: block;
+        width: 100%;
+    }
+
+    /* ── Generate Button ── */
+    .upload-btn {
+        font-size: 16px;
+        padding: 14px;
+        min-height: 48px;
+        width: 100%;
+    }
+
+    /* ── File list items ── */
+    .file-item {
+        padding: 10px 12px;
+    }
+
+    .file-name-text {
+        font-size: 13px;
+    }
+
+    /* ── Manual text fallback ── */
+    #manualTextBox textarea {
+        font-size: 14px !important;
+    }
+}
+
+
+/* ══════════════════════════════════════════
+   SMALL MOBILE — max-width: 480px
+══════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+    .hero {
+        padding: 1.5rem 0.75rem 1rem;
+    }
+
+    .hero h1 {
+        font-size: 24px;
+        letter-spacing: 0;
+    }
+
+    .hero p {
+        font-size: 14px;
+    }
+
+    .upload-box {
+        padding: 1rem;
+        gap: 14px;
+        border-radius: 14px;
+    }
+
+    .upload-box h3 {
+        font-size: 18px;
+    }
+
+    .drop-area {
+        min-height: 140px;
+        padding: 22px 12px;
+    }
+
+    .drop-area p {
+        font-size: 14px;
+    }
+
+    .file-btn {
+        font-size: 14px;
+        height: 46px;
+    }
+
+    .upload-btn {
+        font-size: 15px;
+        padding: 12px;
+    }
+}
 
