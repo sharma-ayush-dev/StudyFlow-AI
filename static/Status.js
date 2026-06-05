@@ -313,10 +313,12 @@ function buildSubjectHeader(subjectName, isCollapsed) {
         const dateLabel = document.createElement('label');
         dateLabel.className = 'edit-field-label date-label';
         dateLabel.innerHTML = '📅 Exam Date';
+
         const dateInput = document.createElement('input');
         dateInput.type = 'text';
         dateInput.className = 'edit-date-input';
         dateInput.placeholder = 'Select date...';
+
         const initVal = dmyToInputVal(state.Exam_dates[subjectName] || '');
         dateInput.value = initVal;
         
@@ -324,6 +326,55 @@ function buildSubjectHeader(subjectName, isCollapsed) {
             dateFormat: 'Y-m-d',
             defaultDate: initVal || null,
             disableMobile: "true",
+            onOpen: function(selectedDates, dateStr, instance) {
+                window.calendarIsOpen = true;
+
+                // Ensure the mobile drawer is closed when the date picker opens
+                const mobileDrawer = document.getElementById('navMobileDrawer');
+                if (mobileDrawer) {
+                    mobileDrawer.classList.remove('drawer-open');
+                }
+
+                // Prevent clicks inside the calendar popover from bubbling up to document click listeners
+                instance.calendarContainer.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+
+                if (window.innerWidth <= 768) {
+                    const cal = instance.calendarContainer;
+                    cal.style.setProperty('position', 'fixed', 'important');
+                    cal.style.setProperty('top', '50%', 'important');
+                    cal.style.setProperty('left', '50%', 'important');
+                    cal.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+                    cal.style.setProperty('width', 'calc(100vw - 2rem)', 'important');
+                    cal.style.setProperty('max-width', '340px', 'important');
+                    cal.style.setProperty('z-index', '99999', 'important');
+                    cal.style.setProperty('border-radius', '16px', 'important');
+                    let bd = document.getElementById('fpBackdrop');
+                    if (!bd) {
+                        bd = document.createElement('div');
+                        bd.id = 'fpBackdrop';
+                        Object.assign(bd.style, {
+                            position: 'fixed', inset: '0',
+                            background: 'rgba(0,0,0,0.65)',
+                            zIndex: '99998'
+                        });
+                        bd.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            instance.close();
+                        });
+                        document.body.appendChild(bd);
+                    }
+                }
+            },
+            onClose: function(selectedDates, dateStr, instance) {
+                window.calendarIsOpen = false;
+                const b = document.getElementById('fpBackdrop');
+                if (b) b.remove();
+                if (instance && instance.calendarContainer) {
+                    instance.calendarContainer.style.cssText = '';
+                }
+            },
             onChange: (selectedDates, dateStr) => {
                 const dmy = inputValToDmy(dateStr);
                 if (dmy) state.Exam_dates[subjectName] = dmy;
@@ -691,9 +742,21 @@ function exitEditMode() {
     renderTopicsPanel();
 }
 
-document.getElementById('editToggleBtn').addEventListener('click', enterEditMode);
-document.getElementById('cancelEditsBtn').addEventListener('click', () => {
-    if (hasUnsavedEdits && !confirm('Discard all unsaved changes?')) return;
+function showDiscardConfirmModal() {
+    const modal = document.getElementById('confirmDiscardModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function hideDiscardConfirmModal() {
+    const modal = document.getElementById('confirmDiscardModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function discardAllEdits() {
     state = JSON.parse(JSON.stringify(snapshot)); snapshot = null; hasUnsavedEdits = false;
     exitEditMode(); renderHoursPanel();
     const prefNoteEl = document.getElementById('statusPreferenceNote');
@@ -703,6 +766,26 @@ document.getElementById('cancelEditsBtn').addEventListener('click', () => {
         if (counterEl) {
             counterEl.textContent = `${prefNoteEl.value.length} / 200`;
         }
+    }
+}
+
+document.getElementById('editToggleBtn').addEventListener('click', enterEditMode);
+document.getElementById('cancelEditsBtn').addEventListener('click', () => {
+    if (hasUnsavedEdits) {
+        showDiscardConfirmModal();
+    } else {
+        discardAllEdits();
+    }
+});
+
+document.getElementById('keepEditingBtn')?.addEventListener('click', hideDiscardConfirmModal);
+document.getElementById('discardChangesBtn')?.addEventListener('click', () => {
+    hideDiscardConfirmModal();
+    discardAllEdits();
+});
+document.getElementById('confirmDiscardModal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+        hideDiscardConfirmModal();
     }
 });
 

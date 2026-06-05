@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyFlow — Upload</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='studyflow-ux.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='Upload-page.css') }}?v={{ range(1, 10000) | random }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 
@@ -77,8 +77,8 @@
     <script>
         window.WORD_LIMIT = {{ word_limit }};
     </script>
-    <script src="{{ url_for('static', filename='studyflow-ux.js') }}"></script>
-    <script src="{{ url_for('static', filename='Upload-page.js') }}"></script>
+    <script src="{{ url_for('static', filename='studyflow-ux.js') }}?v={{ range(1, 10000) | random }}"></script>
+    <script src="{{ url_for('static', filename='Upload-page.js') }}?v={{ range(1, 10000) | random }}"></script>
 
     {% include '_footer.html' %}
 

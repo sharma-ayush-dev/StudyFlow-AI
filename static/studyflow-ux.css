@@ -516,8 +516,38 @@
     .sf-success,
     .sf-error-card {
         width: calc(100% - 24px);
-        padding: 24px 18px;
+        padding: 24px 16px;
+        margin: 20px auto;
         border-radius: 22px;
+        box-sizing: border-box;
+    }
+
+    .sf-progress-bar-track {
+        width: 100%;
+    }
+
+    .sf-stage {
+        padding: 10px 8px;
+        gap: 10px;
+    }
+
+    .sf-stage-copy {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .sf-stage-label {
+        font-size: 13px;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .sf-stage-detail {
+        font-size: 11px;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
     }
 
     .sf-toast-container {

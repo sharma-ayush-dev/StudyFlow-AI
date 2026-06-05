@@ -55,6 +55,11 @@
 /* Fields */
 .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .field-label { font-size: 13px; color: #888; }
+.password-hint {
+    color: #555;
+    font-size: 12px;
+    display: inline;
+}
 .field-input {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.1);
@@ -137,6 +142,144 @@
     from { opacity:0; transform: translateY(-14px) scale(0.97); }
     to   { opacity:1; transform: translateY(0) scale(1); }
 }
+
+@media (max-width: 768px) {
+    .settings-page {
+        padding: 1.25rem 1rem 100px;
+        overflow-x: hidden;
+    }
+    
+    .settings-page h1 {
+        font-size: 26px;
+        margin-bottom: 8px;
+    }
+    
+    .settings-page .page-sub {
+        font-size: 13px;
+        margin-bottom: 24px;
+    }
+    
+    .settings-section {
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        border-radius: 16px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: 700;
+    }
+    
+    .section-desc {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 16px;
+    }
+    
+    .field-group {
+        margin-bottom: 14px;
+        gap: 6px;
+    }
+    
+    .field-label {
+        font-size: 13px;
+    }
+    
+    .password-hint {
+        font-size: 11px;
+    }
+    
+    .field-input {
+        height: 44px;
+        font-size: 15px;
+        padding: 10px 14px;
+    }
+    
+    .settings-save-btn {
+        height: 44px;
+        min-height: 44px;
+        font-size: 14px;
+        padding: 0 20px;
+        width: auto;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Specific styling for the Forgot Password section description */
+    .settings-section:last-of-type .section-desc {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .settings-section:last-of-type .section-desc strong {
+        word-break: break-all;
+    }
+    
+    /* OTP Modal mobile styling */
+    .otp-box {
+        padding: 1.5rem;
+        width: calc(100vw - 2rem);
+        max-width: 420px;
+        margin: auto;
+    }
+    
+    .otp-box h3 {
+        font-size: 20px;
+    }
+    
+    .otp-box p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    
+    #settingsOtpContainer {
+        display: flex;
+        justify-content: center;
+        flex-wrap: nowrap !important;
+        gap: 8px;
+        margin: 15px 0;
+    }
+    
+    #settingsOtpContainer .otp-digit {
+        width: 42px;
+        height: 48px;
+        font-size: 20px;
+        border-radius: 10px;
+        box-sizing: border-box;
+    }
+    
+    .otp-actions {
+        display: flex;
+        flex-direction: row;
+        gap: 0.75rem;
+        margin-top: 16px;
+    }
+    
+    #verifyOtpBtn {
+        width: auto;
+    }
+    
+    #cancelOtpBtn {
+        height: 44px !important;
+        box-sizing: border-box !important;
+        padding: 0 20px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+    }
+}
+
+@media (max-width: 380px) {
+    #settingsOtpContainer {
+        gap: 6px;
+    }
+    #settingsOtpContainer .otp-digit {
+        width: 36px;
+        height: 44px;
+    }
+}
 </style>
 </head>
 <body>
@@ -198,7 +341,7 @@
             <input id="oldPassword" class="field-input" type="password" placeholder="••••••••">
         </div>
         <div class="field-group">
-            <label class="field-label">New password <span style="color:#555;font-size:12px;">(min 8 characters)</span></label>
+            <label class="field-label">New password <span class="password-hint">(min 8 characters)</span></label>
             <input id="newPassword" class="field-input" type="password" placeholder="••••••••">
         </div>
         <div class="field-group">

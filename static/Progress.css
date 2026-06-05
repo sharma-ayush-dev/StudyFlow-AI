@@ -10,10 +10,29 @@
     font-size: 15px;
     margin-bottom: 36px;
     animation: fadeIn 0.8s ease-out both;
+    padding: 0 16px;
+    box-sizing: border-box;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.5;
 }
 
 .progress-subtitle strong {
     color: #9f55ff;
+}
+
+.progress-page-container {
+    max-width: 890px;
+    margin: 0 auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .progress-page-container {
+        padding: 0 16px;
+    }
 }
 
 /* ── MAIN WRAPPER ── */
@@ -21,13 +40,14 @@
 .progress-wrapper {
     display: flex;
     justify-content: center;
-    padding: 0 20px;
+    width: 100%;
     animation: fadeIn 0.8s ease-out both;
 }
 
 .progress-wrapper .topics-card {
-    width: 850px;
-    flex: none;
+    width: 100%;
+    max-width: 850px;
+    box-sizing: border-box;
     max-height: 620px;
     overflow-y: auto;
     padding-right: 24px;
@@ -54,7 +74,8 @@
 }
 
 .regen-preferences-card {
-    width: min(850px, calc(100% - 40px));
+    width: 100%;
+    max-width: 850px;
     margin: 24px auto 0;
     padding: 24px;
     border-radius: 24px;
@@ -65,6 +86,7 @@
     box-shadow: 0 18px 55px rgba(0, 0, 0, 0.24);
     backdrop-filter: blur(16px);
     animation: fadeIn 0.8s ease-out 0.1s both;
+    box-sizing: border-box;
 }
 
 .regen-pref-header {
@@ -152,7 +174,8 @@
 }
 
 .regen-field input,
-.regen-field select {
+.regen-field select,
+.regen-field textarea {
     width: 100%;
     border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 14px;
@@ -164,8 +187,15 @@
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.regen-field textarea {
+    resize: vertical;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
 .regen-field input:focus,
-.regen-field select:focus {
+.regen-field select:focus,
+.regen-field textarea:focus {
     border-color: rgba(123, 47, 247, 0.62);
     box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.10);
 }
@@ -197,6 +227,7 @@
 .preset-stepper {
     display: flex;
     align-items: center;
+    justify-content: center;
     background: #11111a;
     border: 1px solid #333;
     border-radius: 14px;
@@ -213,7 +244,7 @@
 .preset-stepper .regen-hour-input {
     pointer-events: auto;
     cursor: text;
-    width: 36px;
+    width: 44px;
 }
 
 .preset-apply-btn {
@@ -247,6 +278,8 @@
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 6px;
+    padding-left: 2px;
+    box-sizing: border-box;
 }
 
 /* Themed scrollbar — matches Progress card */
@@ -276,6 +309,9 @@
     border: 1px solid rgba(255, 255, 255, 0.055);
     transition: border-color 0.2s ease;
     text-align: center;
+    min-width: 0;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .regen-hour-row:hover {
@@ -311,6 +347,7 @@
 .regen-hours-stepper {
     display: flex;
     align-items: center;
+    justify-content: center;
     background: #11111a;
     border: 1px solid #333;
     border-radius: 14px;
@@ -325,13 +362,13 @@
 }
 
 .regen-step-btn {
-    width: 30px;
-    height: 30px;
+    width: 44px;
+    height: 44px;
     background: rgba(255, 255, 255, 0.05);
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     color: #9f55ff;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     cursor: pointer;
     display: flex;
@@ -352,7 +389,9 @@
 }
 
 .regen-hour-input {
-    width: 40px;
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
     padding: 4px 2px;
     text-align: center;
     background: transparent;
@@ -363,6 +402,7 @@
     -moz-appearance: textfield;
     appearance: textfield;
     pointer-events: none;
+    box-sizing: border-box;
 }
 
 .regen-hour-input::-webkit-outer-spin-button,
@@ -958,11 +998,54 @@
     margin-bottom: 6px;
 }
 
+/* ── COMPARISON TOPIC ROWS ── */
+.cmp-topic-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    font-size: 13px;
+    color: #b9b9c8;
+    gap: 12px;
+}
+
+.cmp-topic-row:last-child {
+    border-bottom: none;
+}
+
+.cmp-topic-row span:first-child {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+.cmp-hours {
+    color: #9f55ff;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .progress-wrapper .topics-card {
+        width: 100%;
+        max-width: 850px;
+        padding-right: 0;
+    }
+}
+
 @media (max-width: 720px) {
+    .regen-preferences-card {
+        padding: 16px;
+    }
+
     .regen-pref-header,
     .regen-hours-header {
         align-items: flex-start;
         flex-direction: column;
+        gap: 12px;
     }
 
     .regen-pref-grid {
@@ -974,12 +1057,136 @@
         width: 100%;
     }
 
-    .topic-row {
-        align-items: flex-start;
+    .subject-header {
         flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+
+    .subject-header h2 {
+        font-size: 18px;
+        line-height: 1.3;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .topic-row {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .custom-select {
         width: 100%;
+    }
+
+    .select-trigger {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .regen-hours-list {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 0 4px;
+        gap: 12px;
+    }
+
+    .progress-actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0 20px;
+        gap: 12px;
+    }
+
+    .progress-actions .generate-btn,
+    .progress-actions .edit-toggle-btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .comparison-grid {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 24px;
+        padding: 0 16px 60px;
+    }
+
+    .comparison-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .regen-preferences-card {
+        padding: 12px;
+    }
+
+    .regen-hours-list {
+        grid-template-columns: 1fr;
+        padding: 0;
+    }
+
+    .preset-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .preset-stepper {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .preset-stepper .regen-step-btn {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+        font-size: 16px;
+    }
+
+    .preset-stepper .regen-hour-input {
+        width: 36px;
+        height: 36px;
+        line-height: 36px;
+    }
+
+    .preset-apply-btn {
+        width: 100%;
+        text-align: center;
+        padding: 12px;
+        margin-top: 4px;
+    }
+
+    .comparison-card-header {
+        padding: 16px 12px;
+        gap: 10px;
+    }
+
+    .comparison-header-title-area {
+        gap: 8px;
+    }
+
+    .comparison-label-title {
+        font-size: 14px;
+    }
+
+    .comparison-label-subtitle {
+        font-size: 9px;
+        letter-spacing: 0.4px;
+    }
+
+    .keep-btn {
+        padding: 8px 14px;
+        font-size: 12px;
     }
 }
