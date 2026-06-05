@@ -6,7 +6,7 @@ import re
 import os
 import urllib.parse
 import secrets as _secrets
-from flask import render_template, abort, session, request
+from flask import render_template, abort, session, request, jsonify
 from flask_login import current_user
 from extensions import cache, RATE_LIMIT_DEFAULTS, DEFAULT_WORD_LIMIT, DEFAULT_SCHED_PREF_LIMIT
 from extensions import _settings_cache_lock
@@ -230,110 +230,90 @@ def _get_study_data() -> StudyData | None:
 
 def _ensure_runtime_schema():
     try:
-        with db.engine.connect() as conn:
-            rows = conn.exec_driver_sql("PRAGMA table_info(study_data)").fetchall()
-            existing = {row[1] for row in rows}
-            if 'generation_inputs_json' not in existing:
-                conn.exec_driver_sql("ALTER TABLE study_data ADD COLUMN generation_inputs_json TEXT")
-            if 'pending_generation_inputs_json' not in existing:
-                conn.exec_driver_sql("ALTER TABLE study_data ADD COLUMN pending_generation_inputs_json TEXT")
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
 
-            rows_chat = conn.exec_driver_sql("PRAGMA table_info(chat)").fetchall()
-            existing_chat = {row[1] for row in rows_chat}
-            if 'schedule_date' not in existing_chat:
-                conn.exec_driver_sql("ALTER TABLE chat ADD COLUMN schedule_date VARCHAR(20)")
+        with db.engine.begin() as conn:
+            # 1. Check study_data columns
+            if 'study_data' in tables:
+                existing = {col['name'] for col in inspector.get_columns('study_data')}
+                if 'generation_inputs_json' not in existing:
+                    conn.exec_driver_sql("ALTER TABLE study_data ADD COLUMN generation_inputs_json TEXT")
+                if 'pending_generation_inputs_json' not in existing:
+                    conn.exec_driver_sql("ALTER TABLE study_data ADD COLUMN pending_generation_inputs_json TEXT")
 
-            rows_user = conn.exec_driver_sql("PRAGMA table_info(user)").fetchall()
-            existing_user = {row[1] for row in rows_user}
-            if 'full_name' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN full_name VARCHAR(50)")
-            if 'upload_count' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN upload_count INTEGER DEFAULT 0 NOT NULL")
-            if 'generations_count' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN generations_count INTEGER DEFAULT 0 NOT NULL")
-            if 'last_active' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_active DATETIME")
-            if 'input_tokens_used' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN input_tokens_used INTEGER DEFAULT 0 NOT NULL")
-            if 'output_tokens_used' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN output_tokens_used INTEGER DEFAULT 0 NOT NULL")
-            if 'last_model_used' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_model_used VARCHAR(100)")
-            if 'total_cost' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN total_cost FLOAT DEFAULT 0.0 NOT NULL")
-            if 'cost_limit' not in existing_user:
-                conn.exec_driver_sql("ALTER TABLE user ADD COLUMN cost_limit FLOAT DEFAULT 2.0 NOT NULL")
-            else:
-                # Migrate old default limits (10.0 or 1000.0) to the new 2.0 default
-                conn.exec_driver_sql("UPDATE user SET cost_limit = 2.0 WHERE cost_limit = 10.0 OR cost_limit = 1000.0")
+            # 2. Check chat columns
+            if 'chat' in tables:
+                existing_chat = {col['name'] for col in inspector.get_columns('chat')}
+                if 'schedule_date' not in existing_chat:
+                    conn.exec_driver_sql("ALTER TABLE chat ADD COLUMN schedule_date VARCHAR(20)")
 
-            rows_activity = conn.exec_driver_sql("PRAGMA table_info(activity_log)").fetchall()
-            existing_activity = {row[1] for row in rows_activity}
-            if 'ip_address' not in existing_activity:
-                conn.exec_driver_sql("ALTER TABLE activity_log ADD COLUMN ip_address VARCHAR(45)")
-            if 'user_agent' not in existing_activity:
-                conn.exec_driver_sql("ALTER TABLE activity_log ADD COLUMN user_agent VARCHAR(256)")
+            # 3. Check user columns
+            if 'user' in tables:
+                existing_user = {col['name'] for col in inspector.get_columns('user')}
+                if 'full_name' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN full_name VARCHAR(50)")
+                if 'upload_count' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN upload_count INTEGER DEFAULT 0 NOT NULL")
+                if 'generations_count' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN generations_count INTEGER DEFAULT 0 NOT NULL")
+                if 'last_active' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_active DATETIME")
+                if 'input_tokens_used' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN input_tokens_used INTEGER DEFAULT 0 NOT NULL")
+                if 'output_tokens_used' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN output_tokens_used INTEGER DEFAULT 0 NOT NULL")
+                if 'last_model_used' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN last_model_used VARCHAR(100)")
+                if 'total_cost' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN total_cost FLOAT DEFAULT 0.0 NOT NULL")
+                if 'cost_limit' not in existing_user:
+                    conn.exec_driver_sql("ALTER TABLE user ADD COLUMN cost_limit FLOAT DEFAULT 2.0 NOT NULL")
+                else:
+                    # Migrate old default limits (10.0 or 1000.0) to the new 2.0 default
+                    conn.exec_driver_sql("UPDATE user SET cost_limit = 2.0 WHERE cost_limit = 10.0 OR cost_limit = 1000.0")
 
-            rows_request = conn.exec_driver_sql("PRAGMA table_info(request_log)").fetchall()
-            existing_request = {row[1] for row in rows_request}
-            if 'ip_address' not in existing_request:
-                conn.exec_driver_sql("ALTER TABLE request_log ADD COLUMN ip_address VARCHAR(45)")
-            if 'user_agent' not in existing_request:
-                conn.exec_driver_sql("ALTER TABLE request_log ADD COLUMN user_agent VARCHAR(256)")
+            # 4. Check activity_log columns
+            if 'activity_log' in tables:
+                existing_activity = {col['name'] for col in inspector.get_columns('activity_log')}
+                if 'ip_address' not in existing_activity:
+                    conn.exec_driver_sql("ALTER TABLE activity_log ADD COLUMN ip_address VARCHAR(45)")
+                if 'user_agent' not in existing_activity:
+                    conn.exec_driver_sql("ALTER TABLE activity_log ADD COLUMN user_agent VARCHAR(256)")
 
-            # Check/create membership_tier
-            rows_tier = conn.exec_driver_sql("PRAGMA table_info(membership_tier)").fetchall()
-            if not rows_tier:
-                conn.exec_driver_sql("""
-                    CREATE TABLE membership_tier (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name VARCHAR(50) NOT NULL UNIQUE,
-                        display_price INTEGER NOT NULL DEFAULT 0,
-                        model_id VARCHAR(100) NOT NULL,
-                        budget_limit FLOAT NOT NULL DEFAULT 1.0,
-                        speed_label VARCHAR(50) NOT NULL,
-                        tutor_quality_label VARCHAR(50) NOT NULL,
-                        display_order INTEGER NOT NULL DEFAULT 0,
-                        active BOOLEAN NOT NULL DEFAULT 1,
-                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-            else:
-                existing_tier = {row[1] for row in rows_tier}
+            # 5. Check request_log columns
+            if 'request_log' in tables:
+                existing_request = {col['name'] for col in inspector.get_columns('request_log')}
+                if 'ip_address' not in existing_request:
+                    conn.exec_driver_sql("ALTER TABLE request_log ADD COLUMN ip_address VARCHAR(45)")
+                if 'user_agent' not in existing_request:
+                    conn.exec_driver_sql("ALTER TABLE request_log ADD COLUMN user_agent VARCHAR(256)")
+
+            # 6. Check membership_tier columns
+            if 'membership_tier' in tables:
+                existing_tier = {col['name'] for col in inspector.get_columns('membership_tier')}
                 if 'display_order' not in existing_tier:
                     conn.exec_driver_sql("ALTER TABLE membership_tier ADD COLUMN display_order INTEGER DEFAULT 0 NOT NULL")
+                if 'token_multiplier' not in existing_tier:
+                    conn.exec_driver_sql("ALTER TABLE membership_tier ADD COLUMN token_multiplier FLOAT DEFAULT 1.0 NOT NULL")
+                    conn.exec_driver_sql("UPDATE membership_tier SET token_multiplier = budget_limit")
 
-            # Seed default tiers if empty
-            count_tiers = conn.exec_driver_sql("SELECT COUNT(*) FROM membership_tier").fetchone()[0]
-            if count_tiers == 0:
-                conn.exec_driver_sql("""
-                    INSERT INTO membership_tier (name, display_price, model_id, budget_limit, speed_label, tutor_quality_label, display_order, active, created_at, updated_at)
-                    VALUES 
-                    ('Bronze', 0, 'mistralai/mistral-nemo', 1.0, 'Standard', 'Standard', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-                    ('Platinum', 9, 'mistralai/mistral-nemo', 2.0, 'Standard', 'Improved', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-                    ('Diamond', 49, 'mistralai/mistral-nemo', 36.0, 'Faster', 'Best', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """)
+            # 7. Seed default tiers if empty
+            if 'membership_tier' in tables:
+                count_tiers = conn.exec_driver_sql("SELECT COUNT(*) FROM membership_tier").fetchone()[0]
+                if count_tiers == 0:
+                    conn.exec_driver_sql("""
+                        INSERT INTO membership_tier (name, display_price, model_id, budget_limit, token_multiplier, speed_label, tutor_quality_label, display_order, active, created_at, updated_at)
+                        VALUES 
+                        ('Bronze', 0, 'mistralai/mistral-nemo', 1.0, 1.0, 'Standard', 'Standard', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                        ('Platinum', 9, 'mistralai/mistral-nemo', 2.0, 2.0, 'Standard', 'Improved', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                        ('Diamond', 49, 'mistralai/mistral-nemo', 36.0, 36.0, 'Faster', 'Best', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """)
 
-            # Check/create user_membership
-            rows_um = conn.exec_driver_sql("PRAGMA table_info(user_membership)").fetchall()
-            if not rows_um:
-                conn.exec_driver_sql("""
-                    CREATE TABLE user_membership (
-                        user_id INTEGER PRIMARY KEY,
-                        tier_id INTEGER NOT NULL,
-                        usage_cost FLOAT NOT NULL DEFAULT 0.0,
-                        usage_percentage FLOAT NOT NULL DEFAULT 0.0,
-                        upgraded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        total_amount_paid FLOAT NOT NULL DEFAULT 0.0,
-                        custom_budget_limit FLOAT,
-                        bronze_exhausted_before BOOLEAN NOT NULL DEFAULT 0,
-                        FOREIGN KEY(user_id) REFERENCES user(id),
-                        FOREIGN KEY(tier_id) REFERENCES membership_tier(id)
-                    )
-                """)
-            else:
-                existing_um = {row[1] for row in rows_um}
+            # 8. Check user_membership columns
+            if 'user_membership' in tables:
+                existing_um = {col['name'] for col in inspector.get_columns('user_membership')}
                 if 'total_amount_paid' not in existing_um:
                     conn.exec_driver_sql("ALTER TABLE user_membership ADD COLUMN total_amount_paid FLOAT DEFAULT 0.0 NOT NULL")
                 if 'custom_budget_limit' not in existing_um:
@@ -341,32 +321,32 @@ def _ensure_runtime_schema():
                 if 'bronze_exhausted_before' not in existing_um:
                     conn.exec_driver_sql("ALTER TABLE user_membership ADD COLUMN bronze_exhausted_before BOOLEAN DEFAULT 0 NOT NULL")
 
-            # Check/create usage_log
-            rows_ul = conn.exec_driver_sql("PRAGMA table_info(usage_log)").fetchall()
-            if not rows_ul:
-                conn.exec_driver_sql("""
-                    CREATE TABLE usage_log (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        endpoint VARCHAR(255) NOT NULL,
-                        model_used VARCHAR(100) NOT NULL,
-                        input_tokens INTEGER NOT NULL DEFAULT 0,
-                        output_tokens INTEGER NOT NULL DEFAULT 0,
-                        total_tokens INTEGER NOT NULL DEFAULT 0,
-                        request_cost FLOAT NOT NULL DEFAULT 0.0,
-                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(user_id) REFERENCES user(id)
-                    )
-                """)
+            # 9. Auto-assign Bronze tier to any users missing membership records
+            if 'user_membership' in tables and 'user' in tables:
+                if db.engine.dialect.name == 'sqlite':
+                    conn.exec_driver_sql("""
+                        INSERT OR IGNORE INTO user_membership (user_id, tier_id, usage_cost, usage_percentage, upgraded_at)
+                        SELECT id, (SELECT id FROM membership_tier WHERE name='Bronze'), 0.0, 0.0, CURRENT_TIMESTAMP 
+                        FROM user
+                    """)
+                else:
+                    conn.exec_driver_sql("""
+                        INSERT INTO user_membership (user_id, tier_id, usage_cost, usage_percentage, upgraded_at)
+                        SELECT id, (SELECT id FROM membership_tier WHERE name='Bronze'), 0.0, 0.0, CURRENT_TIMESTAMP 
+                        FROM "user"
+                        ON CONFLICT (user_id) DO NOTHING
+                    """)
 
-            # Auto-assign Bronze tier to any users missing membership records
-            conn.exec_driver_sql("""
-                INSERT OR IGNORE INTO user_membership (user_id, tier_id, usage_cost, usage_percentage, upgraded_at)
-                SELECT id, (SELECT id FROM membership_tier WHERE name='Bronze'), 0.0, 0.0, CURRENT_TIMESTAMP 
-                FROM user
-            """)
+            # 10. Check failed_attempts in email_otp and password_reset_otp
+            if 'email_otp' in tables:
+                existing_eo = {col['name'] for col in inspector.get_columns('email_otp')}
+                if 'failed_attempts' not in existing_eo:
+                    conn.exec_driver_sql("ALTER TABLE email_otp ADD COLUMN failed_attempts INTEGER DEFAULT 0 NOT NULL")
 
-            conn.commit()
+            if 'password_reset_otp' in tables:
+                existing_pro = {col['name'] for col in inspector.get_columns('password_reset_otp')}
+                if 'failed_attempts' not in existing_pro:
+                    conn.exec_driver_sql("ALTER TABLE password_reset_otp ADD COLUMN failed_attempts INTEGER DEFAULT 0 NOT NULL")
     except Exception as exc:
         print(f'[SCHEMA] Runtime migration skipped: {exc}')
 
@@ -386,6 +366,10 @@ def _delete_files(paths: list):
 
 
 def _render_error(code, title, message):
+    if (request.path.startswith('/api/') or 
+        request.is_json or 
+        (request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html)):
+        return jsonify({'error': message}), code
     return render_template('error.html', code=code, title=title, message=message), code
 
 
@@ -559,6 +543,13 @@ def _send_otp_email(email: str, otp: str):
 
 
 def _send_welcome_email(email: str, username: str):
+    from flask import request, has_request_context
+    base_url = os.environ.get('APP_BASE_URL')
+    if not base_url:
+        base_url = request.host_url if has_request_context() else 'http://localhost:5000/'
+    if not base_url.endswith('/'):
+        base_url += '/'
+
     resend_api_key = os.environ.get('RESEND_API_KEY')
 
     if not resend_api_key:
@@ -670,7 +661,7 @@ def _send_welcome_email(email: str, username: str):
                             </ul>
                         </div>
                         
-                        <a href="http://127.0.0.1:5000" class="cta-btn">Get Started</a>
+                        <a href="{base_url}" class="cta-btn">Get Started</a>
                         
                         <div class="footer">
                             &copy; 2026 StudyFlow-AI. All rights reserved.<br>
@@ -682,7 +673,7 @@ def _send_welcome_email(email: str, username: str):
             </html>
             """
             
-            text_content = f"Welcome to StudyFlow-AI, {username}!\n\nGet started planning your studies: http://127.0.0.1:5000"
+            text_content = f"Welcome to StudyFlow-AI, {username}!\n\nGet started planning your studies: {base_url}"
 
             params = {
                 "from": f"{from_name} <{from_email}>",
@@ -835,8 +826,8 @@ def _create_otp(email: str) -> PasswordResetOTP:
     PasswordResetOTP.query.filter_by(email=email, used=False).update({'used': True})
     db.session.commit()
 
-    import random
-    otp_code = f"{random.randint(100000, 999999)}"
+    import secrets
+    otp_code = f"{secrets.SystemRandom().randint(100000, 999999)}"
 
     otp = PasswordResetOTP(
         email=email,
@@ -852,10 +843,16 @@ def _create_otp(email: str) -> PasswordResetOTP:
 def _verify_otp(email: str, code: str) -> bool:
     now = datetime.datetime.utcnow()
     rec = (PasswordResetOTP.query
-           .filter_by(email=email, otp_code=code, used=False)
+           .filter_by(email=email, used=False)
            .filter(PasswordResetOTP.expires_at > now)
            .first())
     if not rec:
+        return False
+    if rec.otp_code != code:
+        rec.failed_attempts = (rec.failed_attempts or 0) + 1
+        if rec.failed_attempts >= 5:
+            rec.used = True
+        db.session.commit()
         return False
     rec.used = True
     db.session.commit()
@@ -867,8 +864,8 @@ def _create_login_otp(email: str) -> EmailOTP:
     EmailOTP.query.filter_by(email=email, used=False).update({'used': True})
     db.session.commit()
 
-    import random
-    otp_code = f"{random.randint(100000, 999999)}"
+    import secrets
+    otp_code = f"{secrets.SystemRandom().randint(100000, 999999)}"
 
     otp = EmailOTP(
         email=email,
@@ -886,10 +883,16 @@ def _create_login_otp(email: str) -> EmailOTP:
 def _verify_login_otp(email: str, code: str) -> bool:
     now = datetime.datetime.utcnow()
     rec = (EmailOTP.query
-           .filter_by(email=email, otp_code=code, used=False)
+           .filter_by(email=email, used=False)
            .filter(EmailOTP.expires_at > now)
            .first())
     if not rec:
+        return False
+    if rec.otp_code != code:
+        rec.failed_attempts = (rec.failed_attempts or 0) + 1
+        if rec.failed_attempts >= 5:
+            rec.used = True
+        db.session.commit()
         return False
     rec.used = True
     db.session.commit()
@@ -910,15 +913,16 @@ def log_request(response):
 
     def _write():
         try:
+            from sqlalchemy import text
             with db.engine.connect() as conn:
-                conn.exec_driver_sql(
-                    "INSERT INTO request_log (userid, method, path, status_code, ip_address, user_agent, timestamp) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                    (uid, method, p, status, ip, ua)
+                conn.execute(
+                    text("INSERT INTO request_log (userid, method, path, status_code, ip_address, user_agent, timestamp) VALUES (:uid, :method, :path, :status, :ip, :ua, CURRENT_TIMESTAMP)"),
+                    {"uid": uid, "method": method, "path": p, "status": status, "ip": ip, "ua": ua}
                 )
                 if uid:
-                    conn.exec_driver_sql(
-                        "UPDATE user SET last_active = CURRENT_TIMESTAMP WHERE id = ?",
-                        (uid,)
+                    conn.execute(
+                        text("UPDATE \"user\" SET last_active = CURRENT_TIMESTAMP WHERE id = :uid"),
+                        {"uid": uid}
                     )
                 conn.commit()
         except Exception:

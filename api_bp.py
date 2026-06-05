@@ -82,6 +82,7 @@ def upload_files():
         if valid_files_count > 0 and total_size > 15 * 1024 * 1024:
             return jsonify({'error': 'Combined size of all files exceeds the maximum 15MB size limit.'}), 400
 
+        import uuid
         for file in files:
             if not file.filename: continue
             filename = secure_filename(file.filename)
@@ -89,7 +90,8 @@ def upload_files():
             ext = os.path.splitext(filename)[1].lower()
             if ext not in current_app.config.get('ALLOWED_EXTENSIONS', {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp', '.txt', '.xlsx', '.pptx', '.ppt'}):
                 return jsonify({'error': f'Unsupported file type: {ext}'}), 400
-            path = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
+            unique_filename = f"{current_user.id}_{uuid.uuid4().hex}_{filename}"
+            path = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'uploads'), unique_filename)
             file.save(path)
             file_paths.append(path)
         if file_paths:
@@ -122,7 +124,7 @@ def upload_files():
         return jsonify(final_json)
     except Exception as e:
         print('UPLOAD ERROR:', e)
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Failed to process document upload. Please try again.'}), 500
     finally:
         _delete_files(file_paths)
 
@@ -215,7 +217,8 @@ def generate(userid):
             except ValueError as e:
                 _job_set(job_id, 'error', error=str(e))
             except Exception as e:
-                _job_set(job_id, 'error', error=f'Generation failed: {e}')
+                print('GENERATION ERROR:', e)
+                _job_set(job_id, 'error', error='Generation failed. Please try again.')
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({'job_id': job_id, 'status': 'pending'})
@@ -327,7 +330,8 @@ def regenerate_schedule(userid):
             except ValueError as e:
                 _job_set(job_id, 'error', error=str(e))
             except Exception as e:
-                _job_set(job_id, 'error', error=f'Regeneration failed: {e}')
+                print('REGENERATION ERROR:', e)
+                _job_set(job_id, 'error', error='Regeneration failed. Please try again.')
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({'job_id': job_id, 'status': 'pending'})
@@ -421,7 +425,8 @@ def purchase_subscription(tier_id):
             receipt_id=receipt_id
         )
     except Exception as e:
-        return jsonify({'error': f'Failed to create Razorpay Order: {str(e)}'}), 500
+        print('PAYMENT ORDER CREATION ERROR:', e)
+        return jsonify({'error': 'Failed to create Razorpay Order. Please try again.'}), 500
 
     # Store pending payment record in database
     try:
@@ -437,7 +442,8 @@ def purchase_subscription(tier_id):
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Failed to record transaction: {str(e)}'}), 500
+        print('TRANSACTION RECORD ERROR:', e)
+        return jsonify({'error': 'Failed to record transaction.'}), 500
 
     _log_activity('payment_order_created', {
         'order_id': order['id'],
@@ -564,6 +570,9 @@ def verify_payment():
     payment = Payment.query.filter_by(razorpay_order_id=order_id).first()
     if not payment:
         return jsonify({'error': 'Payment record not found.'}), 404
+
+    if payment.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
         
     if payment.status == 'paid':
         return jsonify({
@@ -620,7 +629,8 @@ def verify_payment():
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Failed to activate membership: {str(e)}'}), 500
+        print('MEMBERSHIP ACTIVATION ERROR:', e)
+        return jsonify({'error': 'Failed to activate membership. Please contact support.'}), 500
 
 
 @api_bp.route('/subscriptions/fail', methods=['POST'])
@@ -639,6 +649,9 @@ def fail_payment():
     if not payment:
         return jsonify({'error': 'Payment record not found.'}), 404
 
+    if payment.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+
     if payment.status == 'pending':
         try:
             payment.status = 'failed'
@@ -648,7 +661,8 @@ def fail_payment():
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            return jsonify({'error': f'Failed to update payment status: {str(e)}'}), 500
+            print('PAYMENT STATUS UPDATE ERROR:', e)
+            return jsonify({'error': 'Failed to update payment status.'}), 500
 
         _log_activity('payment_failed', {
             'order_id': order_id,

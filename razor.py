@@ -8,10 +8,19 @@ logger = logging.getLogger("razor_integration")
 
 class RazorpayGateway:
     def __init__(self):
-        # Retrieve keys from environment variables or use test mode placeholders if not set
-        self.key_id = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_placeholder_key")
-        self.key_secret = os.environ.get("RAZORPAY_KEY_SECRET", "placeholder_secret")
-        self.webhook_secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "webhook_secret_placeholder")
+        # Retrieve keys from environment variables
+        self.key_id = os.environ.get("RAZORPAY_KEY_ID")
+        self.key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+        self.webhook_secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET")
+
+        if not self.key_id or not self.key_secret:
+            if os.environ.get('FLASK_ENV') == 'production':
+                raise RuntimeError("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET MUST be set in production mode!")
+            # Fallback to test mode placeholders for local development
+            self.key_id = self.key_id or "rzp_test_placeholder_key"
+            self.key_secret = self.key_secret or "placeholder_secret"
+
+        self.webhook_secret = self.webhook_secret or "webhook_secret_placeholder"
 
         # Determine if test mode is active (based on prefix of key id)
         self.is_test_mode = self.key_id.startswith("rzp_test")

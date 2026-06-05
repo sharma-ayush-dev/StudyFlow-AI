@@ -126,8 +126,9 @@ def extract_pdf(path: str, force_ocr: bool = False) -> dict:
                     raise RuntimeError("Both pdf2image (poppler) and pypdfium2 failed to render PDF pages.")
             
             # Temporary directory inside the workspace
+            import uuid
             workspace_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            temp_dir = os.path.join(workspace_dir, "temp_pdf_pages")
+            temp_dir = os.path.join(workspace_dir, f"temp_pdf_pages_{uuid.uuid4().hex}")
             os.makedirs(temp_dir, exist_ok=True)
             
             for i, page in enumerate(pages):

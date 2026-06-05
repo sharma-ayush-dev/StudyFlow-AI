@@ -221,27 +221,40 @@ def admin_api_logs_requests():
 @login_required
 def admin_list_users():
     if not current_user.is_admin: abort(403)
-    users = User.query.order_by(User.created_at.desc()).all()
-    return jsonify([{
-        'id': u.id, 'username': u.username, 'email': u.email,
-        'full_name': u.full_name or '',
-        'course': u.course or '', 'is_admin': u.is_admin,
-        'created_at': u.created_at.strftime('%d %b %Y %H:%M'),
-        'upload_count': u.upload_count or 0,
-        'generations_count': u.generations_count or 0,
-        'last_active': u.last_active.strftime('%d %b %H:%M') if u.last_active else 'Never',
-        'input_tokens_used': u.input_tokens_used or 0,
-        'output_tokens_used': u.output_tokens_used or 0,
-        'last_model_used': u.last_model_used or 'None',
-        'total_cost': round(u.total_cost or 0.0, 4),
-        'membership_tier_id': u.membership.tier_id if u.membership else None,
-        'membership_tier_name': u.membership.tier.name if (u.membership and u.membership.tier) else 'Bronze',
-        'membership_usage_cost': round(u.membership.usage_cost or 0.0, 4) if u.membership else 0.0,
-        'membership_usage_percentage': round(u.membership.usage_percentage or 0.0, 2) if u.membership else 0.0,
-        'membership_budget_limit': round(u.membership.custom_budget_limit if (u.membership and u.membership.custom_budget_limit is not None) else (u.membership.tier.budget_limit if (u.membership and u.membership.tier) else 1.0), 2),
-        'membership_total_amount_paid': round(u.membership.total_amount_paid or 0.0, 2) if u.membership else 0.0,
-        'net_profit_loss': round((u.membership.total_amount_paid or 0.0) - (u.total_cost or 0.0), 4) if u.membership else round(-(u.total_cost or 0.0), 4)
-    } for u in users])
+    limit = max(10, min(100, int(request.args.get('limit', 20))))
+    page = max(1, int(request.args.get('page', 1)))
+    
+    query = User.query.order_by(User.created_at.desc())
+    total = query.count()
+    pages = (total + limit - 1) // limit
+    offset = (page - 1) * limit
+    users = query.offset(offset).limit(limit).all()
+    
+    return jsonify({
+        'users': [{
+            'id': u.id, 'username': u.username, 'email': u.email,
+            'full_name': u.full_name or '',
+            'course': u.course or '', 'is_admin': u.is_admin,
+            'created_at': u.created_at.strftime('%d %b %Y %H:%M'),
+            'upload_count': u.upload_count or 0,
+            'generations_count': u.generations_count or 0,
+            'last_active': u.last_active.strftime('%d %b %H:%M') if u.last_active else 'Never',
+            'input_tokens_used': u.input_tokens_used or 0,
+            'output_tokens_used': u.output_tokens_used or 0,
+            'last_model_used': u.last_model_used or 'None',
+            'total_cost': round(u.total_cost or 0.0, 4),
+            'membership_tier_id': u.membership.tier_id if u.membership else None,
+            'membership_tier_name': u.membership.tier.name if (u.membership and u.membership.tier) else 'Bronze',
+            'membership_usage_cost': round(u.membership.usage_cost or 0.0, 4) if u.membership else 0.0,
+            'membership_usage_percentage': round(u.membership.usage_percentage or 0.0, 2) if u.membership else 0.0,
+            'membership_budget_limit': round(u.membership.custom_budget_limit if (u.membership and u.membership.custom_budget_limit is not None) else (u.membership.tier.budget_limit if (u.membership and u.membership.tier) else 1.0), 2),
+            'membership_total_amount_paid': round(u.membership.total_amount_paid or 0.0, 2) if u.membership else 0.0,
+            'net_profit_loss': round((u.membership.total_amount_paid or 0.0) - (u.total_cost or 0.0), 4) if u.membership else round(-(u.total_cost or 0.0), 4)
+        } for u in users],
+        'total': total,
+        'pages': pages,
+        'current_page': page
+    })
 
 
 @admin_bp.route('/admin/api/users/<int:uid>/role', methods=['POST'])
@@ -469,6 +482,7 @@ def admin_list_tiers():
         'display_price': t.display_price,
         'model_id': t.model_id,
         'budget_limit': t.budget_limit,
+        'token_multiplier': t.token_multiplier,
         'speed_label': t.speed_label,
         'tutor_quality_label': t.tutor_quality_label,
         'display_order': t.display_order,
@@ -493,6 +507,7 @@ def admin_create_tier():
             display_price=int(data.get('display_price', 0)),
             model_id=_sanitize_field(data.get('model_id', 'mistralai/mistral-nemo'), 100),
             budget_limit=float(data.get('budget_limit', 1.0)),
+            token_multiplier=float(data.get('token_multiplier', float(data.get('budget_limit', 1.0)))),
             speed_label=_sanitize_field(data.get('speed_label', 'Standard'), 50),
             tutor_quality_label=_sanitize_field(data.get('tutor_quality_label', 'Standard'), 50),
             display_order=int(data.get('display_order', 0)),
@@ -503,7 +518,8 @@ def admin_create_tier():
         return jsonify({'message': 'Tier created successfully', 'id': t.id})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 400
+        print('CREATE TIER ERROR:', e)
+        return jsonify({'error': 'Failed to create membership tier. Please check constraints.'}), 400
 
 
 @admin_bp.route('/admin/api/tiers/<int:tier_id>/update', methods=['POST'])
@@ -530,6 +546,10 @@ def admin_update_tier(tier_id):
 
     if 'budget_limit' in data:
         try: t.budget_limit = float(data['budget_limit'])
+        except (ValueError, TypeError): pass
+
+    if 'token_multiplier' in data:
+        try: t.token_multiplier = float(data['token_multiplier'])
         except (ValueError, TypeError): pass
 
     if 'speed_label' in data:
@@ -715,7 +735,8 @@ def admin_payment_refund(payment_id):
         refund = gateway.refund_payment(p.razorpay_payment_id)
         refund_id = refund.get('id')
     except Exception as e:
-        return jsonify({'error': f'Razorpay refund API failed: {str(e)}'}), 500
+        print('REFUND ERROR:', e)
+        return jsonify({'error': 'Razorpay refund API failed.'}), 500
         
     try:
         # Update payment status in database
@@ -737,7 +758,8 @@ def admin_payment_refund(payment_id):
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Failed to update database: {str(e)}'}), 500
+        print('REFUND DB UPDATE ERROR:', e)
+        return jsonify({'error': 'Failed to update database after refund.'}), 500
         
     _log_activity('refund_processed', {
         'payment_id': p.razorpay_payment_id,
@@ -814,19 +836,27 @@ def admin_payments_export():
         'Razorpay Order ID', 'Refund ID', 'Failure Reason', 'Date'
     ])
     
+    def _sanitize_csv_val(val):
+        if val is None:
+            return ""
+        val_str = str(val)
+        if val_str and val_str[0] in ('=', '+', '-', '@', '\t', '\r'):
+            return f"'{val_str}"
+        return val_str
+
     # Write rows
     for p in payments:
         writer.writerow([
             p.id,
-            p.user.username,
-            p.user.email,
-            p.membership_tier,
+            _sanitize_csv_val(p.user.username),
+            _sanitize_csv_val(p.user.email),
+            _sanitize_csv_val(p.membership_tier),
             p.amount,
             p.status,
-            p.razorpay_payment_id or '—',
-            p.razorpay_order_id,
-            p.refund_id or '—',
-            p.failure_reason or '—',
+            _sanitize_csv_val(p.razorpay_payment_id or '—'),
+            _sanitize_csv_val(p.razorpay_order_id),
+            _sanitize_csv_val(p.refund_id or '—'),
+            _sanitize_csv_val(p.failure_reason or '—'),
             p.created_at.strftime('%Y-%m-%d %H:%M:%S')
         ])
         

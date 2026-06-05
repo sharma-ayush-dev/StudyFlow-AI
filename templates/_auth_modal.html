@@ -80,37 +80,52 @@
         <p class="auth-sub">Start planning smarter today</p>
         <div id="registerError" class="auth-error hidden"></div>
 
-        <label class="auth-label">Full Name <span class="auth-hint">(required)</span></label>
-        <input id="regFullName" class="auth-input" type="text"
-               placeholder="John Doe" maxlength="50" required>
+        <div id="registerFormFields">
+            <label class="auth-label">Full Name <span class="auth-hint">(required)</span></label>
+            <input id="regFullName" class="auth-input" type="text"
+                   placeholder="John Doe" maxlength="50" required>
 
-        <label class="auth-label">Username</label>
-        <input id="regUsername" class="auth-input" type="text"
-               placeholder="studymaster99" autocomplete="username">
+            <label class="auth-label">Username</label>
+            <input id="regUsername" class="auth-input" type="text"
+                   placeholder="studymaster99" autocomplete="username">
 
-        <label class="auth-label">Email</label>
-        <input id="regEmail" class="auth-input" type="email"
-               placeholder="you@example.com" autocomplete="email">
+            <label class="auth-label">Email</label>
+            <input id="regEmail" class="auth-input" type="email"
+                   placeholder="you@example.com" autocomplete="email">
 
-        <label class="auth-label">Password <span class="auth-hint">(min 8 chars)</span></label>
-        <input id="regPassword" class="auth-input" type="password"
-               placeholder="••••••••" autocomplete="new-password">
+            <label class="auth-label">Password <span class="auth-hint">(min 8 chars)</span></label>
+            <input id="regPassword" class="auth-input" type="password"
+                   placeholder="••••••••" autocomplete="new-password">
 
-        <label class="auth-label">Confirm Password</label>
-        <input id="regConfirm" class="auth-input" type="password"
-               placeholder="••••••••" autocomplete="new-password">
+            <label class="auth-label">Confirm Password</label>
+            <input id="regConfirm" class="auth-input" type="password"
+                   placeholder="••••••••" autocomplete="new-password">
 
-        <label class="auth-label">
-        Course <span class="auth-hint">(required, max 50 chars)</span>
-        </label>
-        <input id="regCourse"
-            class="auth-input"
-            type="text"
-            placeholder="e.g. B.Tech Computer Science"
-            maxlength="50"
-            required>
+            <label class="auth-label">
+            Course <span class="auth-hint">(required, max 50 chars)</span>
+            </label>
+            <input id="regCourse"
+                class="auth-input"
+                type="text"
+                placeholder="e.g. B.Tech Computer Science"
+                maxlength="50"
+                required>
 
-        <button class="auth-btn" id="registerSubmit">Create Account</button>
+            <button class="auth-btn" id="registerSubmit" style="width: 100%; margin-top: 15px;">Create Account</button>
+        </div>
+
+        <div id="regOtpSection" class="hidden" style="margin-top: 15px;">
+            <label class="auth-label" style="display: block; text-align: center; margin-bottom: 8px;">Enter 6-Digit Verification Code</label>
+            <div class="otp-digits-container" id="regOtpContainer">
+                <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+                <input class="otp-digit" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" required />
+            </div>
+            <button type="button" id="regOtpSubmit" class="auth-btn" style="width: 100%; margin-top: 15px;">Verify & Register</button>
+        </div>
 
         <p class="auth-switch">
             Already have an account?
