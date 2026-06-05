@@ -742,9 +742,21 @@ function exitEditMode() {
     renderTopicsPanel();
 }
 
-document.getElementById('editToggleBtn').addEventListener('click', enterEditMode);
-document.getElementById('cancelEditsBtn').addEventListener('click', () => {
-    if (hasUnsavedEdits && !confirm('Discard all unsaved changes?')) return;
+function showDiscardConfirmModal() {
+    const modal = document.getElementById('confirmDiscardModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function hideDiscardConfirmModal() {
+    const modal = document.getElementById('confirmDiscardModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function discardAllEdits() {
     state = JSON.parse(JSON.stringify(snapshot)); snapshot = null; hasUnsavedEdits = false;
     exitEditMode(); renderHoursPanel();
     const prefNoteEl = document.getElementById('statusPreferenceNote');
@@ -754,6 +766,26 @@ document.getElementById('cancelEditsBtn').addEventListener('click', () => {
         if (counterEl) {
             counterEl.textContent = `${prefNoteEl.value.length} / 200`;
         }
+    }
+}
+
+document.getElementById('editToggleBtn').addEventListener('click', enterEditMode);
+document.getElementById('cancelEditsBtn').addEventListener('click', () => {
+    if (hasUnsavedEdits) {
+        showDiscardConfirmModal();
+    } else {
+        discardAllEdits();
+    }
+});
+
+document.getElementById('keepEditingBtn')?.addEventListener('click', hideDiscardConfirmModal);
+document.getElementById('discardChangesBtn')?.addEventListener('click', () => {
+    hideDiscardConfirmModal();
+    discardAllEdits();
+});
+document.getElementById('confirmDiscardModal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+        hideDiscardConfirmModal();
     }
 });
 

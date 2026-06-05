@@ -540,6 +540,30 @@
         </button>
         <div class="drawer-links">
             {% if current_user.is_authenticated %}
+            {% set usage_pct = current_user.membership.usage_percentage or 0.0 %}
+            {% if usage_pct <= 40.0 %} {% set ring_color="#50dc8c" %} {% elif usage_pct <=75.0 %} {% set
+                ring_color="#fbbf24" %} {% elif usage_pct <=90.0 %} {% set ring_color="#f97316" %} {% else %} {% set
+                ring_color="#ef4444" %} {% endif %} {% set tier_name=current_user.membership.tier.name %}
+            <div class="dropdown-usage-info" style="padding: 0 12px 8px 12px !important; min-width: auto;">
+                <div class="dropdown-usage-tier">
+                    <span>Plan: <strong>{{ tier_name }}</strong></span>
+                    {% if tier_name != 'Diamond' %}
+                    <a href="{{ url_for('pages.subscriptions_page') }}" class="dropdown-upgrade-link">Upgrade</a>
+                    {% endif %}
+                </div>
+                <div class="dropdown-usage-bar-wrapper">
+                    <div class="dropdown-usage-bar-label">
+                        <span>Usage</span>
+                        <span>{{ usage_pct | int }}%</span>
+                    </div>
+                    <div class="dropdown-usage-bar">
+                        <div class="dropdown-usage-fill"
+                            style="width: {{ usage_pct }}%; background-color: {{ ring_color }};"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="drawer-divider"></div>
+
             <div class="drawer-section">
                 <div class="drawer-section-title">Main</div>
                 <a href="{{ url_for('upload_page') }}"
@@ -577,6 +601,7 @@
                 <a href="{{ url_for('admin_dashboard') }}"
                     class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}">Admin Panel</a>
                 {% endif %}
+                <a href="{{ url_for('logout') }}" class="drawer-logout">Logout</a>
             </div>
             {% endif %}
 
@@ -590,11 +615,7 @@
                     class="{{ 'active' if request.endpoint == 'contact' else '' }}">Contact</a>
             </div>
 
-            {% if current_user.is_authenticated %}
-            <div class="drawer-section" style="margin-top: auto; padding-top: 20px;">
-                <a href="{{ url_for('logout') }}" class="drawer-logout">Logout</a>
-            </div>
-            {% else %}
+            {% if not current_user.is_authenticated %}
             <div class="drawer-section" style="margin-top: auto; padding-top: 50px;">
                 <button class="btn-primary" id="drawerLoginBtn"
                     style="width: 100%; padding: 12px; font-size: 16px;">Login</button>

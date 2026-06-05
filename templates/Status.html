@@ -58,6 +58,18 @@
     <!-- ERROR CARD CONTAINER -->
     <div id="statusError" style="max-width:600px;margin:0 auto;padding:0 20px;"></div>
 
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="confirmDiscardModal" class="confirm-modal-overlay hidden">
+        <div class="confirm-modal-card">
+            <h3 class="confirm-modal-title">Discard changes?</h3>
+            <p class="confirm-modal-subtitle">All unsaved changes will be lost.</p>
+            <div class="confirm-modal-actions">
+                <button id="keepEditingBtn" class="confirm-modal-btn btn-keep">Keep Editing</button>
+                <button id="discardChangesBtn" class="confirm-modal-btn btn-discard">Discard</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         window.INITIAL_DATA = {{ data | tojson | safe }};
     </script>
