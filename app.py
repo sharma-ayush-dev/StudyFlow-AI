@@ -36,12 +36,30 @@ from teacher import (
 # APP CONFIG
 # ─────────────────────────────────────────────
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.config.from_object(Config)
 
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+else:
+    # Cleanup orphaned files on start
+    try:
+        import shutil
+        for filename in os.listdir(UPLOAD_FOLDER):
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                app.logger.warning(f"Failed to delete {file_path} during startup cleanup: {e}")
+    except Exception as e:
+        app.logger.warning(f"Startup uploads cleanup failed: {e}")
 
 ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp', '.txt', '.xlsx', '.pptx', '.ppt'}
 
@@ -136,6 +154,16 @@ from pages_bp import pages_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(pages_bp)
+
+
+@app.context_processor
+def inject_membership_tiers():
+    from models import MembershipTier
+    try:
+        tiers = MembershipTier.query.filter_by(active=True).order_by(MembershipTier.display_order).all()
+        return dict(active_tiers={t.name.lower(): t for t in tiers})
+    except Exception:
+        return dict(active_tiers={})
 
 
 def _register_global_aliases_for_blueprint(bp):
@@ -285,12 +313,18 @@ def rate_limited(e): return _render_error(429,'Slow Down','Too many requests.')
 def handle_exception(e):
     from flask_limiter.errors import RateLimitExceeded
     if isinstance(e, RateLimitExceeded):
-        return _render_error(429,'Slow Down','Rate limit hit. Wait a moment.')
-    raise e
+        return _render_error(429, 'Slow Down', 'Rate limit hit. Wait a moment.')
+    
+    app.logger.error(f"Unhandled Exception: {e}", exc_info=True)
+    
+    if app.debug:
+        raise e
+        
+    return _render_error(500, 'Internal Server Error', 'An unexpected error occurred. Please try again later.')
 
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         _ensure_runtime_schema()
-    app.run(debug=True)
+    app.run(host="0.0.0.0",port=5000,debug=True)

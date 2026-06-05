@@ -308,9 +308,12 @@ def chat_send_stream(chat_id: int):
             asst_msg_id = asst_msg.id
             yield f"data: [DONE]{json.dumps({'user_msg_id': user_msg_id, 'assistant_msg_id': asst_msg_id})}\n\n"
         except Exception as e:
+            print("CHAT STREAM ERROR:", e)
             msg = str(e)
             if 'budget_exhausted' in msg:
                 msg = 'budget_exhausted'
+            else:
+                msg = 'Internal chat error'
             yield f'data: [ERROR] {msg}\n\n'
 
     return Response(
@@ -360,9 +363,12 @@ def chat_quiz_stream(chat_id: int):
             asst_msg_id = asst_msg.id
             yield f"data: [DONE_QUIZ]{json.dumps({'user_msg_id': quiz_user_msg_id, 'assistant_msg_id': asst_msg_id})}\n\n"
         except Exception as e:
+            print("CHAT QUIZ STREAM ERROR:", e)
             msg = str(e)
             if 'budget_exhausted' in msg:
                 msg = 'budget_exhausted'
+            else:
+                msg = 'Internal chat error'
             yield f'data: [ERROR] {msg}\n\n'
 
     return Response(

@@ -20,7 +20,7 @@
                     <div style="color: #bf9bff; font-size: 13px; margin-bottom: 12px;">⭐</div>
                     <div style="font-size: 28px; font-weight: 800; color: #ffffff; margin-bottom: 16px; font-family: 'Outfit', sans-serif;">₹9</div>
                     <ul style="list-style: none; padding: 0; margin: 0 0 20px; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-                        <li style="margin-bottom: 8px;">✔️ <strong>2x</strong> token usage limit</li>
+                        <li style="margin-bottom: 8px;">✔️ <strong>{{ (active_tiers.get('platinum').token_multiplier | int if active_tiers.get('platinum').token_multiplier % 1 == 0 else active_tiers.get('platinum').token_multiplier) if active_tiers.get('platinum') else 2 }}x</strong> token usage limit</li>
                         <li style="margin-bottom: 8px;">✔️ <strong>Improved</strong> tutor quality</li>
                         <li>✔️ Standard response speed</li>
                     </ul>
@@ -73,7 +73,7 @@
                     <div style="color: #bf9bff; font-size: 13px; margin-bottom: 12px;">⭐⭐⭐</div>
                     <div style="font-size: 28px; font-weight: 800; color: #ffffff; margin-bottom: 16px; font-family: 'Outfit', sans-serif;">₹49</div>
                     <ul style="list-style: none; padding: 0; margin: 0 0 20px; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-                        <li style="margin-bottom: 8px;">✔️ <strong>3x</strong> token usage limit</li>
+                        <li style="margin-bottom: 8px;">✔️ <strong>{{ (active_tiers.get('diamond').token_multiplier | int if active_tiers.get('diamond').token_multiplier % 1 == 0 else active_tiers.get('diamond').token_multiplier) if active_tiers.get('diamond') else 36 }}x</strong> token usage limit</li>
                         <li style="margin-bottom: 8px;">✔️ <strong>Best</strong> tutor quality</li>
                         <li>✔️ <strong>Faster</strong> response speed</li>
                     </ul>

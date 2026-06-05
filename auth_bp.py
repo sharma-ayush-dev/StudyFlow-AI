@@ -19,9 +19,9 @@ def landing():
     return render_template('Landing.html')
 
 
-@auth_bp.route('/register', methods=['POST'], endpoint='register')
+@auth_bp.route('/register/initiate', methods=['POST'], endpoint='register_initiate')
 @limiter.limit(_rl('rl_register'))
-def register():
+def register_initiate():
     data      = request.get_json() or {}
     full_name = data.get('full_name', '').strip()
     username  = _sanitize_field(data.get('username', ''), 80)
@@ -48,20 +48,53 @@ def register():
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already registered'}), 409
 
+    # Save pending register details in session
+    session['pending_register'] = {
+        'full_name': full_name,
+        'username': username,
+        'email': email,
+        'password': password,
+        'course': course
+    }
+
+    # Generate OTP for registration
+    _create_login_otp(email)
+    return jsonify({'message': 'OTP sent successfully. Please check your email.'}), 200
+
+
+@auth_bp.route('/register/verify', methods=['POST'], endpoint='register_verify')
+@limiter.limit(_rl('rl_register'))
+def register_verify():
+    data = request.get_json() or {}
+    otp = _sanitize_field(data.get('otp', ''), 10)
+
+    pending = session.get('pending_register')
+    if not pending:
+        return jsonify({'error': 'Registration session expired. Please register again.'}), 400
+
+    email = pending['email']
+    if not _verify_login_otp(email, otp):
+        return jsonify({'error': 'Invalid or expired verification code'}), 401
+
+    # Create user
     user = User(
-        full_name=full_name,
-        username=username,
+        full_name=pending['full_name'],
+        username=pending['username'],
         email=email,
-        course=course,
+        course=pending['course'],
         session_version=0,
         cost_limit=get_default_cost_limit()
     )
-    user.set_password(password)
+    user.set_password(pending['password'])
     db.session.add(user)
     db.session.commit()
+
+    # Clear pending register details from session
+    session.pop('pending_register', None)
+
     session['session_version'] = 0
     login_user(user, remember=True)
-    _log_activity('register', {'username': username})
+    _log_activity('register', {'username': user.username})
     return jsonify({'redirect': url_for('landing')}), 201
 
 
@@ -179,10 +212,12 @@ def google_callback():
     code = request.args.get('code')
     state = request.args.get('state')
     expected_state = session.pop('oauth_state', None)
-    if not code or (expected_state and state != expected_state):
+    if not code or not expected_state or state != expected_state:
         return "Google Authentication failed (State mismatch or no code)", 400
 
     import requests
+    import logging
+    logger = logging.getLogger(__name__)
     redirect_uri = url_for('auth.google_callback', _external=True)
     token_url = "https://oauth2.googleapis.com/token"
     data = {
@@ -192,17 +227,23 @@ def google_callback():
         'redirect_uri': redirect_uri,
         'grant_type': 'authorization_code'
     }
-    res = requests.post(token_url, data=data)
-    if not res.ok:
-        return "Failed to exchange token with Google", 400
-
-    tokens = res.json()
-    access_token = tokens.get('access_token')
-    userinfo_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
-    info_res = requests.get(userinfo_url)
-    if not info_res.ok:
-        return "Failed to fetch user info from Google", 400
-    user_info = info_res.json()
+    
+    try:
+        res = requests.post(token_url, data=data, timeout=10)
+        if not res.ok:
+            logger.error(f"Google token exchange failed: {res.text}")
+            return _render_error(400, "Google Authentication Failed", "Failed to exchange token with Google.")
+        tokens = res.json()
+        access_token = tokens.get('access_token')
+        userinfo_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
+        info_res = requests.get(userinfo_url, timeout=10)
+        if not info_res.ok:
+            logger.error(f"Google userinfo fetch failed: {info_res.text}")
+            return _render_error(400, "Google Authentication Failed", "Failed to fetch user info from Google.")
+        user_info = info_res.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Google OAuth connection error: {e}")
+        return _render_error(503, "Authentication Service Unavailable", "Could not connect to Google authentication services. Please try again.")
     email = user_info.get('email', '').lower()
 
     email = _sanitize_email(email)

@@ -14,11 +14,19 @@ import re
 import hashlib
 import datetime
 import threading
+import os
 from openai import OpenAI
-import apikey
 
+# Dynamic resolution of LLM API key with backwards-compatible local fallback
+api_key = os.environ.get("AICREDITS_API_KEY")
+if not api_key:
+    try:
+        import apikey
+        api_key = apikey.key
+    except ImportError:
+        api_key = "placeholder-key-replace-me"
 
-client = OpenAI(base_url="https://api.aicredits.in/v1", api_key=apikey.key)
+client = OpenAI(base_url="https://api.aicredits.in/v1", api_key=api_key)
 
 MODELS = [
     "mistralai/mistral-nemo"

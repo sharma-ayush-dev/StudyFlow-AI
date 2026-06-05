@@ -18,6 +18,103 @@
             transition: 0.3s ease;
         }
 
+        .follow-links {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            margin-top: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 6px 4px;
+            margin-left: -4px;
+            margin-right: -4px;
+        }
+
+        .follow-links::-webkit-scrollbar {
+            display: none;
+        }
+
+        .follow-card {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 576px) {
+            .info-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .follow-card {
+                grid-column: span 1;
+            }
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #d1d1f7;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .github-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(123, 47, 247, 0.15) 0%, rgba(159, 85, 255, 0.15) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 0;
+        }
+
+        .github-link:hover {
+            color: #ffffff;
+            border-color: rgba(159, 85, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(123, 47, 247, 0.15);
+        }
+
+        .github-link:hover::before {
+            opacity: 1;
+        }
+
+        .github-link .github-icon {
+            width: 14px;
+            height: 14px;
+            color: #bf9bff;
+            transition: transform 0.3s ease, color 0.3s ease;
+            z-index: 1;
+        }
+
+        .github-link:hover .github-icon {
+            color: #ffffff;
+            transform: rotate(-8deg) scale(1.15);
+        }
+
+        .github-link span {
+            z-index: 1;
+            transition: transform 0.3s ease;
+        }
+
+        .github-link:hover span {
+            transform: translateX(2px);
+        }
+
         .back-home-link:hover {
             color: #9f55ff;
         }
@@ -353,13 +450,31 @@
                     <h3>Response</h3>
                     <span>Within 24 hours</span>
                 </div>
-                <div class="info-card">
+                <div class="info-card follow-card"
+                    style="display: flex; flex-direction: column; justify-content: flex-start;">
                     <h3>Follow</h3>
-                    <span>@studyflow_ai</span>
-                </div>
-                <div class="info-card">
-                    <h3>Status</h3>
-                    <span>All systems normal</span>
+                    <div class="follow-links">
+                        <a href="https://github.com/realmanishrai" class="github-link" target="_blank"
+                            rel="noopener noreferrer">
+                            <svg class="github-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path
+                                    d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                                </path>
+                            </svg>
+                            <span>@realmanishrai</span>
+                        </a>
+                        <a href="https://github.com/sharma-ayush-dev/" class="github-link" target="_blank"
+                            rel="noopener noreferrer">
+                            <svg class="github-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path
+                                    d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                                </path>
+                            </svg>
+                            <span>@sharma-ayush-dev</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
