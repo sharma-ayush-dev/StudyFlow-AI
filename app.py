@@ -322,9 +322,10 @@ def handle_exception(e):
         
     return _render_error(500, 'Internal Server Error', 'An unexpected error occurred. Please try again later.')
 
-    with app.app_context():
-        db.create_all()
-        _ensure_runtime_schema()
+with app.app_context():
+    print("TABLES:", list(db.metadata.tables.keys()))
+    db.create_all()
+    _ensure_runtime_schema()
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
