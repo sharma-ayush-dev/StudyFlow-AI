@@ -1520,13 +1520,14 @@
         // ── USERS ─────────────────────────────────────────────────
         async function loadUsers() {
             const res = await fetch('/admin/api/users');
-            const users = await res.json();
+            const data = await res.json();
+            const usersList = data.users || [];
             document.getElementById('usersLoading').style.display = 'none';
             const tbody = document.getElementById('usersBody');
             const table = document.getElementById('usersTable');
             table.style.display = 'table';
             tbody.innerHTML = '';
-            users.forEach(u => {
+            usersList.forEach(u => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
             <td>${u.id}</td>
