@@ -52,7 +52,7 @@ class User(db.Model, UserMixin):
 
 class StudyData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    userid = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
+    userid = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), unique=True, nullable=False)
     extracted_json = db.Column(db.Text)
     topic_status = db.Column(db.Text)
     schedule_json = db.Column(db.Text)
@@ -63,7 +63,7 @@ class StudyData(db.Model):
 
 class Chat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    userid = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    userid = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
     subject = db.Column(db.String(200), nullable=False)
     topic = db.Column(db.String(200), nullable=False)
     schedule_date = db.Column(db.String(20), nullable=True)
@@ -74,7 +74,7 @@ class Chat(db.Model):
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    chat_id = db.Column(db.Integer, db.ForeignKey('chat.id'), nullable=False)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chat.id', ondelete='CASCADE'), nullable=False)
     role = db.Column(db.String(10), nullable=False)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
@@ -83,10 +83,11 @@ class Message(db.Model):
 class PasswordResetOTP(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), nullable=False)
-    otp_code = db.Column(db.String(10), nullable=False, default='1234')
+    otp_code = db.Column(db.String(10), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
+    failed_attempts = db.Column(db.Integer, default=0, nullable=False)
 
 
 class EmailOTP(db.Model):
@@ -96,6 +97,7 @@ class EmailOTP(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
+    failed_attempts = db.Column(db.Integer, default=0, nullable=False)
 
 
 
@@ -115,7 +117,7 @@ class AppSettings(db.Model):
 
 class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    userid = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    userid = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=True, index=True)
     action = db.Column(db.String(50))
     detail = db.Column(db.Text, nullable=True)
     ip_address = db.Column(db.String(45), nullable=True)
@@ -125,7 +127,7 @@ class ActivityLog(db.Model):
 
 class RequestLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    userid = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    userid = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=True, index=True)
     method = db.Column(db.String(10))
     path = db.Column(db.String(255))
     status_code = db.Column(db.Integer)
@@ -163,6 +165,7 @@ class MembershipTier(db.Model):
     display_price = db.Column(db.Integer, default=0, nullable=False)
     model_id = db.Column(db.String(100), nullable=False)
     budget_limit = db.Column(db.Float, default=1.0, nullable=False)
+    token_multiplier = db.Column(db.Float, default=1.0, nullable=False)
     speed_label = db.Column(db.String(50), nullable=False)
     tutor_quality_label = db.Column(db.String(50), nullable=False)
     display_order = db.Column(db.Integer, default=0, nullable=False)
@@ -172,8 +175,8 @@ class MembershipTier(db.Model):
 
 
 class UserMembership(db.Model):
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
-    tier_id = db.Column(db.Integer, db.ForeignKey('membership_tier.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+    tier_id = db.Column(db.Integer, db.ForeignKey('membership_tier.id', ondelete='CASCADE'), nullable=False)
     usage_cost = db.Column(db.Float, default=0.0, nullable=False)
     usage_percentage = db.Column(db.Float, default=0.0, nullable=False)
     upgraded_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
@@ -186,7 +189,7 @@ class UserMembership(db.Model):
 
 class UsageLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
     endpoint = db.Column(db.String(255), nullable=False)
     model_used = db.Column(db.String(100), nullable=False)
     input_tokens = db.Column(db.Integer, default=0, nullable=False)
@@ -198,13 +201,13 @@ class UsageLog(db.Model):
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
     membership_tier = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(10), default='INR')
     status = db.Column(db.String(20), default='pending')  # pending, paid, failed, refunded
     razorpay_order_id = db.Column(db.String(100), nullable=False, unique=True)
-    razorpay_payment_id = db.Column(db.String(100), nullable=True)
+    razorpay_payment_id = db.Column(db.String(100), nullable=True, index=True)
     razorpay_signature = db.Column(db.String(256), nullable=True)
     refund_id = db.Column(db.String(100), nullable=True)
     failure_reason = db.Column(db.Text, nullable=True)
@@ -217,7 +220,7 @@ class Payment(db.Model):
 
 class WebhookLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    payment_id = db.Column(db.Integer, db.ForeignKey('payment.id'), nullable=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payment.id', ondelete='CASCADE'), nullable=True)
     event_type = db.Column(db.String(100), nullable=False)
     payload = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)

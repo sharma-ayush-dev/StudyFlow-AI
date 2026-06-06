@@ -169,7 +169,12 @@ document.getElementById('loginPassword')?.addEventListener('keydown', e => {
 
 // ── REGISTER ──────────────────────────────────────
 const registerSubmit = document.getElementById('registerSubmit');
-registerSubmit?.addEventListener('click', () => {
+const registerFormFields = document.getElementById('registerFormFields');
+const regOtpSection = document.getElementById('regOtpSection');
+const regOtpSubmit = document.getElementById('regOtpSubmit');
+const regOtpContainer = document.getElementById('regOtpContainer');
+
+registerSubmit?.addEventListener('click', async () => {
     const fullName = document.getElementById('regFullName').value.trim();
     const username = document.getElementById('regUsername').value.trim();
     const email    = document.getElementById('regEmail').value.trim();
@@ -192,11 +197,77 @@ registerSubmit?.addEventListener('click', () => {
     if (course.length > 50) {
         showError(registerError, 'Course name must be 50 characters or fewer.'); return; }
 
-    authFetch('/register', {full_name: fullName, username, email, password, course},
-              registerError, registerSubmit, 'Create Account');
+    registerSubmit.disabled = true;
+    registerSubmit.textContent = 'Sending OTP…';
+    clearErrors();
+
+    try {
+        const res = await fetch('/register/initiate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ full_name: fullName, username, email, password, course })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showError(registerError, data.error || 'Failed to initiate registration.');
+            registerSubmit.disabled = false;
+            registerSubmit.textContent = 'Create Account';
+            return;
+        }
+
+        registerFormFields.classList.add('hidden');
+        regOtpSection.classList.remove('hidden');
+        setTimeout(() => {
+            regOtpContainer.querySelector('.otp-digit')?.focus();
+        }, 50);
+    } catch (err) {
+        showError(registerError, 'Network error. Please try again.');
+        registerSubmit.disabled = false;
+        registerSubmit.textContent = 'Create Account';
+    }
 });
+
 document.getElementById('regConfirm')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') registerSubmit?.click();
+});
+
+regOtpSubmit?.addEventListener('click', async () => {
+    const otp = getOtpCode(regOtpContainer);
+    if (otp.length < 6) {
+        showError(registerError, 'Please enter the 6-digit verification code.');
+        applyOtpStyle(regOtpContainer, false);
+        return;
+    }
+
+    regOtpSubmit.disabled = true;
+    regOtpSubmit.textContent = 'Verifying…';
+    clearErrors();
+
+    try {
+        const res = await fetch('/register/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ otp })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showError(registerError, data.error || 'Invalid or expired code.');
+            regOtpSubmit.disabled = false;
+            regOtpSubmit.textContent = 'Verify & Register';
+            applyOtpStyle(regOtpContainer, false);
+            return;
+        }
+
+        applyOtpStyle(regOtpContainer, true);
+        setTimeout(() => {
+            window.location.href = data.redirect || '/';
+        }, 600);
+    } catch (err) {
+        showError(registerError, 'Network error. Please try again.');
+        regOtpSubmit.disabled = false;
+        regOtpSubmit.textContent = 'Verify & Register';
+        applyOtpStyle(regOtpContainer, false);
+    }
 });
 
 // ── OTP HELPER FUNCTIONS ──
@@ -284,5 +355,6 @@ function initOtpInputs(containerId, submitBtnId) {
     });
 }
 
-// Initialize OTP inputs for login
+// Initialize OTP inputs for login and registration
 initOtpInputs('loginOtpContainer', 'verifyOtpSubmit');
+initOtpInputs('regOtpContainer', 'regOtpSubmit');
